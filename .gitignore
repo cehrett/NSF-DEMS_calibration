@@ -1,0 +1,5 @@
+*.mat
+*.asv
+Palmetto files/
+backup/
+stored_data/

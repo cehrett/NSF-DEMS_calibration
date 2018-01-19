@@ -1,6 +1,6 @@
 % Workspace: MCMC
-% This version has a joint proposal density, and uses Z=[y;eta] in the
-% MCMC routine.
+% This version has a joint proposal density, and uses Z=[Y;eta] in the
+% MCMC routine, where Y is transformed version of W; W Exp(eta), Y normal.
 
 clc; clear all; close all;
 
@@ -48,26 +48,27 @@ defl_mean_std = (defl_mean - mean(tdat.output_means(1,:)))/...
     mean(tdat.output_sds(1,:));
 defl_0_std = (- mean(tdat.output_means(1,:)))/...
     mean(tdat.output_sds(1,:));
-defl_sd_std = (defl_mean_std - defl_0_std) / 4 ; 
+defl_sd_std = (defl_mean_std - defl_0_std) / 2 ; 
 rot_mean_std = (rot_mean - mean(tdat.output_means(2,:)))/...
     mean(tdat.output_sds(2,:));
 rot_0_std = (- mean(tdat.output_means(2,:)))/...
     mean(tdat.output_sds(2,:));
-rot_sd_std = (rot_mean_std - rot_0_std) / 4 ; 
+rot_sd_std = (rot_mean_std - rot_0_std) / 2 ; 
 cost_mean_std = (cost_mean - mean(tdat.output_means(3,:)))/...
     mean(tdat.output_sds(3,:));
 cost_0_std = (- mean(tdat.output_means(3,:)))/...
     mean(tdat.output_sds(3,:));
-cost_sd_std = (cost_mean_std - cost_0_std) / 4 ; 
+cost_sd_std = (cost_mean_std - cost_0_std) / 2 ; 
 des_output = [ones_vec * defl_mean_std ; ones_vec * rot_mean_std ; ...
     ones_vec * cost_mean_std];
+W = 1e-4*ones(size(des_output)); % We'll transform this to normal; for now, we consider W_i 
+                % to be distrib. as Exp(eta(x_i,theta)).
 
 %% Settings for MCMC
 M = 1e4 ; % Total number of draws
-z = [des_output ; tdat.output ] ; % Vector of observations and sim output
-xs = tdat.input ; % Sim input
-n = size(des_output,1); % Total number of "observations"
-m = size(xs,1); % Total number of simulation runs
+xts = tdat.input ; % Sim input
+n = size(W,1); % Total number of "observations"
+m = size(xts,1); % Total number of simulation runs
 burn_in = floor(M/5); % Total burn-in
 init = rand(1,2)  % Initial calib parameter settings
 %%%% OPTIONS for proposal density: Beta (bdd), Normal on logit tran (bdd)...
@@ -82,7 +83,7 @@ prop_density = @(x,Sigma) logit_rev_trans(mvnrnd(logit_trans(x),Sigma));
 Sigma = [.1 0 ; 0 .1];
 prop_dens_ind = 3;
 prop_density = @(x,Sigma) (mvnrnd(x,Sigma)); % Normal
-Sigma = [.1 0 ; 0 .1];
+Sigma = [.01 0 ; 0 .01];
 msg=0; % for console output
 accepted = 0 ; % Use this for adaptive proposal distribution density
 % The below vars will constrain uniform prior on VF, thickness
@@ -97,7 +98,34 @@ samples = nan(M,2);
 v = init(1);
 k = init(2);
 theta = init;
-inputs = [ x repmat(theta,size(x,1),1) ; xs ] ;
+% Transform W into Y~N(eta,sigma^2)
+% First we need (stand-ins for) eta(x_i,theta) values.
+% em = emulator(xts,tdat.output,[x repmat(theta,size(x,1),1)],omega,rho,...
+%    lambda,0,0,true);
+% eta = em.mu;
+% return eta to original scale
+means=[repmat(mean(tdat.output_means(1,:)),n/3,1); ...
+    repmat(mean(tdat.output_means(2,:)),n/3,1);    ...
+    repmat(mean(tdat.output_means(3,:)),n/3,1)];
+% means(1:n/3) = mean(tdat.output_means(1,:));
+% means(1+n/3:2*n/3) = mean(tdat.output_means(2,:));
+% means(1+2*n/3:end) = mean(tdat.output_means(3,:));
+sds=[repmat(mean(tdat.output_sds(1,:)),n/3,1); ...
+    repmat(mean(tdat.output_sds(2,:)),n/3,1);    ...
+    repmat(mean(tdat.output_sds(3,:)),n/3,1)];
+% eta_or = eta .* sds + means;
+eta_or = [.65 ;.077 ;96 ] ; eta_or=repelem(eta_or,21) ;
+% Next we use these to transform W
+% First, we get Wq = F(W), where F is the cdf of W.
+Wq = 1 - exp(-W./eta_or) ;
+% Next, we get the inverse normal(eta_or,Sigma) quantiles of Wq. To do
+% that, we need a vector of the diagonal of Sigma (which is a diag matrix)
+Sigma_diag = [repmat(defl_sd_std,n/3,1); repmat(rot_sd_std,n/3,1); ...
+    repmat(cost_sd_std,n/3,1)];
+Y = norminv(Wq,eta_or,Sigma_diag);
+Y = (Y-means)./Sigma_diag ;
+z = [Y ; tdat.output ] ; % Vector of observations and sim output
+inputs = [ x repmat(theta,size(x,1),1) ; xts ] ;
 % Get Sigma_eta
 Sigma_eta_yy = gp_cov(omega,inputs(1:n,1:2),inputs(1:n,1:2),rho,...
     inputs(1:n,3:4),inputs(1:n,3:4),lambda,true);
@@ -205,19 +233,19 @@ for ii = 1 : M
     end
     
     if mod(ii,100) == 0 && ii < burn_in % Tune adaptive proposal variance
-        if vf_outofbounds >= 30
+        if vf_outofbounds >= 40
             Sigma(1,1) = .75 * Sigma(1,1);
             fprintf(repmat('\b',1,msg));
             fprintf('VF proposal variance reduced to %g\n',Sigma(1,1));
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        if thk_outofbounds >= 30
+        if thk_outofbounds >= 40
             Sigma(2,2) = .75 * Sigma(2,2);
             fprintf(repmat('\b',1,msg));
             fprintf('Thk proposal variance reduced to %g\n',Sigma(2,2));
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        if vf_outofbounds < 30 && thk_outofbounds < 30 && accepted < 30 
+        if vf_outofbounds < 40 && thk_outofbounds < 40 && accepted < 30 
             Sigma = Sigma * 0.75;
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances reduced to %g,%g\n',diag(Sigma));
@@ -259,9 +287,9 @@ plot(pbi_samples(thinning,1));
 figure()
 plot(pbi_samples(thinning,2));
 
-save('.\NSF DEMS\Phase 1\jsamples2','samples');
-save('.\NSF DEMS\Phase 1\jinit2','init');
-save('.\NSF DEMS\Phase 1\jSigma2','Sigma');
+save('.\NSF DEMS\Phase 1\expsamples1','samples');
+save('.\NSF DEMS\Phase 1\expinit1','init');
+save('.\NSF DEMS\Phase 1\expSigma1','Sigma');
 Sigma
 
 figure()

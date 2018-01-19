@@ -1,4 +1,6 @@
 % Workspace: MCMC piecewise
+% This version has a piecewise proposal density, and uses Y~N(eta,sigma^2)
+% in the MCMC routine.
 
 clc; clear all; close all;
 
@@ -74,7 +76,7 @@ samples = nan(M,2);
 v = init(1);
 k = init(2);
 Sigma_xx  = gp_cov(omega,tdat.input(:,1:2),tdat.input(:,1:2),...
-        rho,tdat.input(:,3:end),tdat.input(:,3:end),lambda);
+        rho,tdat.input(:,3:end),tdat.input(:,3:end),lambda,true);
 Sigma_xx = Sigma_xx + eye(size(Sigma_xx))*1e-2;
 inv_Sig_xx = inv(Sigma_xx);
 % Get log likelihood of initial calibration value

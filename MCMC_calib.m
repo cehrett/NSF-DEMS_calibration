@@ -1,4 +1,6 @@
 % Workspace: MCMC piecewise
+% This version has a piecewise proposal density, and uses Z=[y;eta] in the
+% MCMC routine.
 
 clc; clear all; close all;
 
@@ -20,11 +22,11 @@ rho    = Rho_lam_optimum(3:4);
 lambda = Rho_lam_optimum(5);
 
 %% Set fake data values
-defl_sd = .65/8;
+defl_sd = .65/4;
 defl_mean = .65;
-rot_sd = .077/8;
+rot_sd = .077/4;
 rot_mean = .077;
-cost_sd = 96/8;
+cost_sd = 96/4;
 cost_mean = 96;
 % Set up inputs
 temps = unique(raw_dat(:,1));
@@ -46,17 +48,17 @@ defl_mean_std = (defl_mean - mean(tdat.output_means(1,:)))/...
     mean(tdat.output_sds(1,:));
 defl_0_std = (- mean(tdat.output_means(1,:)))/...
     mean(tdat.output_sds(1,:));
-defl_sd_std = (defl_mean_std - defl_0_std) / 2 ; 
+defl_sd_std = (defl_mean_std - defl_0_std) / 4 ; 
 rot_mean_std = (rot_mean - mean(tdat.output_means(2,:)))/...
     mean(tdat.output_sds(2,:));
 rot_0_std = (- mean(tdat.output_means(2,:)))/...
     mean(tdat.output_sds(2,:));
-rot_sd_std = (rot_mean_std - rot_0_std) / 2 ; 
+rot_sd_std = (rot_mean_std - rot_0_std) / 4 ; 
 cost_mean_std = (cost_mean - mean(tdat.output_means(3,:)))/...
     mean(tdat.output_sds(3,:));
 cost_0_std = (- mean(tdat.output_means(3,:)))/...
     mean(tdat.output_sds(3,:));
-cost_sd_std = (cost_mean_std - cost_0_std) / 2 ; 
+cost_sd_std = (cost_mean_std - cost_0_std) / 4 ; 
 des_output = [ones_vec * defl_mean_std ; ones_vec * rot_mean_std ; ...
     ones_vec * cost_mean_std];
 

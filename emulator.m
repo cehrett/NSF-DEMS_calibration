@@ -1,5 +1,8 @@
 function em = emulator(sim_dat_input,sim_dat_output,...
     pred_pts,omega,rho,lambda,Sigma_xx,inv_Sig_xx,verbose)
+% This function outputs a covariance matrix for the input control and
+% calibration vectors.
+
 % sim_dat_input should be rescaled to [0,1] and sim_dat_output should be
 % standardized. pred_pts on the same scales. Both should already
 % have a dummy variable corresponding to output index as their first
@@ -16,7 +19,7 @@ xp          = pred_pts;
 ypred = zeros(size(pred_pts,1),1);
 
 % Get Cov matrices
-WN_xx = eye(size(Sigma_xx)) * 10^(-2); % For numerical stabilization
+WN_xx = eye(size(x,1)) * 10^(-2); % For numerical stabilization
 WN_xpxp = eye(size(pred_pts,1)) * 10^(-2); % For numerical stabilization
 if verbose==true
     fprintf('Getting three covariance matrices... ')
@@ -25,7 +28,7 @@ end
 % Get Cov matrix of training points only if it is not supplied
 if Sigma_xx == 0
     Sigma_xx  = gp_cov(omega,x(:,1:2),x(:,1:2),...
-        rho,x(:,3:end),x(:,3:end),lambda) + WN_xx;
+        rho,x(:,3:end),x(:,3:end),lambda,verbose) + WN_xx;
     inv_Sig_xx = inv(Sigma_xx);
     rc=rcond(inv_Sig_xx);
 end
@@ -34,13 +37,13 @@ if verbose==true
     fprintf('1,... ')
 end
 Sigma_xpx  = gp_cov(omega,xp(:,1:2),x(:,1:2),...
-    rho,xp(:,3:end),x(:,3:end),lambda);
+    rho,xp(:,3:end),x(:,3:end),lambda,verbose);
 if verbose==true
     fprintf('2,... ')
 end
 Sigma_xxp  = Sigma_xpx';
 Sigma_xpxp  = gp_cov(omega,xp(:,1:2),xp(:,1:2),...
-    rho,xp(:,3:end),xp(:,3:end),lambda) + WN_xpxp;
+    rho,xp(:,3:end),xp(:,3:end),lambda,verbose) + WN_xpxp;
 if verbose==true 
     fprintf('3.\n\n')
 end
