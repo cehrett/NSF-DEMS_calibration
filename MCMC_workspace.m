@@ -22,12 +22,10 @@ rho    = Rho_lam_optimum(3:4);
 lambda = Rho_lam_optimum(5);
 
 %% Set fake data values
-defl_sd = .65/2;
-defl_mean = .65;
-rot_sd = .077/2;
+defl_mean = .65; 
 rot_mean = .077;
-cost_sd = 96/2;
 cost_mean = 96;
+%alt: defl_mean = 0 ; rot_mean = 0 ; cost_mean = 0;
 % Set up inputs
 temps = unique(raw_dat(:,1));
 temps_std = (temps - tdat.input_mins(2))/tdat.input_ranges(2);
@@ -48,22 +46,23 @@ defl_mean_std = (defl_mean - mean(tdat.output_means(1,:)))/...
     mean(tdat.output_sds(1,:));
 defl_0_std = (- mean(tdat.output_means(1,:)))/...
     mean(tdat.output_sds(1,:));
-defl_sd_std = (defl_mean_std - defl_0_std) / 4 ; 
+defl_sd_std = (defl_mean_std - defl_0_std) / 2 ; 
 rot_mean_std = (rot_mean - mean(tdat.output_means(2,:)))/...
     mean(tdat.output_sds(2,:));
 rot_0_std = (- mean(tdat.output_means(2,:)))/...
     mean(tdat.output_sds(2,:));
-rot_sd_std = (rot_mean_std - rot_0_std) / 4 ; 
+rot_sd_std = (rot_mean_std - rot_0_std) / 2 ; 
 cost_mean_std = (cost_mean - mean(tdat.output_means(3,:)))/...
     mean(tdat.output_sds(3,:));
 cost_0_std = (- mean(tdat.output_means(3,:)))/...
     mean(tdat.output_sds(3,:));
-cost_sd_std = (cost_mean_std - cost_0_std) / 4 ; 
+cost_sd_std = (cost_mean_std - cost_0_std) / 2 ; 
+% alt: aa=6; defl_sd_std=aa; rot_sd_std=aa; cost_sd_std=aa;
 des_output = [ones_vec * defl_mean_std ; ones_vec * rot_mean_std ; ...
     ones_vec * cost_mean_std];
 
 %% Settings for MCMC
-M = 1e4 ; % Total number of draws
+M = 5e3 ; % Total number of draws
 z = [des_output ; tdat.output ] ; % Vector of observations and sim output
 xs = tdat.input ; % Sim input
 n = size(des_output,1); % Total number of "observations"
@@ -82,7 +81,7 @@ prop_density = @(x,Sigma) logit_rev_trans(mvnrnd(logit_trans(x),Sigma));
 Sigma = [.1 0 ; 0 .1];
 prop_dens_ind = 3;
 prop_density = @(x,Sigma) (mvnrnd(x,Sigma)); % Normal
-Sigma = [.1 0 ; 0 .1];
+Sigma = [.05 0 ; 0 .05];
 msg=0; % for console output
 accepted = 0 ; % Use this for adaptive proposal distribution density
 % The below vars will constrain uniform prior on VF, thickness
@@ -108,9 +107,9 @@ Sigma_eta_xx = gp_cov(omega,inputs(n+1:n+m,1:2),inputs(n+1:n+m,1:2),...
     rho,inputs(n+1:n+m,3:4),inputs(n+1:n+m,3:4),lambda,true);
 Sigma_eta = [Sigma_eta_yy Sigma_eta_yx ; Sigma_eta_xy Sigma_eta_xx ] ;
 % Now build Sigma_y
-var_y = [defl_sd_std rot_sd_std cost_sd_std].^2;
+var_y = [defl_sd_std rot_sd_std cost_sd_std].^2; 
 var_y = repelem(var_y,n/3);
-Sigma_y = diag(var_y);
+Sigma_y = diag(var_y); 
 % Now we can get Sigma_z
 Sigma_z = Sigma_eta + padarray(Sigma_y,[m m],'post') ;
 % The following 2 lines are for numerical stability
@@ -205,28 +204,28 @@ for ii = 1 : M
     end
     
     if mod(ii,100) == 0 && ii < burn_in % Tune adaptive proposal variance
-        if vf_outofbounds >= 30
+        if vf_outofbounds >= 40
             Sigma(1,1) = .75 * Sigma(1,1);
             fprintf(repmat('\b',1,msg));
             fprintf('VF proposal variance reduced to %g\n',Sigma(1,1));
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        if thk_outofbounds >= 30
+        if thk_outofbounds >= 40
             Sigma(2,2) = .75 * Sigma(2,2);
             fprintf(repmat('\b',1,msg));
             fprintf('Thk proposal variance reduced to %g\n',Sigma(2,2));
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        if vf_outofbounds < 30 && thk_outofbounds < 30 && accepted < 30 
+        if vf_outofbounds < 40 && thk_outofbounds < 40 && accepted < 20 
             Sigma = Sigma * 0.75;
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances reduced to %g,%g\n',diag(Sigma));
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        if accepted > 50
+        if accepted > 25
             Sigma = Sigma * 1.25;
             fprintf(repmat('\b',1,msg));
-            fprintf('Proposal variances increased to %g\n',Sigma(1,1));
+            fprintf('Proposal variances increased to %g,%g\n',diag(Sigma));
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         accepted        = 0;
@@ -242,27 +241,35 @@ for ii = 1 : M
 end
 % 
 % samples
-% mean(samples(burn_in:end,:))
-% var(samples(burn_in:end,:))
-% figure()
-% plot(samples(burn_in:end,1),'bo')
-% figure()
-% plot(samples(burn_in:end,2))
+post_mean = mean(samples(burn_in:end,:)) % alt: post_mean = [ 0.278 10.446];
+post_var = var(samples(burn_in:end,:))   % alt: post_
+post_mean .* [vf_range thk_range] + [vf_min thk_min]
+post_mean = [(.588-vf_min)/vf_range (16.774-thk_min)/thk_range]
 
-pbi_samples = samples(burn_in:end,:);
-thinning = 1:5:length(pbi_samples);
-pbi_samples(thinning,:)
-post_mean_thinned = mean(pbi_samples(thinning,:))
-post_var_thinned  = var(pbi_samples(thinning,:))
-figure()
-plot(pbi_samples(thinning,1));
-figure()
-plot(pbi_samples(thinning,2));
+post_mean_input = [x repmat(post_mean,size(x,1),1) ];
+em = emulator(tdat.input,tdat.output,post_mean_input,omega,rho,lambda,...
+    0,0,true);
+post_mean_sim_defl_std = em.mu(1:(length(em.mu)/3));
+post_mean_sim_rot_std  = em.mu((length(em.mu)/3+1):(2*length(em.mu)/3));
+post_mean_sim_cost_std = em.mu((2*length(em.mu)/3+1):end);
+post_mean_sim_defl = post_mean_sim_defl_std * mean(tdat.output_sds(1,:))...
+    + mean(tdat.output_means(1,:));
+post_mean_sim_rot  = post_mean_sim_rot_std  * mean(tdat.output_sds(2,:))...
+    + mean(tdat.output_means(2,:));
+post_mean_sim_cost = post_mean_sim_cost_std * mean(tdat.output_sds(3,:))...
+    + mean(tdat.output_means(3,:));
+mean(post_mean_sim_defl) % range: .65-.83
+mean(post_mean_sim_rot)  % range: 0.077-0.1
+mean(post_mean_sim_cost) % range: 96-352
 
-save('.\NSF DEMS\Phase 1\jsamples2','samples');
-save('.\NSF DEMS\Phase 1\jinit2','init');
-save('.\NSF DEMS\Phase 1\jSigma2','Sigma');
-Sigma
+result = struct('samples',samples,'init',init,'Sigma',Sigma,...
+    'des_data_std',[defl_mean_std rot_mean_std cost_mean_std],...
+    'des_sds_std',[defl_sd_std rot_sd_std cost_sd_std],...
+    'output_means',mean(tdat.output_means'),...
+    'output_sds',mean(tdat.output_sds'),...
+    'input_mins',tdat.input_mins,...
+    'input_ranges',tdat.input_ranges);
+save('.\NSF DEMS\Phase 1\result','result');
 
 figure()
 o_samples = pbi_samples;

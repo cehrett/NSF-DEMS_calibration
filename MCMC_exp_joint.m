@@ -65,7 +65,7 @@ W = 1e-4*ones(size(des_output)); % We'll transform this to normal; for now, we c
                 % to be distrib. as Exp(eta(x_i,theta)).
 
 %% Settings for MCMC
-M = 1e4 ; % Total number of draws
+M = 1e3 ; % Total number of draws
 xts = tdat.input ; % Sim input
 n = size(W,1); % Total number of "observations"
 m = size(xts,1); % Total number of simulation runs

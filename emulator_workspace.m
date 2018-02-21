@@ -12,7 +12,7 @@ fprintf('done.\n\n')
 
 %% Get prediction points
 % Get a grid of prediction points.
-ms=8;
+ms=15;
 fprintf('Grid mesh set to length out = %g\n\n',ms)
 
 temp_pred  = unique(tdat.input(:,2));

@@ -1,18 +1,8 @@
-% Master file
+function settings = MCMC_settings (M,desired_obs)
 
-clc; clear all; close all;
-
-%% Add paths
-addpath('.\NSF DEMS\Phase 1\');
-addpath('.\NSF DEMS\Phase 1\stored_data');
 
 %% USER SET VALUES
-% Set desired data:
-desired_obs = [0 0 0 ]        ; % tip deflection, rotation, and cost
-desired_obs = [.65, .077, 96]; % tip deflection, rotation, and cost
-desired_sds = desired_obs / 2 ; 
 % MCMC settings
-M = 1e4 ; % Total number of draws (including burn-in)
 burn_in = ceil(M/5) ; % burn-in
 % Proposal density
 prop_density = @(x,Sigma) (mvnrnd(x,Sigma)); % Normal
@@ -29,7 +19,7 @@ omega  = Rho_lam_optimum(1:2);
 rho    = Rho_lam_optimum(3:4);
 lambda = Rho_lam_optimum(5);
 % Set prior for sigma^2_y: 1/sigma^2_y, and log version
-sigma2 = 4; % initial value
+sigma2 = 1; % initial value
 sigma2_prior = @(sigma2) 1/sigma2;
 log_sigma2_prior = @(sigma2) -log(sigma2);
 sigma2_prop_density = @(x,s) normrnd(x,s)
@@ -100,56 +90,15 @@ y = (desired_obs - sim_output_means) ./ sim_output_sds ;
 % which is constant across control settings (other than dummy variable).
 obs_x = unique(tdat.input(:,1:num_cntrl),'rows');
 y = repelem(y,size(obs_x,1)/length(y))' ;
-% Now set the observation variance matrix. First, standardize the sd's
-% which are specified by the user.
-y_sds = desired_sds ./ sim_output_sds ;
-% Now make it into a covariance matrix:
-y_sds = repelem(y_sds,size(obs_x,1)/length(y_sds))';
-Sigma_y = diag(y_sds.^2);
+
 
 %% Set uniform prior for theta
 out_of_range = @(theta) theta < LB | theta > UB ; 
 
-%% Run MCMC routine
-% Joint proposal for theta, obs var specified equal
-[samples,Sigma] = MCMC_joint_proposal(M,burn_in,sim_xt,eta,obs_x,y,...
-    Sigma_y,out_of_range,init_theta,omega,rho,lambda,proposal,nugsize)
+settings = struct('M',M,'burn_in',burn_in,'sim_xt',sim_xt,...
+    'eta',eta,'obs_x',obs_x,'y',y,'sigma2',sigma2,...
+    'log_sigma2_prior',log_sigma2_prior,'out_of_range',out_of_range,...
+    'init_theta',init_theta,'omega',omega,'rho',rho,'lambda',lambda,...
+    'proposal',proposal,'nugsize',nugsize);
 
-% Joint proposal for theta, prior put on obs variance
-[samples,sigma2_rec,Sigma] = MCMC_sigma_prior(M,burn_in,sim_xt,eta,...
-    obs_x,y,sigma2,log_sigma2_prior,out_of_range,init_theta,omega,...
-    rho,lambda,proposal,nugsize);
-
-results = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
-'init',init_theta,'desired_data',desired_obs,...
-'sigma2_prior',log_sigma2_prior,...
-'omega_rho_lambda',[omega rho lambda],'proposal',proposal,...
-'nugsize',nugsize);
-
-save(['.\NSF DEMS\Phase 1\'...
-'results_z1_univObsPrior2'],...
-'results');
-
-% Joint proposal for theta, prior on obs variance, piecewise
-[samples,sigma2_rec,Sigma] = MCMC_sigma_prior_piecewise(M,burn_in,...
-    sim_xt,eta,obs_x,y,sigma2,log_sigma2_prior,out_of_range,...
-    init_theta,omega,rho,lambda,proposal,nugsize);
-
-results = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
-'init',init_theta,'desired_data',desired_obs,...
-'sigma2_prior',log_sigma2_prior,...
-'omega_rho_lambda',[omega rho lambda],'proposal',proposal,...
-'nugsize',nugsize);
-
-save('.\NSF DEMS\Phase 1\priorpw_results1','results');
-
-% Joint prop for theta, joint prop for obs var, prior on obs var
-[samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(...
-    M,burn_in,sim_xt,eta,obs_x,y,sigma2,log_sigma2_prior,out_of_range,...
-    init_theta,omega,rho,lambda,proposal,nugsize);
-
-results = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
-'init',init_theta);
-
-save('.\NSF DEMS\Phase 1\priorjoint_results1','results');
-
+end
