@@ -43,7 +43,7 @@ proposal.Sigma_sig = Sigma_sig;
 
 %% Load data and get initial theta value
 fprintf('Reading data from .xlsx...\n')
-raw_dat = xlsread("fe_results.xlsx");
+raw_dat = xlsread('fe_results.xlsx');
 % raw_dat is assumed to include one observation per row, with input columns
 % preceding output columns (with no headers).
 num_out = 3; % This is the number of outputs in the data, which are assumed

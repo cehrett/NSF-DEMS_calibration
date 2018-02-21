@@ -3,8 +3,8 @@
 clc; clear all; close all;
 
 %% Add paths
-addpath('.\NSF DEMS\Phase 1\');
-addpath('.\NSF DEMS\Phase 1\stored_data');
+addpath('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration');
+%addpath('.\NSF DEMS\Phase 1\stored_data');
 
 %% User defined values
 M = 8e3;
@@ -12,6 +12,8 @@ desired_obs = [.65 0.077 96];
 
 %% Settings
 settings = MCMC_settings (M,desired_obs);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Joint proposal for theta, prior put on obs variance
 [samples,sigma2_rec,Sigma] = MCMC_sigma_prior(M,burn_in,sim_xt,eta,...
@@ -28,6 +30,8 @@ save(['.\NSF DEMS\Phase 1\'...
 'results_z0_univObsPrior1'],...
 'results');
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Joint prop for theta, joint prop for obs var, prior on obs var
 [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
 
@@ -37,6 +41,26 @@ results = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
 'omega_rho_lambda',[omega rho lambda],'proposal',proposal,...
 'nugsize',nugsize);
 
-save(['.\NSF DEMS\Phase 1\'...
+save(['E:\Carl\Documents\MATLAB\NSF-DEMS_data\'...
 'results_z1_hetskedObsPrior1'],...
 'results');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Parallel processing loop
+%% Joint prop for theta, obs var; prior on obs var
+% Cell to store data
+results_par = cell(3,1);
+parpool(3);
+parfor ii=1:3
+    M = 1e3;
+    desired_obs = [.65 0.077 96];
+    settings = MCMC_settings (M,desired_obs);
+    [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
+    results = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
+        'init',init_theta,'desired_data',desired_obs,...
+        'sigma2_prior',log_sigma2_prior,...
+        'omega_rho_lambda',[omega rho lambda],'proposal',proposal,...
+        'nugsize',nugsize);
+    results_par{ii} = results;
+end

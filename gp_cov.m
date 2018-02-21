@@ -35,7 +35,7 @@ for ii = 1:size(X,1)
 end
 
 % If same == 1, flesh out the symmetric matrix using the lower triangle
-if same == 1 ; R = (R+R') - eye(size(R,1)).*diag(R) ; end
+if same == 1 ; R = (R+R') - eye(size(R,1)).*diag(diag(R)) ; end
 
 fprintf(repmat('\b',1,msg));
 
