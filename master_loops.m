@@ -4,14 +4,17 @@ clc; clear all; close all;
 
 %% Add paths
 addpath('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration');
-%addpath('.\NSF DEMS\Phase 1\stored_data');
+addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data');
+addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\');
+
 
 %% User defined values
-M = 8e3;
+M = 1e4;
 desired_obs = [.65 0.077 96];
+desired_obs = [.65 96];
 
 %% Settings
-settings = MCMC_settings (M,desired_obs);
+settings = MCMC_settings (M,3,desired_obs);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

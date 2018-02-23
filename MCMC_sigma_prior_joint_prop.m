@@ -26,7 +26,11 @@ eta=settings.eta; obs_x = settings.obs_x; y=settings.y;
 sigma2=settings.sigma2; log_sigma2_prior=settings.log_sigma2_prior; 
 out_of_range=settings.out_of_range; init_theta=settings.init_theta;
 omega=settings.omega; rho=settings.rho; lambda=settings.lambda;
-proposal = settings.proposal; nugsize = settings.nugsize;
+proposal = settings.proposal; nugsize = settings.nugsize; 
+num_out=settings.num_out; log_mh_correction=settings.log_mh_correction;
+
+%% Set plot label values
+labs = [ 'defl' ; 'rotn' ; 'cost' ] ; if num_out == 2 labs(2,:)=[]; end
 
 %% If burn_in is a proportion rather than a count, then convert to count
 if 0<burn_in && burn_in < 1
@@ -46,7 +50,7 @@ cutoff = 40;
 num_cntrl = size(obs_x,2) ;
 num_calib = length(init_theta) ;
 n = size(obs_x,1);
-num_obs = n/3; % This assumes 3-d output of simulation.
+num_obs = n/num_out; % This assumes 3-d output of simulation.
 m = size(eta,1);
 z = [y ; eta ] ; 
 sim_x = sim_xt(:,1:num_cntrl) ;
@@ -70,7 +74,7 @@ theta=init_theta;
 msg=0;
 samples = init_theta;
 sigma2_rec = sigma2;
-out_of_range_sig = [ 0 0 0];
+out_of_range_sig = zeros(1,num_out);
 
 %% Get initial log likelihood
 % Set new observation input matrix:
@@ -87,9 +91,9 @@ Sigma_z = [ Sigma_eta_yy + Sigma_y  Sigma_eta_yx ; Sigma_eta_xy ...
     Sigma_eta_xx ] ;
 % Add a nugget to Sigma_z for computational stability
 Sigma_z = Sigma_z + eye(size(Sigma_z)) * nugsize(Sigma_z);
-% Get log likelihood of theta_s
+% Get log likelihood of theta
 loglik_theta = logmvnpdf(z',0,Sigma_z) ;
-% Get log likelihood of sigma2_s
+% Get log likelihood of sigma2
 loglik_sigma2 = loglik_theta + log_sigma2_prior(sigma2);
 
 figure() % For observing MCMC
@@ -111,20 +115,20 @@ for ii = 1:M
         
         %% Get new Sigma_z = Sigma_eta + [Sigma_y 0 ; 0 0], in pieces
         % Get new Sigma_eta_yy:
-        Sigma_eta_yy = gp_cov(omega,obs_x,obs_x,rho,...
+        Sigma_eta_yy_s = gp_cov(omega,obs_x,obs_x,rho,...
             obs_theta,obs_theta,lambda,false);
         % Get new Sigma_eta_xy, and hence Sigma_eta_yx
-        Sigma_eta_xy = gp_cov(omega,sim_x,obs_x,...
+        Sigma_eta_xy_s = gp_cov(omega,sim_x,obs_x,...
             rho,sim_t,obs_theta,lambda,false);
-        Sigma_eta_yx = Sigma_eta_xy';
+        Sigma_eta_yx_s = Sigma_eta_xy_s';
         % Combine these to get new Sigma_z
-        Sigma_z = [ Sigma_eta_yy + Sigma_y  Sigma_eta_yx ; Sigma_eta_xy ...
-            Sigma_eta_xx ] ;
+        Sigma_z_s = [ Sigma_eta_yy_s + Sigma_y  Sigma_eta_yx_s ; ...
+                      Sigma_eta_xy_s            Sigma_eta_xx ] ;
         % Add a nugget to Sigma_z for computational stability
-        Sigma_z = Sigma_z + eye(size(Sigma_z)) * nugsize(Sigma_z);
+        Sigma_z_s = Sigma_z_s + eye(size(Sigma_z_s)) * nugsize(Sigma_z_s);
         % Get log likelihood of theta_s
-        loglik_theta_s = logmvnpdf(z',0,Sigma_z) ;
-        
+        loglik_theta_s = logmvnpdf(z',0,Sigma_z_s) ;
+        loglik_theta   = logmvnpdf(z',0,Sigma_z) ;
     end
     
     %% Get acceptance ratio statistic
@@ -140,6 +144,10 @@ for ii = 1:M
     if accept % Set up for next time
         loglik_theta = loglik_theta_s ;
         theta = theta_s ;
+        Sigma_eta_yy = Sigma_eta_yy_s;
+        Sigma_eta_yx = Sigma_eta_yx_s;
+        Sigma_eta_xy = Sigma_eta_xy_s;
+        Sigma_z      = Sigma_z_s;
     end
     
     %% Propose new sigma2
@@ -155,17 +163,20 @@ for ii = 1:M
         Sigma_y_s = diag(sigma2_s_long);
 
         %% Get new Sigma_z = Sigma_eta + [Sigma_y 0 ; 0 0], in pieces
-        Sigma_z = [ Sigma_eta_yy + Sigma_y_s  Sigma_eta_yx ; ...
-                    Sigma_eta_xy              Sigma_eta_xx ] ;
+        Sigma_z_s = [ Sigma_eta_yy + Sigma_y_s  Sigma_eta_yx ; ...
+                      Sigma_eta_xy              Sigma_eta_xx ] ;
         % Add a nugget to Sigma_z for computational stability
-        Sigma_z = Sigma_z + eye(size(Sigma_z)) * nugsize(Sigma_z);
+        Sigma_z_s = Sigma_z_s + eye(size(Sigma_z_s)) * nugsize(Sigma_z_s);
         % Get log likelihood of sigma2_s
-        loglik_sigma2_s= logmvnpdf(z',0,Sigma_z) + ...
+        loglik_sigma2_s = logmvnpdf(z',0,Sigma_z_s) + ...
             log_sigma2_prior(sigma2_s);
+        loglik_sigma2   = logmvnpdf(z',0,Sigma_z) + ...
+            log_sigma2_prior(sigma2);
     end
     
     %% Get acceptance ratio statistic
-    log_alpha = loglik_sigma2_s - loglik_sigma2 ; 
+    log_alpha = loglik_sigma2_s - loglik_sigma2 + ...
+        log_mh_correction(sigma2_s,sigma2) ; 
     
     %% Randomly accept or reject with prob. alpha; update accordingly
     if log(rand) < log_alpha
@@ -178,31 +189,51 @@ for ii = 1:M
         loglik_sigma2 = loglik_sigma2_s ;
         sigma2 = sigma2_s ;
         Sigma_y = Sigma_y_s;
+        Sigma_z = Sigma_z_s;
     end
     
     %% Recordkeeping
     samples(ii+1,:) = theta;
     sigma2_rec(ii+1,:) = sigma2;
-    
+
+    % Commenting out below until sure that following version works
+%     %% Output to console to let us know progress
+%     if mod(ii,10) == 0 
+%         fprintf(repmat('\b',1,msg));
+%         msg = fprintf('Completed: %g/%g\n',ii,M);
+%         subplot(2,3,1);
+%         plot(samples(startplot:end,1),'ko');
+%         title('Volume fraction');
+%         subplot(2,3,2);
+%         plot(samples(startplot:end,2),'ko');
+%         title('Thickness');
+%         subplot(2,3,3);
+%         plot(sigma2_rec(startplot:end,1),'ko');
+%         title('\sigma^2_1');
+%         subplot(2,3,4);
+%         plot(sigma2_rec(startplot:end,2),'ko');
+%         title('\sigma^2_2');
+%         subplot(2,3,5);
+%         plot(sigma2_rec(startplot:end,3),'ko');
+%         title('\sigma^2_3');
+%         drawnow
+%     end
+
     %% Output to console to let us know progress
     if mod(ii,10) == 0 
         fprintf(repmat('\b',1,msg));
         msg = fprintf('Completed: %g/%g\n',ii,M);
-        subplot(2,3,1);
+        subplot(2,num_out,1);
         plot(samples(startplot:end,1),'ko');
         title('Volume fraction');
-        subplot(2,3,2);
+        subplot(2,num_out,2);
         plot(samples(startplot:end,2),'ko');
         title('Thickness');
-        subplot(2,3,3);
-        plot(sigma2_rec(startplot:end,1),'ko');
-        title('\sigma^2_1');
-        subplot(2,3,4);
-        plot(sigma2_rec(startplot:end,2),'ko');
-        title('\sigma^2_2');
-        subplot(2,3,5);
-        plot(sigma2_rec(startplot:end,3),'ko');
-        title('\sigma^2_3');
+        for jj = 1:num_out
+            subplot(2,num_out,jj+2);
+            plot(sigma2_rec(startplot:end,jj),'ko');
+            title(['\sigma^2: ' labs(jj,:)]);
+        end
         drawnow
     end
     
@@ -241,14 +272,14 @@ for ii = 1:M
                 msg = fprintf('Completed: %g/%g\n',ii,M);
             end
         end
-        if all(out_of_range_sig < cutoff) && accepted < 20
+        if all(out_of_range_sig < cutoff) && accepted_sig < 20
             Sigma_sig = Sigma_sig * 0.75;
             fprintf(repmat('\b',1,msg));
             fprintf('sigma2 proposal variances reduced to %g,%g,%g\n',...
                 diag(Sigma_sig))
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        if accepted > 30
+        if accepted_sig > 30
             Sigma_sig = Sigma_sig * 1.25;
             fprintf(repmat('\b',1,msg));
             fprintf('sigma2 proposal variances increased to %g,%g\n',...
@@ -256,15 +287,18 @@ for ii = 1:M
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         
-        %% Reset counters
-        accepted        = 0;
-        out_of_range_rec = 0 * out_of_range_rec;
-        out_of_range_sig = 0 * out_of_range_sig;
-        
-        % Print newline
+        % Print info and newline
         fprintf(repmat('\b',1,msg));
+        fprintf('accepted = %g\n',accepted)
+        fprintf('accepted_sig = %g\n',accepted_sig)
         fprintf('\n')
         msg = fprintf('Completed: %g/%g\n',ii,M);
+        
+        %% Reset counters
+        accepted        = 0;
+        accepted_sig    = 0;
+        out_of_range_rec = 0 * out_of_range_rec;
+        out_of_range_sig = 0 * out_of_range_sig;
     end
     
     %% Stop plotting burn_in

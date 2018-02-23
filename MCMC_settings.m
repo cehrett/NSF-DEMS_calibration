@@ -1,4 +1,4 @@
-function settings = MCMC_settings (M,desired_obs)
+function settings = MCMC_settings (M,num_out,desired_obs)
 
 
 %% USER SET VALUES
@@ -20,18 +20,19 @@ rho    = Rho_lam_optimum(3:4);
 lambda = Rho_lam_optimum(5);
 % Set prior for sigma^2_y: 1/sigma^2_y, and log version
 sigma2 = 1; % initial value
-sigma2_prior = @(sigma2) 1/sigma2;
-log_sigma2_prior = @(sigma2) -log(sigma2);
-sigma2_prop_density = @(x,s) normrnd(x,s)
+sigma2_prior = @(sigma2) 1/prod(sigma2);
+log_sigma2_prior = @(sigma2) -log(prod(sigma2));
+sigma2_prop_density = @(x,s) normrnd(x,s);
 Sigma_sig = 2 ;
 % Piecewise version:
-sigma2 = rand(1,3)*10;
+sigma2 = rand(1,num_out)*10;
 sigma2_prop_density = @(x,s) normrnd(x,s);
-Sigma_sig = [4 4 4 ];
+Sigma_sig = 4 * ones(1,num_out);
 % Joint multivariate draw version:
-sigma2=rand(1,3)*20;
-sigma2_prop_density = @(x,s) mvnrnd(x,s);
-Sigma_sig = eye(3)*1;
+sigma2=rand(1,num_out)*20;
+sigma2_prop_density = @(x,s) exp(mvnrnd(log(x),s));
+log_mh_correction = @(sig_s,sig) log(prod(sig_s)) - log(prod(sig));
+Sigma_sig = eye(num_out);
 %% END USER SET VALUES
 
 %% Package proposal density
@@ -44,10 +45,11 @@ proposal.Sigma_sig = Sigma_sig;
 %% Load data and get initial theta value
 fprintf('Reading data from .xlsx...\n')
 raw_dat = xlsread('fe_results.xlsx');
+if num_out == 2 % This will exclude rotation if we only want 2 outputs.
+    raw_dat(:,5)=[];
+end
 % raw_dat is assumed to include one observation per row, with input columns
 % preceding output columns (with no headers).
-num_out = 3; % This is the number of outputs in the data, which are assumed
-             % to be the final columns of raw_dat.
 num_calib = 2 ; % This is the number of calibration parameters in the data,
                 % which are assumed to be the columns immediately preceding
                 % the output columns in raw_dat.
@@ -99,6 +101,7 @@ settings = struct('M',M,'burn_in',burn_in,'sim_xt',sim_xt,...
     'eta',eta,'obs_x',obs_x,'y',y,'sigma2',sigma2,...
     'log_sigma2_prior',log_sigma2_prior,'out_of_range',out_of_range,...
     'init_theta',init_theta,'omega',omega,'rho',rho,'lambda',lambda,...
-    'proposal',proposal,'nugsize',nugsize);
+    'proposal',proposal,'nugsize',nugsize,'num_out',num_out,...
+    'log_mh_correction',log_mh_correction);
 
 end

@@ -34,8 +34,8 @@ end
 % Standardize each output column for each temp
 tdat_out = zeros(size(dat_out)); % this will store standardized output
 for ii = 1:num_out
-    settings = unique(dat(:,1)); % We want the mean for each
-    % setting of the first parameter (temperature)
+    settings = unique(dat(:,1)); % We want the mean for each setting
+                                 % of the first parameter (temperature)
     for jj = 1:length(settings)
         dat_set = dat_out(dat(:,1)==settings(jj),:);
         % dat_set is the output at the current setting (temp)
@@ -45,6 +45,13 @@ for ii = 1:num_out
             output_means(ii,jj))/output_sds(ii,jj);
     end
 end
+
+% % Alt: standardize each output column across all temps
+% tdat_out2 = zeros(size(dat_out)); % this will store standardized output
+% for ii = 1:num_out
+%     tdat_out2(:,ii) = (dat_out(:,ii) - mean(dat_out(:,ii))) / ...
+%         std(dat_out(:,ii));
+% end
 
 % Get single output column
 tdat_out = tdat_out(:);
