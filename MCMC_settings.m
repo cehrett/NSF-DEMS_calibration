@@ -1,24 +1,27 @@
 function settings = MCMC_settings (M,num_out,desired_obs)
 
 
-%% USER SET VALUES
-% MCMC settings
+%% MCMC settings
 burn_in = ceil(M/5) ; % burn-in
-% Proposal density
-prop_density = @(x,Sigma) (mvnrnd(x,Sigma)); % Normal
-Sigma = [.05 0 ; 0 .05]; % Initial variance for prop_density
-% Upper and lower bounds for theta (if applicable)
-LB = [ .2 10 ] ; UB = [.6 25] ;
-% Nugget size for computational stability of covariance matrices
-nugsize = @(Covmat) 1e-4 ; % Why make it a function? So later it can be 
-                           % made fancier.
 % Covariance parameter settings, found by optimization routine:
 Rho_lam_optimum  = [0.655344235568109   0.931941001705886 ...
     0.960653924901867   0.991953924787049   0.017385994893994];
 omega  = Rho_lam_optimum(1:2);
 rho    = Rho_lam_optimum(3:4);
 lambda = Rho_lam_optimum(5);
-% Set prior for sigma^2_y: 1/sigma^2_y, and log version
+
+%% Proposal density
+logit = @(x) log(x./(1-x));
+logit_inv = @(x) exp(x)./(1+exp(x));
+prop_density = @(x,Sigma) logit_inv(mvnrnd(logit(x),Sigma)); % Normal
+Sigma = [.5 0 ; 0 .5]; % Initial variance for prop_density
+% Upper and lower bounds for theta (if applicable)
+LB = [ .1 10 ] ; UB = [.6 25] ;
+% Nugget size for computational stability of covariance matrices
+nugsize = @(Covmat) 1e-4 ; % Why make it a function? So later it can be 
+                           % made fancier.
+                           
+%% Set prior for sigma^2_y: 1/sigma^2_y, and log version
 sigma2 = 1; % initial value
 sigma2_prior = @(sigma2) 1/prod(sigma2);
 log_sigma2_prior = @(sigma2) -log(prod(sigma2));
@@ -31,15 +34,19 @@ Sigma_sig = 4 * ones(1,num_out);
 % Joint multivariate draw version:
 sigma2=rand(1,num_out)*20;
 sigma2_prop_density = @(x,s) exp(mvnrnd(log(x),s));
-log_mh_correction = @(sig_s,sig) log(prod(sig_s)) - log(prod(sig));
+log_sig_mh_correction = @(sig_s,sig) log(prod(sig_s)) - log(prod(sig));
 Sigma_sig = eye(num_out);
-%% END USER SET VALUES
+
 
 %% Package proposal density
 proposal.density = prop_density; 
 proposal.Sigma = Sigma;
 proposal.sigma2_prop_density = sigma2_prop_density;
 proposal.Sigma_sig = Sigma_sig;
+
+%% MH correction for using log-normal proposal
+log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
+    log(prod(theta)*prod(1-theta));
 
 
 %% Load data and get initial theta value
@@ -102,6 +109,8 @@ settings = struct('M',M,'burn_in',burn_in,'sim_xt',sim_xt,...
     'log_sigma2_prior',log_sigma2_prior,'out_of_range',out_of_range,...
     'init_theta',init_theta,'omega',omega,'rho',rho,'lambda',lambda,...
     'proposal',proposal,'nugsize',nugsize,'num_out',num_out,...
-    'log_mh_correction',log_mh_correction);
+    'log_sig_mh_correction',log_sig_mh_correction,...
+    'log_mh_correction',log_mh_correction,...
+    'output_sds',tdat.output_sds,'output_means',tdat.output_means);
 
 end

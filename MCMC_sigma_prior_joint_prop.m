@@ -27,7 +27,9 @@ sigma2=settings.sigma2; log_sigma2_prior=settings.log_sigma2_prior;
 out_of_range=settings.out_of_range; init_theta=settings.init_theta;
 omega=settings.omega; rho=settings.rho; lambda=settings.lambda;
 proposal = settings.proposal; nugsize = settings.nugsize; 
-num_out=settings.num_out; log_mh_correction=settings.log_mh_correction;
+num_out=settings.num_out; 
+log_sig_mh_correction=settings.log_sig_mh_correction;
+log_mh_correction=settings.log_mh_correction;
 
 %% Set plot label values
 labs = [ 'defl' ; 'rotn' ; 'cost' ] ; if num_out == 2 labs(2,:)=[]; end
@@ -65,7 +67,7 @@ sigma2_long = repelem(sigma2,num_obs);
 Sigma_y = diag(sigma2_long);
 
 %% Initialize some variables for later use
-out_of_range_rec = 0 ;
+out_of_range_rec = zeros(size(init_theta)); ;
 reject_rec = 0;
 startplot = 1;
 accepted = 0;
@@ -132,7 +134,8 @@ for ii = 1:M
     end
     
     %% Get acceptance ratio statistic
-    log_alpha = loglik_theta_s - loglik_theta ; 
+    log_alpha = loglik_theta_s - loglik_theta + ...
+        log_mh_correction(theta_s,theta); 
     
     %% Randomly accept or reject with prob. alpha; update accordingly
     if log(rand) < log_alpha
@@ -176,7 +179,7 @@ for ii = 1:M
     
     %% Get acceptance ratio statistic
     log_alpha = loglik_sigma2_s - loglik_sigma2 + ...
-        log_mh_correction(sigma2_s,sigma2) ; 
+        log_sig_mh_correction(sigma2_s,sigma2) ; 
     
     %% Randomly accept or reject with prob. alpha; update accordingly
     if log(rand) < log_alpha
@@ -195,29 +198,6 @@ for ii = 1:M
     %% Recordkeeping
     samples(ii+1,:) = theta;
     sigma2_rec(ii+1,:) = sigma2;
-
-    % Commenting out below until sure that following version works
-%     %% Output to console to let us know progress
-%     if mod(ii,10) == 0 
-%         fprintf(repmat('\b',1,msg));
-%         msg = fprintf('Completed: %g/%g\n',ii,M);
-%         subplot(2,3,1);
-%         plot(samples(startplot:end,1),'ko');
-%         title('Volume fraction');
-%         subplot(2,3,2);
-%         plot(samples(startplot:end,2),'ko');
-%         title('Thickness');
-%         subplot(2,3,3);
-%         plot(sigma2_rec(startplot:end,1),'ko');
-%         title('\sigma^2_1');
-%         subplot(2,3,4);
-%         plot(sigma2_rec(startplot:end,2),'ko');
-%         title('\sigma^2_2');
-%         subplot(2,3,5);
-%         plot(sigma2_rec(startplot:end,3),'ko');
-%         title('\sigma^2_3');
-%         drawnow
-%     end
 
     %% Output to console to let us know progress
     if mod(ii,10) == 0 
