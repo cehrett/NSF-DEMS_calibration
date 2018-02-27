@@ -1,4 +1,4 @@
-function settings = MCMC_settings (M,num_out,desired_obs)
+function settings = MCMC_settings (M,desired_obs)
 
 
 %% MCMC settings
@@ -9,6 +9,7 @@ Rho_lam_optimum  = [0.655344235568109   0.931941001705886 ...
 omega  = Rho_lam_optimum(1:2);
 rho    = Rho_lam_optimum(3:4);
 lambda = Rho_lam_optimum(5);
+num_out = length(desired_obs);
 
 %% Proposal density
 logit = @(x) log(x./(1-x));

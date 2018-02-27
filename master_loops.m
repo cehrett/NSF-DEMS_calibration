@@ -4,6 +4,7 @@ clc; clear all; close all;
 
 %% Add paths
 addpath('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration');
+addpath('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data');
 addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data');
 addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\');
 
@@ -14,7 +15,7 @@ desired_obs = [.65 0.077 96];
 desired_obs = [.65 96];
 
 %% Settings
-settings = MCMC_settings (M,3,desired_obs);
+settings = MCMC_settings (M,desired_obs);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -34,24 +35,26 @@ save(['E:\Carl\Documents\MATLAB\NSF-DEMS_data\'...
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Parallel processing loop
-%% Joint prop for theta, obs var; prior on obs var
+n=10;
+design = lhsdesign(n,2) .* [ .74 224 ] ;
+p = 3 ; % Number of chains at each desired obs. to run in parallel
 % Cell to store data
-p = 2 ; % Number of chains at each desired obs. to run in parallel
 results_par = cell(p,1);
 parpool(p);
-n=2;
-M=20;
+M=1e4;
 all_results = cell(n,1);
-design = lhsdesign(n,2) .* [ .74 224 ] ;
+% Begin from here if interrupted
+load('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
+
 % Note: the range of the design was chosen by selecting 0 as the minimum
 % values and for the maximum values taking the midpoint of the plausible
 % ranges supplied by Evan for deflection and cost.
 
-for jj=1:n
+for jj=1:2
 
     parfor ii=1:p
         desired_obs = design(jj,:);
-        settings = MCMC_settings(M,2,desired_obs);
+        settings = MCMC_settings(M,desired_obs);
         [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
         post_mean_out = em_out(samples,settings.burn_in,settings.obs_x,...
             settings.sim_xt,settings.eta,settings.output_sds,...
@@ -69,9 +72,13 @@ for jj=1:n
         results_par{ii} = results;
     end
     
-    all_results{jj} = results_par
+    all_results{jj} = results_par;
+    
+    fprintf('COMPLETED LOOP %g/%g',jj,n)
     
 end
+
+save('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
