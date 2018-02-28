@@ -50,7 +50,7 @@ load('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
 % values and for the maximum values taking the midpoint of the plausible
 % ranges supplied by Evan for deflection and cost.
 
-for jj=1:2
+for jj=3:3
 
     parfor ii=1:p
         desired_obs = design(jj,:);
@@ -64,7 +64,8 @@ for jj=1:2
             'Sigma',Sigma,'init',settings.init_theta,...
             'desired_data',desired_obs,...
             'sigma2_prior',settings.log_sigma2_prior,...
-            'omega_rho_lambda',[settings.omega settings.rho settings.lambda],...
+            'omega_rho_lambda',...
+            [settings.omega settings.rho settings.lambda],...
             'proposal',settings.proposal,'nugsize',settings.nugsize,...
             'post_mean_theta',mean(samples(settings.burn_in:end,:)),...
             'post_mean_sigma2',mean(sigma2_rec(settings.burn_in:end,:)),...
@@ -79,6 +80,23 @@ for jj=1:2
 end
 
 save('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
+
+% Take a look at results
+for jj=1:n
+    for ii=1:p
+        subplot(2,2,1);
+        plot(all_results{jj}{ii}.samples(burn_in:end,1),'ko');
+        subplot(2,2,2);
+        plot(all_results{jj}{ii}.samples(burn_in:end,2),'ko');
+        subplot(2,2,3);
+        plot(all_results{jj}{ii}.sigma2(burn_in:end,1),'ko');
+        subplot(2,2,4);
+        plot(all_results{jj}{ii}.sigma2(burn_in:end,2),'ko');
+        waitforbuttonpress;
+    end
+end
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -69,7 +69,7 @@ Sigma_y = diag(sigma2_long);
 %% Initialize some variables for later use
 out_of_range_rec = zeros(size(init_theta)); ;
 reject_rec = 0;
-startplot = 1;
+startplot = 9;
 accepted = 0;
 accepted_sig =0;
 theta=init_theta;
@@ -220,16 +220,16 @@ for ii = 1:M
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
         %% Tune theta proposal variance
-        for jj = 1 : length(theta) 
-            if out_of_range_rec(jj) >= cutoff
-                Sigma(jj,jj) = .75 * Sigma(jj,jj) ;
-                fprintf(repmat('\b',1,msg));
-                fprintf('%g proposal variance reduced to %g\n',...
-                    jj,Sigma(jj,jj));
-                msg = fprintf('Completed: %g/%g\n',ii,M);
-            end
-        end
-        if all(out_of_range_rec < cutoff) && accepted < 20
+%         for jj = 1 : length(theta) 
+%             if out_of_range_rec(jj) >= cutoff
+%                 Sigma(jj,jj) = .75 * Sigma(jj,jj) ;
+%                 fprintf(repmat('\b',1,msg));
+%                 fprintf('%g proposal variance reduced to %g\n',...
+%                     jj,Sigma(jj,jj));
+%                 msg = fprintf('Completed: %g/%g\n',ii,M);
+%             end
+%         end
+        if accepted < 20
             Sigma = Sigma * 0.75;
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances reduced to %g,%g\n',diag(Sigma))
@@ -243,19 +243,19 @@ for ii = 1:M
         end
         
         %% Tune sigma2 proposal variance
-        for jj = 1 : length(sigma2)
-            if out_of_range_sig(jj) >= cutoff
-                Sigma_sig(jj,jj) = .75 * Sigma_sig(jj,jj) ;
-                fprintf(repmat('\b',1,msg));
-                fprintf('sigma2 %g proposal variance reduced to %g\n',...
-                    jj,Sigma_sig(jj,jj));
-                msg = fprintf('Completed: %g/%g\n',ii,M);
-            end
-        end
-        if all(out_of_range_sig < cutoff) && accepted_sig < 20
+%         for jj = 1 : length(sigma2)
+%             if out_of_range_sig(jj) >= cutoff
+%                 Sigma_sig(jj,jj) = .75 * Sigma_sig(jj,jj) ;
+%                 fprintf(repmat('\b',1,msg));
+%                 fprintf('sigma2 %g proposal variance reduced to %g\n',...
+%                     jj,Sigma_sig(jj,jj));
+%                 msg = fprintf('Completed: %g/%g\n',ii,M);
+%             end
+%         end
+        if accepted_sig < 20
             Sigma_sig = Sigma_sig * 0.75;
             fprintf(repmat('\b',1,msg));
-            fprintf('sigma2 proposal variances reduced to %g,%g,%g\n',...
+            fprintf('sigma2 proposal variances reduced to %g,%g\n',...
                 diag(Sigma_sig))
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
@@ -266,6 +266,10 @@ for ii = 1:M
                 diag(Sigma_sig))
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
+        
+    end
+    
+    if mod(ii,100) == 0
         
         % Print info and newline
         fprintf(repmat('\b',1,msg));
