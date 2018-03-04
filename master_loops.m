@@ -52,7 +52,7 @@ load('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
 % values and for the maximum values taking the midpoint of the plausible
 % ranges supplied by Evan for deflection and cost.
 
-for jj=3:3
+for jj=4:4
 
     parfor ii=1:p
         desired_obs = design(jj,:);
