@@ -16,6 +16,8 @@ desired_obs = [.65 96];
 
 %% Settings
 settings = MCMC_settings (M,desired_obs);
+settings.doplot = false;
+settings.doplot = true;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
