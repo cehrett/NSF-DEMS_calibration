@@ -44,7 +44,7 @@ p = 3 ; % Number of chains at each desired obs. to run in parallel
 results_par = cell(p,1);
 parpool(p);
 M=1e4;
-all_results = cell(n,1);
+all_results2 = cell(n,1);
 % Begin from here if interrupted
 load('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
 
@@ -52,11 +52,12 @@ load('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
 % values and for the maximum values taking the midpoint of the plausible
 % ranges supplied by Evan for deflection and cost.
 
-for jj=4:4
+for jj=6:10
 
     parfor ii=1:p
         desired_obs = design(jj,:);
         settings = MCMC_settings(M,desired_obs);
+        settings.doplot = false;
         [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
         post_mean_out = em_out(samples,settings.burn_in,settings.obs_x,...
             settings.sim_xt,settings.eta,settings.output_sds,...
@@ -75,9 +76,11 @@ for jj=4:4
         results_par{ii} = results;
     end
     
-    all_results{jj} = results_par;
+    all_results2{jj} = results_par;
     
     fprintf('COMPLETED LOOP %g/%g',jj,n)
+    
+    save('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
     
 end
 
