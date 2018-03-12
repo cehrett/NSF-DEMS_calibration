@@ -33,9 +33,15 @@ num_out=settings.num_out;
 log_sig_mh_correction=settings.log_sig_mh_correction;
 log_mh_correction=settings.log_mh_correction;
 doplot = settings.doplot;
+which_outputs = [ 1 1 1]; if num_out==2 which_outputs(2)=0 ; end
 
 %% Set plot label values
-labs = [ 'defl' ; 'rotn' ; 'cost' ] ; if num_out == 2 labs(2,:)=[]; end
+labs = [ 'defl' ; 'rotn' ; 'cost' ] ; 
+for ii = 1:length(which_outputs)
+    if which_outputs(ii) == 0
+        labs(ii,:)=[]; 
+    end
+end
 
 %% If burn_in is a proportion rather than a count, then convert to count
 if 0<burn_in && burn_in < 1
@@ -70,7 +76,7 @@ sigma2_long = repelem(sigma2,num_obs);
 Sigma_y = diag(sigma2_long);
 
 %% Initialize some variables for later use
-out_of_range_rec = zeros(size(init_theta)); ;
+out_of_range_rec = zeros(size(init_theta)); 
 reject_rec = 0;
 startplot = 10;
 accepted = 0;
@@ -207,18 +213,18 @@ for ii = 1:M
     if mod(ii,10) == 0 && doplot == true
         fprintf(repmat('\b',1,msg));
         msg = fprintf('Completed: %g/%g\n',ii,M);
-        subplot(2,num_out+1,1);
+        subplot(2,3,1);
         plot(samples(startplot:end,1),'ko');
         title('Volume fraction');
-        subplot(2,num_out+1,2);
+        subplot(2,3,2);
         plot(samples(startplot:end,2),'ko');
         title('Thickness');
         for jj = 1:num_out
-            subplot(2,num_out+1,jj+2);
+            subplot(2,3,jj+2);
             plot(sigma2_rec(startplot:end,jj),'ko');
             title(['\sigma^2: ' labs(jj,:)]);
         end
-        subplot(2,3,5);
+        subplot(2,3,6);
         plot(logit(samples(startplot:end,1)),...
             logit(samples(startplot:end,2)),'ko');
         hold on
@@ -231,22 +237,7 @@ for ii = 1:M
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
         %% Tune theta proposal variance
-%         for jj = 1 : length(theta) 
-%             if out_of_range_rec(jj) >= cutoff
-%                 Sigma(jj,jj) = .75 * Sigma(jj,jj) ;
-%                 fprintf(repmat('\b',1,msg));
-%                 fprintf('%g proposal variance reduced to %g\n',...
-%                     jj,Sigma(jj,jj));
-%                 msg = fprintf('Completed: %g/%g\n',ii,M);
-%             end
-%         end
         mult = 1;
-%         if accepted < 20
-%             %Sigma = Sigma * mult;%0.75;
-%             fprintf(repmat('\b',1,msg));
-%             fprintf('Proposal variances reduced to %g,%g\n',diag(Sigma))
-%             msg = fprintf('Completed: %g/%g\n',ii,M);
-%         end
         if accepted > 30
             %Sigma = Sigma * mult;%1.25;
             mult = 8;
@@ -254,8 +245,6 @@ for ii = 1:M
             fprintf('Proposal variances increased');% to %g,%g\n',diag(Sigma))
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        %% EXPERIMENTAL: DON'T FORGET TO REMOVE THIS OR MAKE PERMANENT
-        %mult  = max(accepted,5)/25
         uniqsl = unique(samples(ii/4:ii+1,:),'rows');
         uniqss = unique(samples(3*ii/4:ii+1,:),'rows');
         if size(uniqss,1) > 3
@@ -264,21 +253,9 @@ for ii = 1:M
             Sigadd = Sigma ;
         end
         Sigma  = Sigadd*.85 + Sigma*.15*mult
-        %while det(Sigma) < 1e-3
-        %    Sigma = Sigma + eye(size(Sigma)) * 0.005;
-        %end
         fprintf('Completed: %g/%g\n',ii,M);
         
         %% Tune sigma2 proposal variance
-%         for jj = 1 : length(sigma2)
-%             if out_of_range_sig(jj) >= cutoff
-%                 Sigma_sig(jj,jj) = .75 * Sigma_sig(jj,jj) ;
-%                 fprintf(repmat('\b',1,msg));
-%                 fprintf('sigma2 %g proposal variance reduced to %g\n',...
-%                     jj,Sigma_sig(jj,jj));
-%                 msg = fprintf('Completed: %g/%g\n',ii,M);
-%             end
-%         end
         if accepted_sig < 20
             Sigma_sig = Sigma_sig * 0.75;
             fprintf(repmat('\b',1,msg));
@@ -299,8 +276,8 @@ for ii = 1:M
     if mod(ii,100) == 0
         
         % Print info and newline
-        vf_acf = acf(samples(1:ii+1,1),50); vf_acf = vf_acf(50);
-        thk_acf = acf(samples(1:ii+1,2),50); thk_acf = thk_acf(50);
+        vf_acf = acf(samples(startplot:ii+1,1),50); vf_acf = vf_acf(50);
+        thk_acf = acf(samples(startplot:ii+1,2),50); thk_acf = thk_acf(50);
         fprintf(repmat('\b',1,msg));
         fprintf('accepted     = %g\n',accepted)
         fprintf('accepted_sig = %g\n',accepted_sig)

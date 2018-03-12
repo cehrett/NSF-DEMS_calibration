@@ -1,5 +1,5 @@
 function output = em_out(samples,burn_in,obs_x,tdat_input,tdat_output,...
-    tdat_output_sds,tdat_output_means,omega,rho,lambda)
+    tdat_output_sds,tdat_output_means,omega,rho,lambda,which_outputs)
 % This function takes as input the results of an MCMC routine and returns
 % the output of the emulator at the posterior mean of the MCMC draws
 
@@ -11,7 +11,7 @@ tdat.output_means = tdat_output_means;
 % Using samples on standardized scale
 
 % How many outputs are we working with
-num_out = size(samples,2)
+num_out = sum(which_outputs);
 
 post_mean = mean(samples(burn_in:end,:)) 
 

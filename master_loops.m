@@ -24,14 +24,26 @@ settings.doplot = true;
 %% Joint prop for theta, joint prop for obs var, prior on obs var
 [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
 
+which_outputs = [ 1 1 1 ] ; %Which of defl, rot, cost
+post_mean_out = em_out(samples,settings.burn_in,settings.obs_x,...
+    settings.sim_xt,settings.eta,settings.output_sds,...
+    settings.output_means,settings.omega,settings.rho,...
+    settings.lambda,which_outputs);
 results = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
-'init',init_theta,'desired_data',desired_obs,...
-'sigma2_prior',log_sigma2_prior,...
-'omega_rho_lambda',[omega rho lambda],'proposal',proposal,...
-'nugsize',nugsize);
+    'init',init_theta,'desired_data',desired_obs,...
+    'sigma2_prior',settings.log_sigma2_prior,...
+    'omega_rho_lambda',[settings.omega settings.rho settings.lambda],...
+    'proposal',settings.proposal,'nugsize',settings.nugsize,...
+    'post_mean_theta',mean(samples(settings.burn_in:end,:)),...
+    'post_mean_sigma2',mean(sigma2_rec(settings.burn_in:end,:)),...
+    'post_mean_out',post_mean_out);
+
+save(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
+'results_1d_homosked2sdposdObsPrior'],...
+'results');
 
 save(['E:\Carl\Documents\MATLAB\NSF-DEMS_data\'...
-'results_z1_hetskedObsPrior1'],...
+'results_1d_homosked6ObsPrior'],...
 'results');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -87,17 +99,62 @@ end
 save('E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\30_MCMCs');
 
 % Take a look at results
+logit = @(x) log(x./(1-x));
+h=figure('rend','painters','pos',[10 10 1200 800]);
 for jj=1:n
     for ii=1:p
-        subplot(2,2,1);
+        subplot(2,3,1);
         plot(all_results{jj}{ii}.samples(burn_in:end,1),'ko');
-        subplot(2,2,2);
+        title('Volume fraction');
+        subplot(2,3,2);
         plot(all_results{jj}{ii}.samples(burn_in:end,2),'ko');
-        subplot(2,2,3);
+        title('Thickness');
+        subplot(2,3,4);
         plot(all_results{jj}{ii}.sigma2(burn_in:end,1),'ko');
-        subplot(2,2,4);
+        title('Deflection \sigma^2');
+        subplot(2,3,5);
         plot(all_results{jj}{ii}.sigma2(burn_in:end,2),'ko');
+        title('Cost \sigma^2');
+        
+        subplot(2,3,6);
+        lbsamps = logit(all_results{jj}{ii}.samples(burn_in:end,:));
+        plot(lbsamps(:,1),lbsamps(:,2),'ko');
+        hold on;
+        rr = mvnrnd(mean(lbsamps),all_results{jj}{ii}.Sigma,150);
+        plot(rr(:,1),rr(:,2),'r.');
+        hold off;
+        title('(Logit) samples with proposal cov.');
+        
+        suptitle(strcat('Design point',{' '},num2str(jj),', Chain',...
+            {' '},num2str(ii)));
+        
+        h = subplot(2,3,3);
+        vfacf = acf(all_results{jj}{ii}.samples(burn_in:end,1),50);
+        thkacf = acf(all_results{jj}{ii}.samples(burn_in:end,2),50);
+        vfacf = vfacf(50); thkacf=thkacf(50);
+        cla;
+        title(' ')
+        line1Str = strcat(['VF posterior mean:' ' ' num2str(...
+            mean(all_results{jj}{ii}.samples(burn_in:end,1)))]);
+        line2Str = strcat(['Thk posterior mean:' ' ' num2str(...
+            mean(all_results{jj}{ii}.samples(burn_in:end,2)))]);
+        line3Str = strcat(['50 lag ACF for VF: ' ' ' num2str(vfacf)]);
+        line4Str = strcat(['50 lag ACF for Thk:' ' ' num2str(thkacf)]);
+        line5Str = strcat(['Desired deflection):' ' ' ...
+            num2str(all_results{jj}{ii}.desired_data(1))]);
+        line6Str = strcat(['Desired cost):' ' ' ...
+            num2str(all_results{jj}{ii}.desired_data(2))]);
+        xl = xlim(h); 
+        xPos = 0; 
+        yl = ylim(h); 
+        yPos = yl(1) + diff(yl) / 2; 
+        t = text(xPos, yPos, sprintf('%s\n%s\n\n%s\n%s\n\n%s\n%s', ...
+            line1Str, line2Str, line3Str, line4Str,line5Str,line6Str), 'Parent',h);
+        %set(t, 'HorizontalAlignment', 'center');
+        %title('info')
+        axis off
         waitforbuttonpress;
+        %saveas(h,sprintf('FIG%d-%d.png',jj,ii));
     end
 end
 

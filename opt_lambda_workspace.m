@@ -3,10 +3,11 @@
 clc; clear all; close all;
 
 %% Get data
-addpath('NSF DEMS\Phase 1\');
+addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data');
+addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\');
 
 fprintf('Reading data from .xlsx...\n')
-raw_dat = xlsread("fe_results.xlsx");
+raw_dat = xlsread("NSF DEMS\Phase 1\stored_data\fe_results.xlsx");
 tdat = Tdat(raw_dat,3); % rescaling inputs, standardizing outputs
 fprintf('done.\n\n')
 

@@ -38,6 +38,11 @@ sigma2_prop_density = @(x,s) exp(mvnrnd(log(x),s));
 log_sig_mh_correction = @(sig_s,sig) log(prod(sig_s)) - log(prod(sig));
 Sigma_sig = eye(num_out);
 
+%% Set prior for theta
+Cost_lambda = 1;
+Cost = @(t) Cost_lambda * norm(t)^2;
+theta_prior = @(theta) exp(-Cost(theta));
+
 
 %% Package proposal density
 proposal.density = prop_density; 
