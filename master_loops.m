@@ -128,7 +128,7 @@ for jj=1:n
         suptitle(strcat('Design point',{' '},num2str(jj),', Chain',...
             {' '},num2str(ii)));
         
-        h = subplot(2,3,3);
+        hh = subplot(2,3,3);
         vfacf = acf(all_results{jj}{ii}.samples(burn_in:end,1),50);
         thkacf = acf(all_results{jj}{ii}.samples(burn_in:end,2),50);
         vfacf = vfacf(50); thkacf=thkacf(50);
@@ -144,9 +144,9 @@ for jj=1:n
             num2str(all_results{jj}{ii}.desired_data(1))]);
         line6Str = strcat(['Desired cost):' ' ' ...
             num2str(all_results{jj}{ii}.desired_data(2))]);
-        xl = xlim(h); 
+        xl = xlim(hh); 
         xPos = 0; 
-        yl = ylim(h); 
+        yl = ylim(hh); 
         yPos = yl(1) + diff(yl) / 2; 
         t = text(xPos, yPos, sprintf('%s\n%s\n\n%s\n%s\n\n%s\n%s', ...
             line1Str, line2Str, line3Str, line4Str,line5Str,line6Str), 'Parent',h);
