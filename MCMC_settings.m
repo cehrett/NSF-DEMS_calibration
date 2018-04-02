@@ -41,8 +41,8 @@ Sigma_sig = eye(num_out);
 %% Set prior for theta
 Cost_lambda = 100;
 Cost = @(t,Cost_lambda) Cost_lambda * norm(t)^2;
-theta_prior = @(theta) exp(-Cost(theta,Cost_lambda));
-log_theta_prior = @(theta) -Cost(theta,Cost_lambda);
+theta_prior = @(theta,Cost_lambda) exp(-Cost(theta,Cost_lambda));
+log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
 
 
 %% Package proposal density
