@@ -151,9 +151,9 @@ for jj = 1:2
     hold off;
     title({'(Logit) VF vs. thickness', 'with proposal covariance'});
     xlabel('Logit VF'); ylabel('Logit thickness');
-    suptitle(strcat('Desired data: VF',{' '},...
+    suptitle(strcat('Desired data: deflection',{' '},...
         num2str(desired_data(jj,1)),{', '},...
-        'Thickness', {' '}, num2str(desired_data(jj,2))));
+        'cost', {' '}, num2str(desired_data(jj,2))));
     
     scale = 0.1;
     pos = get(gca, 'Position');

@@ -32,8 +32,9 @@ proposal = settings.proposal; nugsize = settings.nugsize;
 num_out=settings.num_out; 
 log_sig_mh_correction=settings.log_sig_mh_correction;
 log_mh_correction=settings.log_mh_correction;
-doplot = settings.doplot;
-which_outputs = [ 1 1 1]; if num_out==2 which_outputs(2)=0 ; end
+doplot = settings.doplot; log_theta_prior = settings.log_theta_prior;
+Cost_lambda = settings.Cost_lambda;
+which_outputs = settings.which_outputs;
 
 %% Set plot label values
 labs = [ 'defl' ; 'rotn' ; 'cost' ] ; 
@@ -104,9 +105,10 @@ Sigma_z = [ Sigma_eta_yy + Sigma_y  Sigma_eta_yx ; Sigma_eta_xy ...
 % Add a nugget to Sigma_z for computational stability
 Sigma_z = Sigma_z + eye(size(Sigma_z)) * nugsize(Sigma_z);
 % Get log likelihood of theta
-loglik_theta = logmvnpdf(z',0,Sigma_z) ;
+L_D = logmvnpdf(z',0,Sigma_z);
+loglik_theta = L_D + log_theta_prior(theta,Cost_lambda);
 % Get log likelihood of sigma2
-loglik_sigma2 = loglik_theta + log_sigma2_prior(sigma2);
+loglik_sigma2 = L_D + log_sigma2_prior(sigma2);
 
 figure() % For observing MCMC
 %% Begin MCMC routine
@@ -139,8 +141,10 @@ for ii = 1:M
         % Add a nugget to Sigma_z for computational stability
         Sigma_z_s = Sigma_z_s + eye(size(Sigma_z_s)) * nugsize(Sigma_z_s);
         % Get log likelihood of theta_s
-        loglik_theta_s = logmvnpdf(z',0,Sigma_z_s) ;
-        loglik_theta   = logmvnpdf(z',0,Sigma_z) ;
+        L_D_s = logmvnpdf(z',0,Sigma_z_s) ;
+        loglik_theta_s = L_D_s + log_theta_prior(theta_s,Cost_lambda);
+        L_D = logmvnpdf(z',0,Sigma_z) ;
+        loglik_theta   = L_D + log_theta_prior(theta,Cost_lambda);
     end
     
     %% Get acceptance ratio statistic
@@ -208,31 +212,6 @@ for ii = 1:M
     %% Recordkeeping
     samples(ii+1,:) = theta;
     sigma2_rec(ii+1,:) = sigma2;
-
-    %% Output to console to let us know progress
-    if mod(ii,10) == 0 && doplot == true
-        fprintf(repmat('\b',1,msg));
-        msg = fprintf('Completed: %g/%g\n',ii,M);
-        subplot(2,3,1);
-        plot(samples(startplot:end,1),'ko');
-        title('Volume fraction');
-        subplot(2,3,2);
-        plot(samples(startplot:end,2),'ko');
-        title('Thickness');
-        for jj = 1:num_out
-            subplot(2,3,jj+2);
-            plot(sigma2_rec(startplot:end,jj),'ko');
-            title(['\sigma^2: ' labs(jj,:)]);
-        end
-        subplot(2,3,6);
-        plot(logit(samples(startplot:end,1)),...
-            logit(samples(startplot:end,2)),'ko');
-        hold on
-        rr = mvnrnd(mean(logit(samples(startplot:end,:))),Sigma,200);
-        plot(rr(:,1),rr(:,2),'r.');
-        hold off
-        drawnow
-    end
     
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
@@ -274,10 +253,12 @@ for ii = 1:M
     end
     
     if mod(ii,100) == 0
-        
         % Print info and newline
-        vf_acf = acf(samples(startplot:ii+1,1),50); vf_acf = vf_acf(50);
-        thk_acf = acf(samples(startplot:ii+1,2),50); thk_acf = thk_acf(50);
+        lag = min(50,size(samples,1)-startplot);
+        vf_acf = acf(samples(startplot:ii+1,1),lag); 
+        vf_acf = vf_acf(lag);
+        thk_acf = acf(samples(startplot:ii+1,2),lag); 
+        thk_acf = thk_acf(lag);
         fprintf(repmat('\b',1,msg));
         fprintf('accepted     = %g\n',accepted)
         fprintf('accepted_sig = %g\n',accepted_sig)
@@ -291,6 +272,32 @@ for ii = 1:M
         accepted_sig    = 0;
         out_of_range_rec = 0 * out_of_range_rec;
         out_of_range_sig = 0 * out_of_range_sig;
+    end
+    
+    
+        %% Output to console to let us know progress
+    if mod(ii,10) == 0 && doplot == true
+        fprintf(repmat('\b',1,msg));
+        msg = fprintf('Completed: %g/%g\n',ii,M);
+        subplot(2,3,1);
+        plot(samples(startplot:end,1),'ko');
+        title('Volume fraction');
+        subplot(2,3,2);
+        plot(samples(startplot:end,2),'ko');
+        title('Thickness');
+        for jj = 1:num_out
+            subplot(2,3,jj+2);
+            plot(sigma2_rec(startplot:end,jj),'ko');
+            title(['\sigma^2: ' labs(jj,:)]);
+        end
+        subplot(2,3,6);
+        plot(logit(samples(startplot:end,1)),...
+            logit(samples(startplot:end,2)),'ko');
+        hold on
+        rr = mvnrnd(mean(logit(samples(startplot:end,:))),Sigma,200);
+        plot(rr(:,1),rr(:,2),'r.');
+        hold off
+        drawnow
     end
     
     %% Stop plotting burn_in

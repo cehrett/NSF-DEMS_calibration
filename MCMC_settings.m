@@ -1,4 +1,4 @@
-function settings = MCMC_settings (M,desired_obs)
+function settings = MCMC_settings (M,desired_obs,which_outputs)
 
 
 %% MCMC settings
@@ -39,9 +39,10 @@ log_sig_mh_correction = @(sig_s,sig) log(prod(sig_s)) - log(prod(sig));
 Sigma_sig = eye(num_out);
 
 %% Set prior for theta
-Cost_lambda = 1;
-Cost = @(t) Cost_lambda * norm(t)^2;
-theta_prior = @(theta) exp(-Cost(theta));
+Cost_lambda = 100;
+Cost = @(t,Cost_lambda) Cost_lambda * norm(t)^2;
+theta_prior = @(theta) exp(-Cost(theta,Cost_lambda));
+log_theta_prior = @(theta) -Cost(theta,Cost_lambda);
 
 
 %% Package proposal density
@@ -58,9 +59,11 @@ log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
 %% Load data and get initial theta value
 fprintf('Reading data from .xlsx...\n')
 raw_dat = xlsread('fe_results.xlsx');
-if num_out == 2 % This will exclude rotation if we only want 2 outputs.
-    raw_dat(:,5)=[];
+indx = [1 2 3]; % This tells us which columns of raw_dat we need.
+for ii = 1:length(which_outputs) % This loop will set indx appropriately.
+    if which_outputs(ii) indx = [indx 3+ii] ; end
 end
+raw_dat = raw_dat(:,indx);
 % raw_dat is assumed to include one observation per row, with input columns
 % preceding output columns (with no headers).
 num_calib = 2 ; % This is the number of calibration parameters in the data,
@@ -117,6 +120,9 @@ settings = struct('M',M,'burn_in',burn_in,'sim_xt',sim_xt,...
     'proposal',proposal,'nugsize',nugsize,'num_out',num_out,...
     'log_sig_mh_correction',log_sig_mh_correction,...
     'log_mh_correction',log_mh_correction,...
-    'output_sds',tdat.output_sds,'output_means',tdat.output_means);
+    'output_sds',tdat.output_sds,'output_means',tdat.output_means,...
+    'log_theta_prior',log_theta_prior,...
+    'Cost_lambda',Cost_lambda,...
+    'which_outputs',which_outputs);
 
 end
