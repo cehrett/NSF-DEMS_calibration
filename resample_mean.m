@@ -1,5 +1,5 @@
-function [post_mean,weights] = resample_mean(settings, results , ...
-    new_desired_obs)
+function [post_mean,log_weights,weights] = ...
+    resample_mean(settings , results , new_desired_obs)
 
 % Get total number of samples
 M=settings.M - settings.burn_in;
@@ -12,7 +12,7 @@ theta = results.samples(settings.burn_in:end,:);
 sigma2 = results.sigma2(settings.burn_in:end,:);
 
 % This will store individual weights
-weights = zeros(M,1);
+log_weights = zeros(M,1);
 
 % Get omega, rho, lambda
 omega = settings.omega;
@@ -33,20 +33,23 @@ Sigma_eta_xx = gp_cov(omega,sim_x,sim_x,rho,sim_t,sim_t,lambda,false);
 % of the M samples
 msg=0; % For console output
 for ii = 1 : M
-    weight_num = resample_likelihood(new_desired_obs,theta(ii,:),...
+    log_weight_num = resample_likelihood(new_desired_obs,theta(ii,:),...
         sigma2(ii,:),settings,Sigma_eta_xx);
-    weight_den = resample_likelihood(old_desired_obs,theta(ii,:),...
+    log_weight_den = resample_likelihood(old_desired_obs,theta(ii,:),...
         sigma2(ii,:),settings,Sigma_eta_xx);
-    weights(ii) = weight_num/weight_den;
+    log_weights(ii) = log_weight_num - log_weight_den;
     
     % Console output to let us know progress
-    if mod(ii,100) == 0
+    if mod(ii,10) == 0
         fprintf(repmat('\b',1,msg));
         msg=fprintf('Completed: %d/%d',ii,M);
     end
 end
 
+% Transform log_weights to weights
+weights = exp(log_weights);
+
 % Calculate posterior mean
-post_mean = sum(samples .* weights) / sum(weights);
+post_mean = sum([theta sigma2] .* weights) / sum(weights);
 
 end
