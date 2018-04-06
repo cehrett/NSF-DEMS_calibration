@@ -16,9 +16,10 @@ which_outputs = [ 1 1 0 ] ; %Which of defl, rot, cost
 settings = MCMC_settings (M,desired_obs,which_outputs);
 settings.doplot = false;
 settings.doplot = true;
-results = cell(3,1);
+results2 = cell(3,1);
+count = 1;
 
-for ii = [1 10 100]
+for ii = [50]
     settings.Cost_lambda=ii;
     
     [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
@@ -38,13 +39,53 @@ for ii = [1 10 100]
         'post_mean_out',post_mean_out,...
         'Cost_lambda',settings.Cost_lambda);
     
-    results{ii}=result;
+    results2{count}=result;
+    count = count + 1;
 end
 
 save(['E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\'...
 'results_Cost_lambda_test'],...
 'results');
 
+%% Figures
 
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
+'results_Cost_lambda_test'],...
+'results');
+r=cell(4,1); r{1}=results{1}; r{2}=results{10};r{3}=results2{1};r{4}=results{100};results=r;
+burn_in=2002; logit = @(x) log(x./(1-x));
+
+h=figure('rend','painters','pos',[10 10 800 600]);
+for ii =1:4
+    
+    subplot(2,3,1);
+    plot(results{ii}.samples(burn_in:end,1),'ko');
+    title('Volume fraction');
+    subplot(2,3,2);
+    plot(results{ii}.samples(burn_in:end,2),'ko');
+    title('Thickness');
+    subplot(2,3,4);
+    plot(results{ii}.sigma2(burn_in:end,1),'ko');
+    title('Deflection \sigma^2');
+    subplot(2,3,5);
+    plot(results{ii}.sigma2(burn_in:end,2),'ko');
+    title('Rotation \sigma^2');
+
+    subplot(2,3,6);
+    lbsamps = logit(results{ii}.samples(burn_in:end,:));
+    plot(lbsamps(:,1),lbsamps(:,2),'ko');
+    hold on;
+    rr = mvnrnd(mean(lbsamps),results{ii}.Sigma,150);
+    plot(rr(:,1),rr(:,2),'r.');
+    hold off;
+    title('(Logit) samples with proposal cov.');
+
+    suptitle(strcat('Prior on VF and Thickness:',...
+        {' '},num2str(results{ii}.Cost_lambda),{' '},...
+        '\cdot ||(vf,thk)||^2'));
+    
+    saveas(h,sprintf('FIG%d.png',ii));
+    waitforbuttonpress;
+end
 
 

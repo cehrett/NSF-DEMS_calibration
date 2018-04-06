@@ -62,7 +62,7 @@ cutoff = 40;
 num_cntrl = size(obs_x,2) ;
 num_calib = length(init_theta) ;
 n = size(obs_x,1);
-num_obs = n/num_out; % This assumes 3-d output of simulation.
+num_obs = n/num_out; % Gets number of multivariate observations.
 m = size(eta,1);
 z = [y ; eta ] ; 
 sim_x = sim_xt(:,1:num_cntrl) ;
@@ -78,16 +78,16 @@ Sigma_y = diag(sigma2_long);
 
 %% Initialize some variables for later use
 out_of_range_rec = zeros(size(init_theta)); 
-reject_rec = 0;
-startplot = 10;
-accepted = 0;
-accepted_sig =0;
-theta=init_theta;
-msg=0;
-samples = init_theta;
-sigma2_rec = sigma2;
+reject_rec = 0              ;
+startplot = 10              ;
+accepted = 0                ;
+accepted_sig =0             ;
+theta=init_theta            ;
+msg=0                       ;
+samples = init_theta        ;
+sigma2_rec = sigma2         ;
 out_of_range_sig = zeros(1,num_out);
-mult =1 ;
+mult = 1 ;
 
 %% Get initial log likelihood
 % Set new observation input matrix:
