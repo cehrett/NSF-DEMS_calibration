@@ -1,12 +1,18 @@
-function output = em_out(samples,burn_in,obs_x,tdat_input,tdat_output,...
-    tdat_output_sds,tdat_output_means,omega,rho,lambda,which_outputs)
+function output = em_out(samples,settings)
 % This function takes as input the results of an MCMC routine and returns
 % the output of the emulator at the posterior mean of the MCMC draws
 
-tdat.input = tdat_input;
-tdat.output= tdat_output;
-tdat.output_sds = tdat_output_sds;
-tdat.output_means = tdat_output_means;
+% Unpack variables for convenience
+burn_in = settings.burn_in;
+obs_x = settings.obs_x;
+tdat.input = settings.sim_xt;
+tdat.output= settings.eta;
+tdat.output_sds = settings.output_sds;
+tdat.output_means = settings.output_means;
+omega = settings.omega;
+rho = settings.rho;
+lambda = settings.lambda;
+which_outputs = settings.which_outputs;
 
 % Using samples on standardized scale
 

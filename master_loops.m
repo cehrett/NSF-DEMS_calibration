@@ -10,11 +10,11 @@ addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\');
 
 
 %% User defined values
-M = 1e4;
+M = 1e2;
 desired_obs = [.65 0.077 96];
 desired_obs = [.65 96];
 desired_obs = [.65 0.77];
-which_outputs = [ 1 1 1 ] ; %Which of defl, rot, cost
+which_outputs = [ 1 1 0 ] ; %Which of defl, rot, cost
 
 %% Settings
 settings = MCMC_settings (M,desired_obs,which_outputs);
@@ -27,11 +27,8 @@ settings.Cost_lambda = 0; % remove prior on vf, thk
 %% Joint prop for theta, joint prop for obs var, prior on obs var
 [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
 
-
-post_mean_out = em_out(samples,settings.burn_in,settings.obs_x,...
-    settings.sim_xt,settings.eta,settings.output_sds,...
-    settings.output_means,settings.omega,settings.rho,...
-    settings.lambda,which_outputs);
+trivar_output_settings = MCMC_settings(M,[0 0 0],[1 1 1]);
+post_mean_out = em_out(samples,trivar_output_settings);
 results = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
     'init',samples(1,:),'desired_obs',desired_obs,...
     'sigma2_prior',settings.log_sigma2_prior,...

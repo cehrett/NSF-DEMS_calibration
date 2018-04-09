@@ -1,15 +1,13 @@
 function [post_mean,log_weights,weights] = ...
     resample_mean(settings , results , new_desired_obs)
 
-% Get total number of samples
-M=settings.M - settings.burn_in;
-
 % Get old desired obs
 old_desired_obs = results.desired_obs;
 
 % Get samples of theta and sigma_2
 theta = results.samples(settings.burn_in:end,:);
 sigma2 = results.sigma2(settings.burn_in:end,:);
+M = size(theta,1);
 
 % This will store individual weights
 log_weights = zeros(M,1);
@@ -50,6 +48,6 @@ end
 weights = exp(log_weights);
 
 % Calculate posterior mean
-post_mean = sum([theta sigma2] .* weights) / sum(weights);
+post_mean = 0 ; % for testing sum([theta sigma2] .* weights) / sum(weights);
 
 end
