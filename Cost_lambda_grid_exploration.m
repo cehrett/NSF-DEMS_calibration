@@ -9,8 +9,8 @@ addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data');
 addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\');
 
 %% User defined values
-m = 2; % Grid size
-M = 5e2; % MCMC length
+m = 10; % Grid size
+M = 6e3; % MCMC length
 desired_obs = [ 0 0 ];
 which_outputs = [ 1 1 0 ] ; %Which of defl, rot, cost
 
@@ -18,7 +18,7 @@ which_outputs = [ 1 1 0 ] ; %Which of defl, rot, cost
 settings = MCMC_settings (M,desired_obs,which_outputs);
 settings.doplot = false;
 settings.doplot = true;
-settings.Cost_lambda = 0; % remove prior on vf, thk
+settings.burn_in=2000;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -36,7 +36,7 @@ for ii = 1:m
     % Collect results
     % trivar_output_settings is useful for getting output at post mean
     trivar_output_settings = MCMC_settings(M,[0 0 0],[1 1 1]);
-    post_mean_out = em_out(samples,settings);
+    post_mean_out = em_out(samples,trivar_output_settings);
     result = struct('samples',samples,'sigma2',sigma2_rec,'Sigma',Sigma,...
         'init',samples(1,:),'desired_obs',desired_obs,...
         'sigma2_prior',settings.log_sigma2_prior,...
@@ -52,6 +52,11 @@ for ii = 1:m
         'burn_in',settings.burn_in);
     
     results{ii} = result;
+    
+    save(['E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\'...
+    'results_Cost_lambda_grid_exploration'],...
+    'results');
+    
 end
 
 % save(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
