@@ -23,7 +23,7 @@ post_mean = mean(samples(burn_in:end,:))
 
 post_mean_input = [obs_x repmat(post_mean,size(obs_x,1),1) ];
 em = emulator(tdat.input,tdat.output,post_mean_input,omega,rho,lambda,...
-    0,0,true);
+    0,0,false);
 
 if num_out == 3 
     post_mean_sim_defl_std =em.mu(1:(length(em.mu)/3));

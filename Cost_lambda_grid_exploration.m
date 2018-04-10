@@ -26,7 +26,7 @@ settings.burn_in=2000;
 %gridvals = exp(linspace(0,log(100),m));
 gridvals = linspace(0,100,m); % Get grid values
 results = cell(m,1); % This will store results
-for ii = 1:m
+for ii = 1:4%1:m
     
     settings.Cost_lambda = gridvals(ii);
     
@@ -51,11 +51,15 @@ for ii = 1:m
         'log_mh_correction',settings.log_mh_correction,...
         'burn_in',settings.burn_in);
     
-    results{ii} = result;
+    results{ii+1} = result;
     
-    save(['E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\'...
-    'results_Cost_lambda_grid_exploration'],...
-    'results');
+    save(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
+     'results_Cost_lambda_grid_exploration'],...
+     'results');
+    
+%     save(['E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\'...
+%     'results_Cost_lambda_grid_exploration'],...
+%     'results');
     
 end
 
@@ -66,4 +70,53 @@ end
 save(['E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\stored_data\'...
 'results_Cost_lambda_grid_exploration'],...
 'results');
+
+%% Figures
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
+ 'results_Cost_lambda_grid_exploration'],...
+ 'results');
+% Collect Cost_lambdas, posterior costs, defl, rot
+m=size(results,1);
+cost_lambda = zeros(m,1);
+pmo = zeros(m,3);
+for ii = 1:m
+    pmo(ii,:) = results{ii}.post_mean_out;
+    cost_lambda(ii) = results{ii}.Cost_lambda;
+end
+post_cost = pmo(:,3);
+post_defl = pmo(:,1);
+post_rotn = pmo(:,2);
+% Begin figures
+h=figure('rend','painters','pos',[10 10 1200 400]);
+x = 0:1:100;
+subplot(1,3,1)
+pcost = pchip(cost_lambda,post_cost,x);
+plot(cost_lambda,post_cost,'o',x,pcost,'-');
+xl1=xlabel('\lambda_c_o_s_t');
+ylabel('Cost');
+
+subplot(1,3,2)
+pdefl = pchip(cost_lambda,post_defl,x);
+plot(cost_lambda,post_defl,'o',x,pdefl,'-');
+xl2=xlabel('\lambda_c_o_s_t');
+ylabel('Deflection');
+
+subplot(1,3,3)
+protn = pchip(cost_lambda,post_rotn,x);
+plot(cost_lambda,post_rotn,'o',x,protn,'-');
+xl3=xlabel('\lambda_c_o_s_t');
+ylabel('Rotation');
+
+
+suptitle('Performance metrics vs. \lambda_c_o_s_t'); 
+p = get(xl1,'position');
+set(xl1,'position',p + [0 6 0]);
+p = get(xl2,'position');
+set(xl2,'position',p + [0 0.003 0])
+p = get(xl3,'position');
+set(xl3,'position',p + [0 0.0005 0])
+
+saveas(h,'FIG_cost_lambda.png');
+
+%% Get confidence intervals at each Cost_lambda
 
