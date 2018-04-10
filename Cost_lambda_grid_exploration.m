@@ -119,4 +119,6 @@ set(xl3,'position',p + [0 0.0005 0])
 saveas(h,'FIG_cost_lambda.png');
 
 %% Get confidence intervals at each Cost_lambda
+m=size(results,1);
 
+intervals = 

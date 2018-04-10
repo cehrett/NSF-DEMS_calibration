@@ -20,7 +20,7 @@ lambda = settings.lambda;
 which_outputs = settings.which_outputs;
 % Following line reduces the set of samples down to a size-n set of
 % post-burn-in samples
-samples = datasample(samples(burn_in:end,:),n,1);
+samples = datasample(samples(burn_in:end,:),n,1,'Replace',false);
 
 % Get control settings
 dum_vars = unique(settings.obs_x(:,1));
