@@ -18,9 +18,13 @@ omega = settings.omega;
 rho = settings.rho;
 lambda = settings.lambda;
 which_outputs = settings.which_outputs;
+
 % Following line reduces the set of samples down to a size-n set of
-% post-burn-in samples
-samples = datasample(samples(burn_in:end,:),n,1,'Replace',false);
+% post-burn-in samples, if n!=0; otherwise all post-burn_in samples used
+samples = samples(burn_in:end,:);
+if n ~= 0
+    samples = datasample(samples,n,1,'Replace',false);
+end
 
 % Get control settings
 dum_vars = unique(settings.obs_x(:,1));
@@ -33,7 +37,7 @@ num_out = sum(which_outputs);
 % Get prediction locations
 pred_locs = [obs_x repelem(samples,length(dum_vars),1) ];
 em = emulator(tdat.input,tdat.output,pred_locs,omega,rho,lambda,...
-    0,0,false);
+    0,0,true);
 
 % Get outputs and related stats. Note that the code here assumes that we
 % are getting all three outputs of deflection, rotation, cost.
