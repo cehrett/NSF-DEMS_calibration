@@ -127,24 +127,40 @@ xl1=xlabel('\lambda_c_o_s_t');
 ylabel('Cost');
 
 subplot(1,3,2)
+% Get main curve
 pdefl = pchip(cost_lambda,post_defl_mean,x);
-plot(cost_lambda,post_defl_mean,'o',x,pdefl,'-r');
+% Get upper and lower 0.05 quantiles curves
+pdefluq = pchip(cost_lambda,post_defl_uq,x);
+pdefllq = pchip(cost_lambda,post_defl_lq,x);
+f=fill([ x , fliplr(x) ], [pdefluq, fliplr(pdefllq)],'k');
+set(f,'facealpha',.25);
 hold on;
-errorbar(cost_lambda,post_defl_mean,post_defl_sd,'ob');
+plot(cost_lambda,post_defl_mean,'or',...
+    x,pdefl,'-r',...
+    x,pdefluq,'-k',...
+    x,pdefllq,'-k');
 xl2=xlabel('\lambda_c_o_s_t');
 ylabel('Deflection');
 
 subplot(1,3,3)
+% Get main curve
 protn = pchip(cost_lambda,post_rotn_mean,x);
-plot(cost_lambda,post_rotn_mean,'o',x,protn,'-r');
+% Get upper and lower 0.05 quantiles curves
+protnuq = pchip(cost_lambda,post_rotn_uq,x);
+protnlq = pchip(cost_lambda,post_rotn_lq,x);
+f=fill([ x , fliplr(x) ], [protnuq, fliplr(protnlq)],'k');
+set(f,'facealpha',.25);
 hold on;
-errorbar(cost_lambda,post_rotn_mean,post_rotn_sd,'ob');
+plot(cost_lambda,post_rotn_mean,'or',...
+    x,protn,'-r',...
+    x,protnuq,'-k',...
+    x,protnlq,'-k');
 xl3=xlabel('\lambda_c_o_s_t');
 ylabel('Rotation');
 
 
 suptitle(['Performance metrics vs. \lambda_c_o_s_t,',...
-    'with upper/lower 0.05 quantile bands']); 
+    ' with upper/lower 0.05 quantile bands']); 
 p = get(xl1,'position');
 set(xl1,'position',p + [0 6 0]);
 p = get(xl2,'position');
