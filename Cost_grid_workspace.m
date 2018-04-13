@@ -32,6 +32,9 @@ gridvals = linspace(96,350,m); % Get grid values
 results = cell(m,1); % This will store results
 for ii = 1:m
     
+    % Let us know where in the loop we are
+    fprintf('Starting run %d/%d:\n\n',ii,m);
+    
     % Set desired_obs for this loop
     desired_obs = [desired_def_rot gridvals(ii)];
     
@@ -84,4 +87,39 @@ save([dpath,'stored_data\'...
     'results_Cost_grid_exploration'],...
     'results');
 
-load
+load([dpath,'stored_data\'...
+    'results_Cost_grid_exploration'],...
+    'results');
+
+%% Get confidence intervals at each cost
+m=size(results,1); % Get total number of distinct costs
+n = 0; % Set sample size for estimating mean, sd at each point;
+       % n=0 means use all samples (computationally expensive!)
+
+% These will store the results, sd's and means at each cost
+outputs = cell(m,1);
+intervals = zeros(m,3);
+means = zeros(m,3);
+
+% Loop: get the emulator output at each sample drawn in each MCMC
+for ii = 1:m
+    fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
+    
+    % Get the outputs for the ii^th MCMC chain
+    emout = em_out_many(results{ii}.samples,results{ii}.settings,n);
+    
+    % Record them (in a couple places, for convenience)
+    % First, all the outputs (one per sample drawn in MCMC)
+    outputs{ii} = emout;
+    model_output.by_sample = outputs{ii};
+    % Then the means
+    means(ii,:) = mean(emout);
+    model_output.means = means(ii,:);
+    % Then the standard deviations
+    intervals(ii,:) = std(emout);
+    model_output.sds = intervals(ii,:);
+    % Now package everything up in the results structs
+    results{ii}.model_output = model_output;
+    
+end
+
