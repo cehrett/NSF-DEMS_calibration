@@ -87,6 +87,10 @@ save([dpath,'stored_data\'...
     'results_Cost_grid_exploration'],...
     'results');
 
+load([dpath,'stored_data\'...
+    'results_Cost_grid_exploration'],...
+    'results');
+
 %% Get confidence intervals at each cost
 m=size(results,1); % Get total number of distinct costs
 n = 0; % Set sample size for estimating mean, sd at each point;
@@ -118,3 +122,99 @@ for ii = 1:m
     results{ii}.model_output = model_output;
     
 end
+
+%% Figures
+% Collect costs, and posterior mean and sds for defl, rot, as
+% well as upper and lower .05 quantiles
+m=size(results,1);
+cost = zeros(m,1);
+pmo = zeros(m,3); % this will store posterior mean emulator outputs
+pso = zeros(m,3); % this, 2 standard deviations
+plo = zeros(m,3); % this, lower alpha quantiles
+puo = zeros(m,3); % this, upper alpha quantiles
+alpha = 0.05 % Set quantile for credible interval
+for ii = 1:m
+    pmo(ii,:) = results{ii}.post_mean_out;
+    pso(ii,:) = 2 * results{ii}.model_output.sds;
+    plo(ii,:) = quantile(results{ii}.model_output.by_sample,alpha);
+    puo(ii,:) = quantile(results{ii}.model_output.by_sample,1-alpha);
+    cost(ii)  = results{ii}.desired_obs(3);
+end
+% Here, we just take the above arrays storing means, sds, quantiles and
+% divide them up into one vector for each of the three model outputs.
+post_cost_mean = pmo(:,3);
+post_defl_mean = pmo(:,1);
+post_rotn_mean = pmo(:,2);
+post_cost_sd = pso(:,3);
+post_defl_sd = pso(:,1);
+post_rotn_sd = pso(:,2);
+post_cost_lq = plo(:,3);
+post_cost_uq = puo(:,3);
+post_defl_lq = plo(:,1);
+post_defl_uq = puo(:,1);
+post_rotn_lq = plo(:,2);
+post_rotn_uq = puo(:,2);
+
+% Begin figures
+h=figure('rend','painters','pos',[10 10 1200 400]);
+x = 96:1:350; % x fills the cost domain
+% Now begin plot 1/3
+subplot(1,3,1)
+% Get main curve
+pcost = pchip(cost,post_cost_mean,x);
+% Get upper and lower 0.05 quantiles curves
+pcostuq = pchip(cost,post_cost_uq,x);
+pcostlq = pchip(cost,post_cost_lq,x);
+f=fill([ x , fliplr(x) ], [pcostuq, fliplr(pcostlq)],'k');
+set(f,'facealpha',.25);
+hold on;
+plot(cost,post_cost_mean,'or',...
+    x,pcost,'-r',...
+    x,pcostuq,'-k',...
+    x,pcostlq,'-k');
+% Plot 2sd errbar
+% errorbar(cost_lambda,post_cost_mean,post_cost_sd,'ob'); 
+xl1=xlabel('Target cost');
+ylabel('Observed cost');
+
+subplot(1,3,2)
+% Get main curve
+pdefl = pchip(cost,post_defl_mean,x);
+% Get upper and lower 0.05 quantiles curves
+pdefluq = pchip(cost,post_defl_uq,x);
+pdefllq = pchip(cost,post_defl_lq,x);
+f=fill([ x , fliplr(x) ], [pdefluq, fliplr(pdefllq)],'k');
+set(f,'facealpha',.25);
+hold on;
+plot(cost,post_defl_mean,'or',...
+    x,pdefl,'-r',...
+    x,pdefluq,'-k',...
+    x,pdefllq,'-k');
+xl2=xlabel('Target cost');
+ylabel('Deflection');
+
+subplot(1,3,3)
+% Get main curve
+protn = pchip(cost,post_rotn_mean,x);
+% Get upper and lower 0.05 quantiles curves
+protnuq = pchip(cost,post_rotn_uq,x);
+protnlq = pchip(cost,post_rotn_lq,x);
+f=fill([ x , fliplr(x) ], [protnuq, fliplr(protnlq)],'k');
+set(f,'facealpha',.25);
+hold on;
+plot(cost,post_rotn_mean,'or',...
+    x,protn,'-r',...
+    x,protnuq,'-k',...
+    x,protnlq,'-k');
+xl3=xlabel('Target cost');
+ylabel('Rotation');
+
+
+suptitle(['Performance metrics vs. (known) target cost,',...
+    ' with upper/lower ',num2str(alpha),' quantile bands']); 
+p = get(xl1,'position');
+set(xl1,'position',p + [0 6 0]);
+p = get(xl2,'position');
+set(xl2,'position',p + [0 0.003 0])
+p = get(xl3,'position');
+set(xl3,'position',p + [0 0.0005 0])
