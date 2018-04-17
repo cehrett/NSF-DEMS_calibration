@@ -1,6 +1,7 @@
 % Workspace: Optimize rho, omega for average lambda
 
 clc; clear all; close all;
+% test dummy
 
 %% Get data
 addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data');
