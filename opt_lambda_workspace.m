@@ -1,7 +1,6 @@
 % Workspace: Optimize rho, omega for average lambda
 
 clc; clear all; close all;
-% test dummy
 
 %% Get data
 addpath('C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data');
@@ -14,11 +13,15 @@ fprintf('done.\n\n')
 
 %% Covariance parameter settings
 % Found by optimization routine below:
-Rho_lam_optimum  = [0.655344235568109   0.931941001705886 ...
-    0.960653924901867   0.991953924787049   0.017385994893994];
-omega  = Rho_lam_optimum(1:2);
-rho    = Rho_lam_optimum(3:4);
-lambda = Rho_lam_optimum(5);
+Rho_lam_optimum  = [0.935753521438069   0.650946653103927...
+    0.673593619101900 0.479684392594821   0.967330479380613...
+    0.015203646313917];
+omega  = Rho_lam_optimum(1:3);
+rho    = Rho_lam_optimum(4:5);
+lambda = Rho_lam_optimum(6);
+% old one:
+% Rho_lam_optimum  =[0.655344235568109   0.931941001705886...
+%  0.960653924901867   0.991953924787049   0.017385994893994];
 
 %% Narrow the data set for convenience
 raw_dat_s = raw_dat(mod(1:size(raw_dat,1),3)==0,:);
@@ -28,13 +31,13 @@ tdat = Tdat(raw_dat_s,3);
 theta = [.5 .5];
 obs_x = [];
 obs_y = [];
-sim_x = tdat.input(:,1:2);
+sim_x = tdat.input(:,1:3);
 sim_t = tdat.input(:,3:4);
 sim_y = tdat.output;
 cntrl_input = sim_x;
 calib_input = sim_t;
 output = sim_y;
-c     = 10^3.625;
+c      = 10^3.625;
 
 %% Generate some observed data
 defl_sd = 75/4;
@@ -59,11 +62,11 @@ obs_y = [ repelem(defl_vals,num_temps,1) ; ...
 
 %% Run the likelihood function
 likelihood = Lorl(omega,rho,lambda,obs_x,rho,obs_y,...
-    tdat.input(:,1:2),tdat.input(:,3:4),tdat.output,c)
+    sim_x,sim_t,sim_y,c)
 
 %% Run the log likelihood function
 log_likelihood = logLorl(omega,rho,lambda,obs_x,rho,obs_y,...
-    tdat.input(:,1:2),tdat.input(:,3:4),tdat.output)
+    sim_x,sim_t,sim_y)
 
 
 %% Set prior distribution of lambda
@@ -106,12 +109,12 @@ options = optimset('Display','iter','PlotFcns',@optimplotfval,...
     'TolX',1e-10,'TolFun',1e-10,'MaxFunEvals',500);
 %c=10^3.625;
 Rho_lam_init = [omega rho lambda]; %Set initial value
-lb = [ 0 0 0 0 0 ];
-ub = [ 1 1 1 1 Inf ] ;
+lb = [ 0 0 0 0 0 0 ];
+ub = [ 1 1 1 1 1 Inf ] ;
 Rho_lambda_opt = @(obs_x,theta,obs_y,cntrl_input,...
     calib_input,output,options)...
-    fmincon(@(Rho_lam) -logLorl(Rho_lam(1:2),Rho_lam(3:4),...
-    Rho_lam(5),obs_x,theta,obs_y,cntrl_input,calib_input,output),...
+    fmincon(@(Rho_lam) -logLorl(Rho_lam(1:3),Rho_lam(4:5),...
+    Rho_lam(6),obs_x,theta,obs_y,cntrl_input,calib_input,output),...
     Rho_lam_init,[],[],[],[],lb,ub,[],options);
 [Rho_lam_opt,fval,exitflag,outpt] = Rho_lambda_opt(obs_x,theta,...
     obs_y,cntrl_input,calib_input,output,options)

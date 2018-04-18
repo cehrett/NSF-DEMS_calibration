@@ -20,7 +20,7 @@ M = 1e2;
 desired_obs = [.65 0.077 96];
 desired_obs = [.65 96];
 desired_obs = [.65 0.77];
-which_outputs = [ 1 1 0 ] ; %Which of defl, rot, cost
+which_outputs = [ 1 1 1 ] ; %Which of defl, rot, cost
 
 %% Settings
 settings = MCMC_settings (M,desired_obs,which_outputs);

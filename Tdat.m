@@ -16,10 +16,12 @@ dat_in = dat(:,1:(cols-num_out));
 % Get output columns
 dat_out = dat(:,(cols-num_out+1):end);
 
-% Add dummy var input col
+% Add dummy var input cols
 dum_var = repelem(1:num_out,rows)';
+dum_mat = [eye(num_out-1) ; zeros(1,num_out-1)];
 if num_out > 1
-    dat_in = [ dum_var repmat(dat_in,num_out,1) ];
+    dum_mat = repelem(dum_mat,rows,1);
+    dat_in = [ dum_mat repmat(dat_in,num_out,1) ];
 end
 
 % Rescale each input column

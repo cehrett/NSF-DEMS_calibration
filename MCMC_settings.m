@@ -4,11 +4,12 @@ function settings = MCMC_settings (M,desired_obs,which_outputs)
 %% MCMC settings
 burn_in = ceil(M/5) ; % burn-in
 % Covariance parameter settings, found by optimization routine:
-Rho_lam_optimum  = [0.655344235568109   0.931941001705886 ...
-    0.960653924901867   0.991953924787049   0.017385994893994];
-omega  = Rho_lam_optimum(1:2);
-rho    = Rho_lam_optimum(3:4);
-lambda = Rho_lam_optimum(5);
+Rho_lam_optimum  = [0.935753521438069   0.650946653103927...
+    0.673593619101900 0.479684392594821   0.967330479380613...
+    0.015203646313917];
+omega  = Rho_lam_optimum(1:3);
+rho    = Rho_lam_optimum(4:5);
+lambda = Rho_lam_optimum(6);
 num_out = length(desired_obs);
 
 %% Proposal density
@@ -59,7 +60,7 @@ log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
 %% Load data and get initial theta value
 fprintf('Reading data from .xlsx...\n')
 raw_dat = xlsread('fe_results.xlsx');
-indx = [1 2 3]; % This tells us which columns of raw_dat we need.
+indx = [1 2 3]; % This will help tell us which columns of raw_dat we need.
 for ii = 1:length(which_outputs) % This loop will set indx appropriately.
     if which_outputs(ii) indx = [indx 3+ii] ; end
 end
@@ -69,9 +70,10 @@ raw_dat = raw_dat(:,indx);
 num_calib = 2 ; % This is the number of calibration parameters in the data,
                 % which are assumed to be the columns immediately preceding
                 % the output columns in raw_dat.
-num_cntrl = size(raw_dat,2) - num_out - num_calib + (num_out>1) ; 
-% num_cntrl is the number of control inputs in raw_dat, plus one if the
-% output is multivariate; the extra one is for a dummy input.
+num_cntrl = size(raw_dat,2) - num_out - num_calib + num_out-1 ; 
+% num_cntrl is the number of control inputs in raw_dat, plus num_out-1 to
+% serve as the dummy variables to convert the multivariate output to
+% univariate.
 init_theta = rand(1,2) 
 
 %% Rescale inputs, standardize outputs

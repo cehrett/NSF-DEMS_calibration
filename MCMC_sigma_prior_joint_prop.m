@@ -20,6 +20,7 @@ function [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings)
 % nugsize is a function which takes as input a square matrix A and returns
 % a value n to use as a nugget to stabilize A computationally.
 
+% Define logit function for later use
 logit = @(x) log(x./(1-x));
 
 %% Unpack struct
@@ -78,16 +79,16 @@ Sigma_y = diag(sigma2_long);
 
 %% Initialize some variables for later use
 out_of_range_rec = zeros(size(init_theta)); 
-reject_rec = 0              ;
-startplot = 10              ;
-accepted = 0                ;
-accepted_sig =0             ;
-theta=init_theta            ;
-msg=0                       ;
-samples = init_theta        ;
-sigma2_rec = sigma2         ;
-out_of_range_sig = zeros(1,num_out);
-mult = 1 ;
+reject_rec       = 0                ;
+startplot        = 10               ;
+accepted         = 0                ;
+accepted_sig     = 0                ;
+theta            = init_theta       ;
+msg              = 0                ;
+samples          = init_theta       ;
+sigma2_rec       = sigma2           ;
+out_of_range_sig = zeros(1,num_out) ;
+mult             = 1                ;
 
 %% Get initial log likelihood
 % Set new observation input matrix:
