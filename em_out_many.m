@@ -1,4 +1,4 @@
-function output = em_out_many(samples,settings,n)
+function emout = em_out_many(samples,settings,n)
 % This function takes as input the results of an MCMC routine and returns
 % the output of the emulator at the locations drawn in the MCMC.
 % This function is a modified version of em_out. em_out is designed to find
@@ -41,18 +41,29 @@ em = emulator(tdat.input,tdat.output,pred_locs,omega,rho,lambda,...
 
 % Get outputs and related stats. Note that the code here assumes that we
 % are getting all three outputs of deflection, rotation, cost.
-outputs_defl_std = em.mu(obs_x(:,1)==0);
-outputs_rotn_std = em.mu(obs_x(:,1)==0.5);
-outputs_cost_std = em.mu(obs_x(:,1)==1);
+outputs_defl_mean_std = em.mu(obs_x(:,1)==0);
+outputs_rotn_mean_std = em.mu(obs_x(:,1)==0.5);
+outputs_cost_mean_std = em.mu(obs_x(:,1)==1);
+outputs_defl_sd_std = sqrt(diag(em.cov_gp(obs_x(:,1)==0,obs_x(:,1)==0)));
+outputs_rotn_sd_std = sqrt(diag(em.cov_gp(obs_x(:,1)==.5,obs_x(:,1)==.5)));
+outputs_cost_sd_std = sqrt(diag(em.cov_gp(obs_x(:,1)==1,obs_x(:,1)==1)));
 
 % Transform outputs back to original scale
-outputs_defl = outputs_defl_std * mean(tdat.output_sds(1,:)) + ...
-        mean(tdat.output_means(1,:));
-outputs_rotn = outputs_rotn_std * mean(tdat.output_sds(2,:)) + ...
-        mean(tdat.output_means(2,:));
-outputs_cost = outputs_cost_std * mean(tdat.output_sds(3,:)) + ...
-        mean(tdat.output_means(3,:));
-output = [outputs_defl outputs_rotn outputs_cost];
+outputs_defl_mean =outputs_defl_mean_std * mean(tdat.output_sds(1,:)) + ...
+    mean(tdat.output_means(1,:));
+outputs_rotn_mean =outputs_rotn_mean_std * mean(tdat.output_sds(2,:)) + ...
+    mean(tdat.output_means(2,:));
+outputs_cost_mean =outputs_cost_mean_std * mean(tdat.output_sds(3,:)) + ...
+    mean(tdat.output_means(3,:));
+outputs_defl_sd = outputs_defl_sd_std * mean(tdat.output_sds(1,:)) + ...
+    mean(tdat.output_means(1,:));
+outputs_rotn_sd = outputs_rotn_sd_std * mean(tdat.output_sds(2,:)) + ...
+    mean(tdat.output_means(2,:));
+outputs_cost_sd = outputs_cost_sd_std * mean(tdat.output_sds(3,:)) + ...
+    mean(tdat.output_means(3,:));
+output_means = [outputs_defl_mean outputs_rotn_mean outputs_cost_mean];
+output_sds   = [outputs_defl_sd outputs_rotn_sd outputs_cost_sd];
+emout = struct('output_means',output_means,'output_sds',output_sds);
 % range: .65-.83
 % range: 0.077-0.1
 % range: 96-352

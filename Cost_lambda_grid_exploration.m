@@ -28,6 +28,22 @@ settings.burn_in=2000;
 % trivar_output_settings is useful for getting output at post mean
 trivar_output_settings = MCMC_settings(M,[0 0 0],[1 1 1]);
 trivar_output_settings.burn_in=2000;
+% Changed the MCMC_settings file (new dummy vector), so to use the results
+% I recorded earlier, I need to modify the settings file here for backwards
+% compatibility:
+trivar_output_settings.sim_xt = [ ...
+    (2- 2 * trivar_output_settings.sim_xt(:,1) - ...
+    trivar_output_settings.sim_xt(:,2) )/2 ...
+    trivar_output_settings.sim_xt(:,3:end)];
+% Also need old omega,rho,lambda
+trivar_output_settings.omega  = [0.655344235568109   0.931941001705886];
+trivar_output_settings.rho    = [0.960653924901867   0.991953924787049];
+trivar_output_settings.lambda = [0.017385994893994                    ];
+% And, need old version of obs_x
+trivar_output_settings.obs_x = [ ...
+    (2- 2 * trivar_output_settings.obs_x(:,1) - ...
+    trivar_output_settings.obs_x(:,2) )/2 ...
+    trivar_output_settings.obs_x(:,3:end)];
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -75,20 +91,25 @@ m=size(results,1); % Store number of target cost_lambdas
 cost_lambda = zeros(m,1); % This will store cost_lambdas
 alpha = 0.05; % Set quantile
 pmo = zeros(m,3); % This will store posterior mean output of emulator
+pdo = zeros(m,3); % ``'' median output
 pso = zeros(m,3); % ``'' 2 standard deviations
 plo = zeros(m,3); % ``'' lower (alpha) quantile
 puo = zeros(m,3); % ``'' upper (alpha) quantile
 for ii = 1:m % This loop populates the above arrays
     pmo(ii,:) = results{ii}.post_mean_out;
+    pdo(ii,:) = quantile(results{ii}.model_output.by_sample,0.5);
     pso(ii,:) = 2 * results{ii}.model_output.sds;
-    plo(ii,:) = quantile(results{ii}.model_output.by_sample,0.05);
-    puo(ii,:) = quantile(results{ii}.model_output.by_sample,0.95);
+    plo(ii,:) = quantile(results{ii}.model_output.by_sample,alpha);
+    puo(ii,:) = quantile(results{ii}.model_output.by_sample,1-alpha);
     cost_lambda(ii) = results{ii}.Cost_lambda;
 end
 % Now we break the arrays up each into 3 vectors, one for each output
 post_cost_mean = pmo(:,3);
 post_defl_mean = pmo(:,1);
 post_rotn_mean = pmo(:,2);
+post_cost_median = pdo(:,3);
+post_defl_median = pdo(:,1);
+post_rotn_median = pdo(:,2);
 post_cost_sd = pso(:,3);
 post_defl_sd = pso(:,1);
 post_rotn_sd = pso(:,2);
@@ -104,32 +125,33 @@ h=figure('rend','painters','pos',[10 10 1200 400]);
 x = 0:1:100;
 subplot(1,3,1)
 % Get main curve
-pcost = pchip(cost_lambda,post_cost_mean,x);
+pcost = pchip(cost_lambda,post_cost_median,x);
 % Get upper and lower 0.05 quantiles curves
 pcostuq = pchip(cost_lambda,post_cost_uq,x);
 pcostlq = pchip(cost_lambda,post_cost_lq,x);
 f=fill([ x , fliplr(x) ], [pcostuq, fliplr(pcostlq)],'k');
 set(f,'facealpha',.25);
 hold on;
-plot(cost_lambda,post_cost_mean,'or',...
+plot(cost_lambda,post_cost_median,'or',...
     x,pcost,'-r',...
     x,pcostuq,'-k',...
     x,pcostlq,'-k');
 % Plot 2sd errbar
 % errorbar(cost_lambda,post_cost_mean,post_cost_sd,'ob'); 
 xl1=xlabel('\lambda_c_o_s_t');
+
 ylabel('Cost');
 
 subplot(1,3,2)
 % Get main curve
-pdefl = pchip(cost_lambda,post_defl_mean,x);
+pdefl = pchip(cost_lambda,post_defl_median,x);
 % Get upper and lower 0.05 quantiles curves
 pdefluq = pchip(cost_lambda,post_defl_uq,x);
 pdefllq = pchip(cost_lambda,post_defl_lq,x);
 f=fill([ x , fliplr(x) ], [pdefluq, fliplr(pdefllq)],'k');
 set(f,'facealpha',.25);
 hold on;
-plot(cost_lambda,post_defl_mean,'or',...
+plot(cost_lambda,post_defl_median,'or',...
     x,pdefl,'-r',...
     x,pdefluq,'-k',...
     x,pdefllq,'-k');
@@ -138,14 +160,14 @@ ylabel('Deflection');
 
 subplot(1,3,3)
 % Get main curve
-protn = pchip(cost_lambda,post_rotn_mean,x);
+protn = pchip(cost_lambda,post_rotn_median,x);
 % Get upper and lower 0.05 quantiles curves
 protnuq = pchip(cost_lambda,post_rotn_uq,x);
 protnlq = pchip(cost_lambda,post_rotn_lq,x);
 f=fill([ x , fliplr(x) ], [protnuq, fliplr(protnlq)],'k');
 set(f,'facealpha',.25);
 hold on;
-plot(cost_lambda,post_rotn_mean,'or',...
+plot(cost_lambda,post_rotn_median,'or',...
     x,protn,'-r',...
     x,protnuq,'-k',...
     x,protnlq,'-k');
@@ -160,7 +182,7 @@ set(xl1,'position',p + [0 6 0]);
 p = get(xl2,'position');
 set(xl2,'position',p + [0 0.003 0])
 p = get(xl3,'position');
-set(xl3,'position',p + [0 0.0005 0])
+set(xl3,'position',p + [0 0.00045 0])
 
 %saveas(h,'FIG_cost_lambda.png');
 
@@ -183,11 +205,13 @@ for ii = 1:m
     
     % Record them (in a couple places, for convenience)
     outputs{ii} = emout;
-    model_output.by_sample = outputs{ii};
-    means(ii,:) = mean(emout);
+    model_output.by_sample = emout.output_means;
+    means(ii,:) = mean(emout.output_means);
     model_output.means = means(ii,:);
-    intervals(ii,:) = std(emout);
-    model_output.sds = intervals(ii,:);
+    % intervals(ii,:) = std(emout);
+    output_gp_sds = emout.output_sds;
+    model_output.sds = output_gp_sds;
+    % model_output.sds = intervals(ii,:);
     results{ii}.model_output = model_output;
     
     % Instead of just sds, I should be getting here specific quantiles,
