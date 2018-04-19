@@ -98,7 +98,7 @@ puo = zeros(m,3); % ``'' upper (alpha) quantile
 for ii = 1:m % This loop populates the above arrays
     pmo(ii,:) = results{ii}.post_mean_out;
     pdo(ii,:) = quantile(results{ii}.model_output.by_sample,0.5);
-    pso(ii,:) = 2 * results{ii}.model_output.sds;
+    pso(ii,:) = 2 * mean(results{ii}.model_output.sds);
     plo(ii,:) = quantile(results{ii}.model_output.by_sample,alpha);
     puo(ii,:) = quantile(results{ii}.model_output.by_sample,1-alpha);
     cost_lambda(ii) = results{ii}.Cost_lambda;
@@ -197,7 +197,7 @@ intervals = zeros(m,3);
 means = zeros(m,3);
 
 % Loop: get the emulator output at each sample drawn in each MCMC
-for ii = 1:m
+for ii = 2:m
     fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
     
     % Get the outputs for the ii^th MCMC chain
@@ -213,9 +213,6 @@ for ii = 1:m
     model_output.sds = output_gp_sds;
     % model_output.sds = intervals(ii,:);
     results{ii}.model_output = model_output;
-    
-    % Instead of just sds, I should be getting here specific quantiles,
-    % without assuming symmetry of the posterior dist
 end
 
 % Loop: get the quantiles at each MCMC chain (rather than just relying on
