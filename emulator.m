@@ -27,8 +27,9 @@ end
 
 % Get Cov matrix of training points only if it is not supplied
 if Sigma_xx == 0
-    Sigma_xx  = gp_cov(omega,x(:,1:2),x(:,1:2),...
-        rho,x(:,3:end),x(:,3:end),lambda,verbose) + WN_xx;
+    Sigma_xx  = gp_cov(omega,x(:,1:size(x,2)-2),x(:,1:size(x,2)-2),...
+        rho,x(:,size(x,2)-1:end),x(:,size(x,2)-1:end),lambda,verbose) +...
+        WN_xx;
     inv_Sig_xx = inv(Sigma_xx);
     rc=rcond(inv_Sig_xx);
 end
@@ -36,14 +37,15 @@ end
 if verbose==true
     fprintf('1,... ')
 end
-Sigma_xpx  = gp_cov(omega,xp(:,1:2),x(:,1:2),...
-    rho,xp(:,3:end),x(:,3:end),lambda,verbose);
+Sigma_xpx  = gp_cov(omega,xp(:,1:size(x,2)-2),x(:,1:size(x,2)-2),...
+    rho,xp(:,size(x,2)-1:end),x(:,size(x,2)-1:end),lambda,verbose);
 if verbose==true
     fprintf('2,... ')
 end
 Sigma_xxp  = Sigma_xpx';
-Sigma_xpxp  = gp_cov(omega,xp(:,1:2),xp(:,1:2),...
-    rho,xp(:,3:end),xp(:,3:end),lambda,verbose) + WN_xpxp;
+Sigma_xpxp  = gp_cov(omega,xp(:,1:size(x,2)-2),xp(:,1:size(x,2)-2),...
+    rho,xp(:,size(x,2)-1:end),xp(:,size(x,2)-1:end),lambda,verbose) +...
+    WN_xpxp;
 if verbose==true 
     fprintf('3.\n\n')
 end

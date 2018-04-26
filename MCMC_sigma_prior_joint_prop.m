@@ -24,18 +24,28 @@ function [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings)
 logit = @(x) log(x./(1-x));
 
 %% Unpack struct
-M = settings.M; burn_in=settings.burn_in; sim_xt=settings.sim_xt;
-eta=settings.eta; obs_x = settings.obs_x; y=settings.y; 
-sigma2=settings.sigma2; log_sigma2_prior=settings.log_sigma2_prior; 
-out_of_range=settings.out_of_range; init_theta=settings.init_theta;
-omega=settings.omega; rho=settings.rho; lambda=settings.lambda;
-proposal = settings.proposal; nugsize = settings.nugsize; 
-num_out=settings.num_out; 
-log_sig_mh_correction=settings.log_sig_mh_correction;
-log_mh_correction=settings.log_mh_correction;
-doplot = settings.doplot; log_theta_prior = settings.log_theta_prior;
-Cost_lambda = settings.Cost_lambda;
-which_outputs = settings.which_outputs;
+M                       = settings.M; 
+burn_in                 = settings.burn_in; 
+sim_xt                  = settings.sim_xt;
+eta                     = settings.eta; 
+obs_x                   = settings.obs_x; 
+y                       = settings.y; 
+sigma2                  = settings.sigma2; 
+log_sigma2_prior        = settings.log_sigma2_prior; 
+out_of_range            = settings.out_of_range; 
+init_theta              = settings.init_theta;
+omega                   = settings.omega; 
+rho                     = settings.rho; 
+lambda                  = settings.lambda;
+proposal                = settings.proposal; 
+nugsize                 = settings.nugsize; 
+num_out                 = settings.num_out; 
+log_sig_mh_correction   = settings.log_sig_mh_correction;
+log_mh_correction       = settings.log_mh_correction;
+doplot                  = settings.doplot; 
+log_theta_prior         = settings.log_theta_prior;
+Cost_lambda             = settings.Cost_lambda;
+which_outputs           = settings.which_outputs;
 
 %% Set plot label values
 labs = [ 'defl' ; 'rotn' ; 'cost' ] ; 
@@ -72,7 +82,8 @@ sim_t = sim_xt(:,num_cntrl+1:end) ;
 % of it remains unchanged, so that we need calculate that only this once.
 % Massive computation savings over getting Sigma_z from scratch each time:
 Sigma_eta_xx = gp_cov(omega,sim_x,sim_x,rho,sim_t,sim_t,lambda,false);
-prop_density = proposal.density ; Sigma = proposal.Sigma;
+prop_density = proposal.density ; 
+Sigma = proposal.Sigma;
 % Now make sigma2 into a covariance matrix:
 sigma2_long = repelem(sigma2,num_obs);
 Sigma_y = diag(sigma2_long);

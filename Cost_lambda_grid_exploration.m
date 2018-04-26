@@ -155,6 +155,59 @@ xl1=xlabel('\lambda_c_o_s_t');
 ylim(ylim_cost);
 ylabel('Cost');
 
+% temp %
+subplot(1,2,1);
+x = 106:1:313;
+% subplot(1,3,1)
+% Get main curve
+pcost = pchip(post_cost_median,post_defl_median,x);
+% Get upper and lower 0.05 quantiles curves
+pcostuq = pchip(post_cost_median,post_defl_uq,x);
+pcostlq = pchip(post_cost_median,post_defl_lq,x);
+f=fill([ x , fliplr(x) ], [pcostuq, fliplr(pcostlq)],'k');
+set(f,'facealpha',.25);
+hold on;
+plot(x,pcost,'-r');
+plot(post_cost_median,post_defl_median,'or',...
+    x,pcost,'-r',...
+    x,pcostuq,'-k',...
+    x,pcostlq,'-k');
+% Plot 2sd errbar
+% errorbar(cost_lambda,post_cost_mean,post_cost_sd,'ob'); 
+xl1=xlabel('Posterior cost');
+%ylim(ylim_cost);
+ylabel('Posterior Deflection');
+title('Posterior deflection vs. Posterior cost, 90% CI')
+xlim([106 313]);
+% temp %
+subplot(1,2,2);
+x = 106:1:313;
+% subplot(1,3,1)
+% Get main curve
+pcost = pchip(post_cost_median,post_rotn_median,x);
+% Get upper and lower 0.05 quantiles curves
+pcostuq = pchip(post_cost_median,post_rotn_uq,x);
+pcostlq = pchip(post_cost_median,post_rotn_lq,x);
+f=fill([ x , fliplr(x) ], [pcostuq, fliplr(pcostlq)],'k');
+set(f,'facealpha',.25);
+hold on;
+plot(x,pcost,'-r');
+plot(post_cost_median,post_rotn_median,'or',...
+    x,pcost,'-r',...
+    x,pcostuq,'-k',...
+    x,pcostlq,'-k');
+% Plot 2sd errbar
+% errorbar(cost_lambda,post_cost_mean,post_cost_sd,'ob'); 
+xl1=xlabel('Posterior cost');
+%ylim(ylim_cost);
+ylabel('Posterior Rotation');
+title('Posterior rotation vs. Posterior cost, 90% CI')
+xlim([106 313]);
+ylim([0.0775 0.1]);
+
+
+
+
 subplot(1,3,2)
 % Get main curve
 pdefl = pchip(cost_lambda,post_defl_median,x);

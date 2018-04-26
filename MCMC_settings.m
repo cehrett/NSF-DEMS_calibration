@@ -47,10 +47,10 @@ log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
 
 
 %% Package proposal density
-proposal.density = prop_density; 
-proposal.Sigma = Sigma;
+proposal.density             = prop_density; 
+proposal.Sigma               = Sigma;
 proposal.sigma2_prop_density = sigma2_prop_density;
-proposal.Sigma_sig = Sigma_sig;
+proposal.Sigma_sig           = Sigma_sig;
 
 %% MH correction for using log-normal proposal
 log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
