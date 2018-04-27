@@ -1,4 +1,4 @@
-function output = em_out(samples,settings)
+function emout = em_out(samples,settings)
 % This function takes as input the results of an MCMC routine and returns
 % the output of the emulator at the posterior mean of the MCMC draws
 

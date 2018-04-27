@@ -27,7 +27,7 @@ if n ~= 0
 end
 
 % Get control settings
-dum_vars = unique(settings.obs_x(:,1));
+dum_vars = unique(settings.obs_x(:,1:end-1));
 obs_x = repmat(dum_vars,size(samples,1),1);
 obs_x = [ obs_x 0.5 * ones(size(obs_x,1),1) ];
 
@@ -39,30 +39,55 @@ pred_locs = [obs_x repelem(samples,length(dum_vars),1) ];
 em = emulator(tdat.input,tdat.output,pred_locs,omega,rho,lambda,...
     0,0,true);
 
-% Get outputs and related stats. Note that the code here assumes that we
-% are getting all three outputs of deflection, rotation, cost.
-outputs_defl_mean_std = em.mu(obs_x(:,1)==0);
-outputs_rotn_mean_std = em.mu(obs_x(:,1)==0.5);
-outputs_cost_mean_std = em.mu(obs_x(:,1)==1);
-outputs_defl_sd_std = sqrt(diag(em.cov_gp(obs_x(:,1)==0,obs_x(:,1)==0)));
-outputs_rotn_sd_std = sqrt(diag(em.cov_gp(obs_x(:,1)==.5,obs_x(:,1)==.5)));
-outputs_cost_sd_std = sqrt(diag(em.cov_gp(obs_x(:,1)==1,obs_x(:,1)==1)));
 
-% Transform outputs back to original scale
-outputs_defl_mean =outputs_defl_mean_std * mean(tdat.output_sds(1,:)) + ...
-    mean(tdat.output_means(1,:));
-outputs_rotn_mean =outputs_rotn_mean_std * mean(tdat.output_sds(2,:)) + ...
-    mean(tdat.output_means(2,:));
-outputs_cost_mean =outputs_cost_mean_std * mean(tdat.output_sds(3,:)) + ...
-    mean(tdat.output_means(3,:));
-outputs_defl_sd = outputs_defl_sd_std * mean(tdat.output_sds(1,:)); 
-outputs_rotn_sd = outputs_rotn_sd_std * mean(tdat.output_sds(2,:)); 
-outputs_cost_sd = outputs_cost_sd_std * mean(tdat.output_sds(3,:)); 
+
+
+% Get outputs and transform outputs back to original scale
+% initialize variables
+outputs_defl_mean = [];
+outputs_rotn_mean = [];
+outputs_cost_mean = [];
+outputs_defl_sd   = [];
+outputs_rotn_sd   = [];
+outputs_cost_sd   = [];
+ndx = 1; % Just to tell us which output we're working with
+if which_outputs(1)==1
+    ndcs = obs_x(:,ndx) == 1; % Currently relevant indices
+    outputs_defl_mean_std = em.mu(ndcs);
+    outputs_defl_sd_std=sqrt(diag(em.cov_gp(ndcs,ndcs)));
+    outputs_defl_mean =outputs_defl_mean_std * ...
+        mean(tdat.output_sds(ndx,:)) + ...
+        mean(tdat.output_means(ndx,:));
+    outputs_defl_sd = outputs_defl_sd_std * mean(tdat.output_sds(ndx,:));
+    ndx = ndx + 1;
+end
+if which_outputs(2)==1
+    ndcs = obs_x(:,ndx) == 1; % Currently relevant indices
+    outputs_rotn_mean_std = em.mu(ndcs);
+    outputs_rotn_sd_std=sqrt(diag(em.cov_gp(ndcs,ndcs)));
+    outputs_rotn_mean =outputs_rotn_mean_std * ...
+        mean(tdat.output_sds(ndx,:)) + ...
+        mean(tdat.output_means(ndx,:));
+    outputs_rotn_sd = outputs_rotn_sd_std * mean(tdat.output_sds(ndx,:));
+    ndx = ndx + 1;
+end
+if which_outputs(3)==1
+    ndcs = all(obs_x(:,1:ndx-1)==zeros(1,ndx-1),2); % Currently rel indices
+    outputs_cost_mean_std = em.mu(ndcs);
+    outputs_cost_sd_std = sqrt(diag(em.cov_gp(ndcs,ndcs)));
+    outputs_cost_mean =outputs_cost_mean_std * ...
+        mean(tdat.output_sds(ndx,:)) + ...
+        mean(tdat.output_means(ndx,:));
+    outputs_cost_sd = outputs_cost_sd_std * mean(tdat.output_sds(ndx,:)); 
+end
+ 
+ 
+
 output_means = [outputs_defl_mean outputs_rotn_mean outputs_cost_mean];
 output_sds   = [outputs_defl_sd outputs_rotn_sd outputs_cost_sd];
+
+% Pack up and leave
 emout = struct('output_means',output_means,'output_sds',output_sds);
-% range: .65-.83
-% range: 0.077-0.1
-% range: 96-352
+
 
 end

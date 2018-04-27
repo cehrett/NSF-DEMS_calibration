@@ -11,6 +11,10 @@ omega  = Rho_lam_optimum(1:3);
 rho    = Rho_lam_optimum(4:5);
 lambda = Rho_lam_optimum(6);
 num_out = length(desired_obs);
+% Need different omega in case not all three outputs used
+if sum(which_outputs) == 2
+    omega = omega([1 0 1]==1);
+end
 
 %% Proposal density
 logit = @(x) log(x./(1-x));
@@ -108,7 +112,7 @@ y = (desired_obs - sim_output_means) ./ sim_output_sds ;
 % Now, pair these standardized observations with appropriate control
 % settings. Notice that we are here assuming only one field observation,
 % which is constant across control settings (other than dummy variable).
-obs_x = unique(tdat.input(:,1:num_cntrl),'rows');
+obs_x = unique(tdat.input(:,1:num_cntrl),'rows','stable');
 y = repelem(y,size(obs_x,1)/length(y))' ;
 
 
