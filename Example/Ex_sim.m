@@ -1,4 +1,4 @@
-function [oscl perf cost] = Ex_sim(theta, alpha, c)
+function opc = Ex_sim(theta, alpha, c)
 % This function serves as an example computer model against which to assess
 % the method of calibration to desired observations. Theta should be an n X
 % 2 matrix, alpha and c each an n X 1 array of positive constants. The
@@ -8,10 +8,12 @@ function [oscl perf cost] = Ex_sim(theta, alpha, c)
 theta1=theta(:,1);
 theta2=theta(:,2);
 
-oscl = theta1 .* sin ( theta2 ./ c ) ;
+oscl = theta1 .* exp(-theta1) .* sin ( theta2 ./ c ) ;
 
-perf = theta2 .^ (alpha - 1) .* exp ( - theta2 ) ;
+perf = theta2 .^ (alpha - 1) .* exp ( - .75 * theta2 ) ;
 
-cost = theta1 + theta2 .^ 2 ;
+cost = 2 .* theta1 + theta2 .^ 2 ;
+
+opc  = [oscl perf cost];
 
 end
