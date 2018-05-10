@@ -1,15 +1,26 @@
-function settings = MCMC_settings (M,desired_obs,which_outputs)
+function settings = MCMC_settings (M,desired_obs,which_outputs,...
+    Rho_lam_optimum)
 
 
 %% MCMC settings
 burn_in = ceil(M/5) ; % burn-in
 % Covariance parameter settings, found by optimization routine:
-Rho_lam_optimum  = [0.935753521438069   0.650946653103927...
-    0.673593619101900 0.479684392594821   0.967330479380613...
-    0.015203646313917];
-omega  = Rho_lam_optimum(1:3);
-rho    = Rho_lam_optimum(4:5);
-lambda = Rho_lam_optimum(6);
+if Rho_lam_optimum = 0
+    fprintf('No rho,lambda values specified; commencing ML estimation.\n');
+    Rho_lam_optimum = opt_rho_lambda(sim_xt,sim_dat,num_cal,...
+        rand(1,num_cntrl),rand(1,num_cal),gamrnd(5,5));
+end
+% Calculated optimum for wind turbine application:
+%Rho_lam_optimum  = [   0.935753521438069   0.650946653103927...
+%    0.673593619101900  0.479684392594821   0.967330479380613...
+%    0.015203646313917 ] ;
+% Calculated optimum for example simulation:
+%Rho_lam_optimum  = [   0.280981573480363   0.999189406633873...
+%    0.600440750045477  0.719652153362981   0.102809702497319...
+%    0.000837772517865 ] ;
+omega  = Rho_lam_optimum(1:num_cntrl);
+rho    = Rho_lam_optimum(num_cntrl+1:num_cntrl+num_cal);
+lambda = Rho_lam_optimum(num_cntrl+num_cal+1);
 num_out = length(desired_obs);
 % Need different omega in case not all three outputs used
 if sum(which_outputs) == 2
