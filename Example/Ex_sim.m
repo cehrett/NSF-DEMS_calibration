@@ -15,7 +15,7 @@ oscl = 1 ./ (theta1 .* exp(-theta1) .* abs(sin ( (theta2-1) ./ c ) ) + 1) ;
 
 perf = 1 ./ (theta2 .^ (c - 1) .* exp ( - .75 * theta2 ) + 1) ;
 
-cost = 1 + 2 .* theta1 + theta2 .^ 2 / 4;
+cost = 15 + 2 .* theta1 + theta2 .^ 2 / 4;
 
 % Pack up and leave
 opc  = [oscl perf cost];

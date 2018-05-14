@@ -1,11 +1,16 @@
-function settings = MCMC_settings (M,desired_obs,which_outputs,...
-    Rho_lam_optimum)
+function settings = MCMC_settings (M,desired_obs,sim_x,sim_t,sim_y,...
+    which_outputs, Rho_lam_optimum)
 
+%% Infer useful values
+num_cal = size(sim_t,2);
+num_out = size(sim_y,2);
+num_cntrl = size(sim_x,2) + num_out - 1 ; % The num_out - 1 is for dum vars
+num_cntrl_wod = size(sim_x,2) ; % Without dummy vars
 
 %% MCMC settings
 burn_in = ceil(M/5) ; % burn-in
 % Covariance parameter settings, found by optimization routine:
-if Rho_lam_optimum = 0
+if Rho_lam_optimum == 0
     fprintf('No rho,lambda values specified; commencing ML estimation.\n');
     Rho_lam_optimum = opt_rho_lambda(sim_xt,sim_dat,num_cal,...
         rand(1,num_cntrl),rand(1,num_cal),gamrnd(5,5));
@@ -21,10 +26,11 @@ end
 omega  = Rho_lam_optimum(1:num_cntrl);
 rho    = Rho_lam_optimum(num_cntrl+1:num_cntrl+num_cal);
 lambda = Rho_lam_optimum(num_cntrl+num_cal+1);
-num_out = length(desired_obs);
+%num_out = length(desired_obs);
 % Need different omega in case not all three outputs used
-if sum(which_outputs) == 2
-    omega = omega([1 0 1]==1);
+if sum(which_outputs) ~= 3
+    error('To use <3 outputs, sort out manually what to do with omega');
+    %omega = omega(which_outputs==1);
 end
 
 %% Proposal density
@@ -33,7 +39,7 @@ logit_inv = @(x) exp(x)./(1+exp(x));
 prop_density = @(x,Sigma) logit_inv(mvnrnd(logit(x),Sigma)); % Normal
 Sigma = [.5 0 ; 0 .5]; % Initial variance for prop_density
 % Upper and lower bounds for theta (if applicable)
-LB = [ .1 10 ] ; UB = [.6 25] ;
+LB = min(sim_t) ; UB = max(sim_t) ;
 % Nugget size for computational stability of covariance matrices
 nugsize = @(Covmat) 1e-4 ; % Why make it a function? So later it can be 
                            % made fancier.
@@ -55,7 +61,7 @@ log_sig_mh_correction = @(sig_s,sig) log(prod(sig_s)) - log(prod(sig));
 Sigma_sig = eye(num_out);
 
 %% Set prior for theta
-Cost_lambda = 100;
+Cost_lambda = 0;
 Cost = @(t,Cost_lambda) Cost_lambda * norm(t)^2;
 theta_prior = @(theta,Cost_lambda) exp(-Cost(theta,Cost_lambda));
 log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
@@ -73,23 +79,17 @@ log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
 
 
 %% Load data and get initial theta value
-fprintf('Reading data from .xlsx...\n')
-raw_dat = xlsread('fe_results.xlsx');
-indx = [1 2 3]; % This will help tell us which columns of raw_dat we need.
+% fprintf('Reading data from .xlsx...\n')
+% raw_dat = xlsread('fe_results.xlsx');
+raw_dat = [sim_x sim_t sim_y];
+indx = 1:num_out; % This will help tell which columns of raw_dat we need.
 for ii = 1:length(which_outputs) % This loop will set indx appropriately.
-    if which_outputs(ii) indx = [indx 3+ii] ; end
+    if which_outputs(ii) indx = [indx num_cal+num_cntrl_wod+ii] ; end
 end
 raw_dat = raw_dat(:,indx);
-% raw_dat is assumed to include one observation per row, with input columns
-% preceding output columns (with no headers).
-num_calib = 2 ; % This is the number of calibration parameters in the data,
-                % which are assumed to be the columns immediately preceding
-                % the output columns in raw_dat.
-num_cntrl = size(raw_dat,2) - num_out - num_calib + num_out-1 ; 
-% num_cntrl is the number of control inputs in raw_dat, plus num_out-1 to
-% serve as the dummy variables to convert the multivariate output to
-% univariate.
-init_theta = rand(1,2) 
+
+% Get initial theta val
+init_theta = rand(1,num_cal) 
 
 %% Rescale inputs, standardize outputs
 tdat = Tdat(raw_dat,num_out); % rescaling inputs, standardizing outputs. 
@@ -134,6 +134,9 @@ settings = struct(...
     'M',M,...
     'burn_in',burn_in,...
     'sim_xt',sim_xt,...
+    'num_cntrl',num_cntrl,...
+    'num_cal',num_cal,...
+    'num_out',num_out,...
     'eta',eta,...
     'obs_x',obs_x,...
     'y',y,...
@@ -146,9 +149,12 @@ settings = struct(...
     'lambda',lambda,...
     'proposal',proposal,...
     'nugsize',nugsize,...
-    'num_out',num_out,...
     'log_sig_mh_correction',log_sig_mh_correction,...
     'log_mh_correction',log_mh_correction,...
+    'input_cntrl_mins',min(sim_x),...
+    'input_calib_mins',min(sim_t),...
+    'input_cntrl_ranges',range(sim_x),...
+    'input_calib_ranges',range(sim_t),...
     'output_sds',tdat.output_sds,...
     'output_means',tdat.output_means,...
     'log_theta_prior',log_theta_prior,...

@@ -55,4 +55,6 @@ else
                mean(post_mean_sim_cost) ] ; % range: 96-352
 end
 
+emout = output;
+
 end
