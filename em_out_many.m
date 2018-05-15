@@ -18,7 +18,7 @@ omega = settings.omega;
 rho = settings.rho;
 lambda = settings.lambda;
 which_outputs = settings.which_outputs;
-num_cntrl = settings.num_cntrl;
+num_cntrl_wod = settings.num_cntrl_wod;
 
 % Following line reduces the set of samples down to a size-n set of
 % post-burn-in samples, if n!=0; otherwise all post-burn_in samples used
@@ -28,8 +28,7 @@ if n ~= 0
 end
 
 % Get control settings
-num_cntrl_wodv = num_cntrl - ( num_out - 1 ) ; % # cntrl vars w/o dum vars
-dum_vars = unique(settings.obs_x(:,1:end-num_cntrl_wodv),'stable');
+dum_vars = unique(settings.obs_x(:,1:end-num_cntrl_wod),'rows','stable');
 obs_x = repmat(dum_vars,size(samples,1),1);
 % Here is where the observation points are put together. The final column
 % of obs_x corresponds to the non-dummy variable control variables. In the
@@ -37,7 +36,7 @@ obs_x = repmat(dum_vars,size(samples,1),1);
 % midpoint of the range of each such variable. If these control variables
 % are fairly important, then this will be a bad idea, since it will ignore
 % the variability in this/these control variable/s. 
-obs_x = [ obs_x 0.5 * ones(size(obs_x,1),num_ctrl_wodv) ];
+obs_x = [ obs_x 0.5 * ones(size(obs_x,1),num_cntrl_wod) ];
 
 % How many outputs are we working with
 num_out = sum(which_outputs);
