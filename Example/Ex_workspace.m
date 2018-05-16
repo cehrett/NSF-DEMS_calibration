@@ -200,13 +200,17 @@ for ii = 1:m
 
 end
 
+load([dpath,'Example\Ex_results\'...
+    '2018-05-15_cost_grid_results'],...
+    'results');
+
 % Add model outputs for each sample point
 % These will store the results, sd's and means at each cost
 outputs = cell(m,1);
 intervals = zeros(m,3);
 means = zeros(m,3);
 n=0; 
-for ii = 1:1
+for ii = 2:m
     fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
     
     % Get the outputs for the ii^th MCMC chain
@@ -217,7 +221,9 @@ for ii = 1:1
     model_output.by_sample = emout.output_means;
     % Then the means
     means(ii,:) = mean(emout.output_means);
-    model_output.means = means(ii,:);
+    model_output.means = means(ii,:) ;
+    model_output.at_post_means = em_out(results{ii}.samples,...
+        results{ii}.settings);
     % Then the standard deviations
     output_gp_sds = emout.output_sds;
     model_output.sds = output_gp_sds;
@@ -229,3 +235,5 @@ for ii = 1:1
         'results');
 
 end
+
+%% Take a look
