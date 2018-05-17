@@ -65,10 +65,10 @@ plot3([pmo(1) pmo(1)], [pmo(2) pmo(2)], get(gca,'Zlim'), 'k',...
     'LineWidth',6);
 
 %% Get simulation observations
-n_cval  = 5 ; % Number of distinct c values to use
-n_theta1 = 7 ; % Number of distinct theta1 values to use
-n_theta2 = 7 ; % Number of distinct theta2 values to use
-cvals  = linspace(1.5,2.5,n_cval)  ; % Get distinct c values
+n_cval  = 3 ; % Number of distinct c values to use
+n_theta1 = 12 ; % Number of distinct theta1 values to use
+n_theta2 = 12 ; % Number of distinct theta2 values to use
+cvals  = linspace(1.95,2.05,n_cval)  ; % Get distinct c values
 theta1vals = linspace(0,3,n_theta1) ; % Get distinct theta1 values
 theta2vals = linspace(0,6,n_theta2) ; % Get distinct theta2 values
 
@@ -83,13 +83,13 @@ sim_y = Ex_sim(sim_xt);
 raw_dat = struct('sim_xt',sim_xt,'sim_y',sim_y);
 
 save([dpath,'Example\Ex_results\'...
-'2018-05-15-raw_dat-577'],...
+'2018-05-17-raw_dat-3-12-12'],...
 'raw_dat');
 
 
 %% Run MCMC
 % User defined values
-M = 1e3;
+M = 2e4;
 desired_obs = [0 0 0];
 which_outputs = [ 1 1 1 ] ; % Which of oscl, perf, cost
 % Calculated optimum for example simulation:
@@ -108,6 +108,7 @@ settings.doplot = true;
 
 % Get extra info about results and save everything
 post_mean_out = em_out(samples,settings)
+
 results = struct('samples',samples,...
     'sigma2',sigma2_rec,...
     'Sigma',Sigma,...
@@ -119,24 +120,40 @@ results = struct('samples',samples,...
     'settings',settings);
 
 save([dpath,'Example\Ex_results\'...
-'2018-05-11_d0_incl_min_cost'],...
+'2018-05-17_d0_incl_min_cost'],...
+'results');
+
+% Add model predictions for each sample point to results
+emout = em_out_many(results.samples,results.settings,0);
+model_output.by_sample = emout.output_means;
+% Then the means
+model_output.means = mean(emout.output_means);
+model_output.at_post_means = em_out(results.samples,...
+    results.settings);
+% Then the standard deviations
+model_output.sds = emout.output_sds;
+% Now package everything up in the results structs
+results.model_output = model_output;
+
+save([dpath,'Example\Ex_results\'...
+'2018-05-17_d0_incl_min_cost'],...
 'results');
 
 
 %% Gather results over grid of cost values
-m=8;
+m=12;
 cost_grid = linspace(15,30,m);
 
 % Load data
 load([dpath,'Example\Ex_results\'...
-'2018-05-15-raw_dat-577'],...
+'2018-05-17-raw_dat-3-12-12'],...
 'raw_dat');
 sim_xt = raw_dat.sim_xt;
 sim_y = raw_dat.sim_y;
 clear raw_dat;
 
 % User-defined values
-M = 6e3+10;
+M = 1e4+10;
 desired_obs = [ 0 0 0 ] ;
 which_outputs = [ 1 1 1 ];
 Rho_lam_optimum  = [  0.280981573480363   0.999189406633873...
@@ -195,13 +212,13 @@ for ii = 1:m
     results{ii} = result ; 
     
     save([dpath,'Example\Ex_results\'...
-        '2018-05-15_cost_grid_results'],...
+        '2018-05-17_cost_grid_results'],...
         'results');
 
 end
 
 load([dpath,'Example\Ex_results\'...
-    '2018-05-15_cost_grid_results'],...
+    '2018-05-17_cost_grid_results'],...
     'results');
 
 % Add model outputs for each sample point
@@ -231,9 +248,32 @@ for ii = 2:m
     results{ii}.model_output = model_output;
     
     save([dpath,'Example\Ex_results\'...
-        '2018-05-15_cost_grid_results'],...
+        '2018-05-17_cost_grid_results'],...
         'results');
 
 end
 
-%% Take a look
+%% Find the nondominated solutions
+% Gather all outcomes found in cost grid
+samps = [];
+for ii=1:size(results,1)
+    samps = [samps ; results{ii}.model_output.by_sample ] ; 
+end
+
+% Find nondominated outcomes
+nondoms = nondominated(samps);
+% ( Get direct data from Ex_optimization_workspace, allperfs )
+nondom_ap = nondominated(allperfs);
+
+% Take a look
+Circlesize=50;
+%figure; h1 = scatter3(samps(:,3),samps(:,1),samps(:,2),...
+    Circlesize,'b','filled','MarkerFaceAlpha',.4);
+figure; h1 = scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
+    Circlesize,'b','filled','MarkerFaceAlpha',.4);
+axis vis3d;
+hold on;
+
+% Compare with data obtained directly
+scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
+    Circlesize,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',.2);
