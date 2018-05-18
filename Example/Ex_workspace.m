@@ -88,6 +88,13 @@ save([dpath,'Example\Ex_results\'...
 
 
 %% Run MCMC
+% Load raw data
+load([dpath,'Example\Ex_results\'...
+'2018-05-17-raw_dat-3-12-12']);
+sim_xt = raw_dat.sim_xt;
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
 % User defined values
 M = 2e4;
 desired_obs = [0 0 0];
@@ -141,13 +148,19 @@ save([dpath,'Example\Ex_results\'...
 
 
 %% Gather results over grid of cost values
+clc; clear all; close all;
+direc = pwd; if direc(1)=='C' 
+    dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
+else
+    dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
+end
+clear direc;
 m=12;
 cost_grid = linspace(15,30,m);
 
 % Load data
 load([dpath,'Example\Ex_results\'...
-'2018-05-17-raw_dat-3-12-12'],...
-'raw_dat');
+'2018-05-17-raw_dat-3-12-12']);
 sim_xt = raw_dat.sim_xt;
 sim_y = raw_dat.sim_y;
 clear raw_dat;
