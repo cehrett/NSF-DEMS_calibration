@@ -266,22 +266,79 @@ for ii = 2:m
 
 end
 
-%% Find the nondominated solutions
-% Gather all outcomes found in cost grid
+%% Examine the nondominated solutions in cost grid
+% Gather all outcomes found in cost grid, using true function to get output
+% at sample points
 samps = [];
 for ii=1:size(results,1)
-    samps = [samps ; results{ii}.model_output.by_sample ] ; 
+    ss = results{ii}.samples_os;
+    samps = [samps ; Ex_sim([2*ones(size(ss,1),1) ss ]) ] ; 
 end
 
 % Find nondominated outcomes
 nondoms = nondominated(samps);
 % ( Get direct data from Ex_optimization_workspace, allperfs )
-nondom_ap = nondominated(allperfs);
+%nondom_ap = nondominated(allperfs);
+load([dpath,'Example\Ex_results\'...
+    '2018-05-18_direct_data_nondom'],...
+    'nondom_ap');
+
 
 % Take a look
 Circlesize=50;
-%figure; h1 = scatter3(samps(:,3),samps(:,1),samps(:,2),...
+figure; h1 = scatter3(samps(:,3),samps(:,1),samps(:,2),...
+    Circlesize,samps(:,3),'filled','MarkerFaceAlpha',.4);
+figure; h1 = scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
     Circlesize,'b','filled','MarkerFaceAlpha',.4);
+axis vis3d;
+hold on;
+
+% Compare with data obtained directly
+scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
+    Circlesize,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',.2);
+
+%% Examine the solutions in full calibration against true pareto front
+% Gather the post burn-in samples:
+load([dpath,'Example\Ex_results\'...
+'2018-05-17_d0_incl_min_cost'],...
+'results');
+samps_os = results.samples_os(results.settings.burn_in:end,:);
+
+% Use the emulator to estimate output at these sample points
+% (Have to divide the samples into batches, because otherwise the
+% covariance matrix is bigger than MATLAB can handle)
+% clear samps_os; % We won't need this
+% samps = results.samples(results.settings.burn_in:end,:);
+% sets = results.settings; sets.burn_in=1;
+% clear results; % Free more memory
+% samps1 = samps(1:floor(size(samps,1)/2),:);
+% samps2 = samps(floor(size(samps,1)/2)+1:end,:);
+% clear samps;
+% emout1 = em_out_many(samps1,sets,0);
+% emout2 = em_out_many(samps2,sets,0);
+load([dpath,'Example\Ex_results\'...
+    '2018-05-18_full_calib_emulator_output_estimates'],...
+    'emout');
+% emout.output_means = [ emout1.output_means ; emout2.output_means ] ;
+% emout.output_sds   = [ emout1.output_sds   ; emout2.output_sds   ] ;
+% save([dpath,'Example\Ex_results\'...
+%     '2018-05-18_full_calib_emulator_output_estimates'],...
+%     'emout');
+
+% Use the true function to find the output at these sample points
+y_samps_true = Ex_sim( [2*ones(size(samps_os,1),1) samps_os]);
+% Get nondominated outcomes
+nondoms = nondominated(y_samps_true);
+% ( Get direct data from Ex_optimization_workspace, allperfs )
+%nondom_ap = nondominated(allperfs);
+load([dpath,'Example\Ex_results\'...
+    '2018-05-18_direct_data_nondom'],...
+    'nondom_ap');
+
+% Take a look
+Circlesize=50;
+%figure; h1 = scatter3(y_samps(:,3),y_samps(:,1),y_samps(:,2),...
+%    Circlesize,'b','filled','MarkerFaceAlpha',.4);
 figure; h1 = scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
     Circlesize,'b','filled','MarkerFaceAlpha',.4);
 axis vis3d;

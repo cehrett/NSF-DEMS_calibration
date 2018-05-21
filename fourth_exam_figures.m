@@ -181,25 +181,33 @@ results2 = results;
 bsamps1 = results1.samples(2002:end,:);
 bsamps2 = results2.samples(2002:end,:);
 
-h = figure('rend','painters','pos',[10 10 1000 250]);
-subplot(1,2,1);
-acf(bsamps1(:,1),50);
-ylim([-0.1 1]);
-title('Boundary conditions present');
-scale = 0.15;
-pos = get(gca, 'Position');
-pos(2) = pos(2)+scale*pos(4);
-pos(4) = (1-scale)*pos(4);
-set(gca, 'Position', pos)
-subplot(1,2,2);
-acf(bsamps2(:,1),50);
-ylim([-0.1 1]);
-title('Boundary conditions removed')
-scale = 0.15;
-pos = get(gca, 'Position');
-pos(2) = pos(2)+scale*pos(4);
-pos(4) = (1-scale)*pos(4);
-set(gca, 'Position', pos)
-suptitle('Volume fraction autocorrelation');
+h = figure('rend','painters','pos',[10 10 520 250]);
+%subplot(1,2,1);
+bs1acf=acf(bsamps1(:,1),50);
+
+% title('Boundary conditions present');
+% scale = 0.15;
+% pos = get(gca, 'Position');
+% pos(2) = pos(2)+scale*pos(4);
+% pos(4) = (1-scale)*pos(4);
+% set(gca, 'Position', pos)
+% subplot(1,2,2);
+bs2acf=acf(bsamps2(:,1),50);
+% ylim([-0.1 1]);
+% title('Boundary conditions removed')
+% scale = 0.15;
+% pos = get(gca, 'Position');
+% pos(2) = pos(2)+scale*pos(4);
+% pos(4) = (1-scale)*pos(4);
+% set(gca, 'Position', pos)
+plot(bs1acf,'-o');
+hold on;
+plot(bs2acf,'-o');
+ylim([-0.05 1]);
+xlim([1,50]);
+line([1 50] , [ 0 0 ],'Color','k','LineWidth',1.5);
+xlabel('Lag'); ylabel('Autocorrelation');
+title('Volume fraction autocorrelation');
+legend('Without boundary constraints','With boundary constraints');
 saveas(h,sprintf('ACF_bnd_cnds_fig.png'));
 
