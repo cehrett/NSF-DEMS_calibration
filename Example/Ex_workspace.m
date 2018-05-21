@@ -240,7 +240,7 @@ outputs = cell(m,1);
 intervals = zeros(m,3);
 means = zeros(m,3);
 n=0; 
-for ii = 2:m
+for ii = 1:1
     fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
     
     % Get the outputs for the ii^th MCMC chain
