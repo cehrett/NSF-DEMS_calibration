@@ -329,6 +329,8 @@ load([dpath,'Example\Ex_results\'...
 y_samps_true = Ex_sim( [2*ones(size(samps_os,1),1) samps_os]);
 % Get nondominated outcomes
 nondoms = nondominated(y_samps_true);
+% Alternative: use GP estimates rather than true function:
+nondoms = nondominated(emout.output_means);
 % ( Get direct data from Ex_optimization_workspace, allperfs )
 %nondom_ap = nondominated(allperfs);
 load([dpath,'Example\Ex_results\'...
