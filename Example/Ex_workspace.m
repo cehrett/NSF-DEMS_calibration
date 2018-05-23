@@ -25,7 +25,7 @@ ths = cat(2,T1',T2');
 Theta = reshape(ths,[],2);
 
 % Set other parameters
-c = repmat(1.5,size(Theta,1),1);
+c = repmat(2,size(Theta,1),1);
 
 % Now get output values
 opc = Ex_sim([c Theta]);

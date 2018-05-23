@@ -8,10 +8,11 @@
 % determines theta2 as well. So I'll find deflection and rotation at each
 % theta1 value in the grid. Then I'll use the results to make a plot
 % describing the trade-off of deflection and rotation.
-m=16;
+m=500;
 cost_grid = linspace(15,30,m);
 perfs = cell(m,1);
 allperfs = [];
+all_ctheta = [];
 
 for ii = 1:m
     
@@ -24,6 +25,7 @@ for ii = 1:m
     
     % Package inputs
     c_theta = [ c theta1 theta2 ] ;
+    all_ctheta = [all_ctheta ; c_theta ] ;
     
     perf = Ex_sim(c_theta);
     
