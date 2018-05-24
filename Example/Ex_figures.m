@@ -133,22 +133,30 @@ load([dpath,'Example\Ex_results\'...
 cost_target = 20;
 
 % Get outputs at that cost
-samps_at_cost_idx = round(emout(:,3) == cost_target);
-samps_at_cost = emout(samps_at_cost_idx,:);
+pbi_samps = emout.output_means(results.settings.burn_in:end,:);
+samps_at_cost_idx = ...
+    (round(pbi_samps(:,3)) ...
+    == cost_target);
+samps_at_cost = ...
+    pbi_samps(samps_at_cost_idx,:);
 
 % Take a look
-plot(samps_at_cost(:,1),samps_at_cost(:,2),'o');
+plot(samps_at_cost(:,1),samps_at_cost(:,2),'ob');
 
 % Now find the same using direct data
 load([dpath,'Example\Ex_results\'...
     '2018-05-23_true_ctheta-output'],...
     'ctheta_output');
-dd_at_cost_idx = round(ctheta_output(:,6) == cost_target);
-dd_at_cost = ctheta_output(:,4:5);
+dd_at_cost_idx = (round(ctheta_output(:,6)) == cost_target);
+dd_at_cost = ctheta_output(dd_at_cost_idx,4:5);
 
 % Take a look at direct data tradeoff
 hold on;
-plot(dd_at_cost(:,1),dd_at_cost(:,2),'o');
+plot(dd_at_cost(:,1),dd_at_cost(:,2),'og');
+
+% Look specifically at nondominated ones
+[nd_dd_at_cost, nd_dd_at_cost_idx] = nondominated(dd_at_cost);
+plot(nd_dd_at_cost(:,1),nd_dd_at_cost(:,2),'or');
 
 
 %% Get figure describing the problem
@@ -309,10 +317,13 @@ load([dpath,'Example\Ex_results\'...
     'results');
 
 % Load true samples;
-ctheta_output = [all_ctheta allperfs];
-save([dpath,'Example\Ex_results\'...
+load([dpath,'Example\Ex_results\'...
     '2018-05-23_true_ctheta-output'],...
     'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-23_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
 
 samps = results.samples_os(results.settings.burn_in:end,:);
 % Take a look
@@ -324,16 +335,67 @@ scatterhist(samps(:,1),samps(:,2),'Kernel','on');
 %%%
 
 % Find theta settings of nondominated outcomes from direct data
-[nondoms, ndidx] = nondominated(allperfs);
-nondom_theta_true = all_ctheta(ndidx,2:3);
+%[nondoms, ndidx] = nondominated(allperfs);
+%nondom_theta_true = all_ctheta(ndidx,2:3);
+nondom_theta_true = ctheta_output_nondom(:,2:3);
 
 % Plot theta from nondominated direct outcomes
 plot(nondom_theta_true(:,1),nondom_theta_true(:,2),'.');
-scatterhist(nondom_theta_true(:,1),nondom_theta_true(:,2),'Kernel','on');
+scatterhist(nondom_theta_true(:,1),nondom_theta_true(:,2),'Kernel','on',...
+    'Bandwidth',);
 
 % Get density estimate of direct data and MCMC samples
-[ pi_samps , xi_samps ] = ksdensity ( samps ) ; 
-[ pi_true  , xi_true  ] = ksdensity (nondom_theta_true) ;
+[ pi_samps , xi_samps , bw_samps ] = ksdensity ( samps );%, 'Bandwidth',...
+    %[0.1 0.2]) ; 
+[ pi_true  , xi_true  , bw_true ] = ksdensity (nondom_theta_true) ;
 % Plot these densities
+
+
+%% Posterior distribution of calib parameters at specific cost
+clc; clearvars -except dpath ; close all;
+% Load MCMC samples
+load([dpath,'Example\Ex_results\'...
+'2018-05-17_cost_grid_results'],...
+'results');
+% Filter to get all samples with estimated mean near cost_target
+cost_target = 20;
+dat = [] ; 
+for ii = 1:size(results,1)
+    newdat = results{ii}.samples_os(results{ii}.settings.burn_in:end,:);
+    newdat_cost = results{ii}.model_output.by_sample(:,3);
+    newdat = newdat(round(newdat_cost)==cost_target,:);
+    dat = [dat ; newdat ] ;
+    fprintf('ii: %d, #: %d\n',ii,sum(round(newdat_cost)==cost_target));
+end
+
+% take a look
+plot(dat(:,1),dat(:,2),'ob');
+
+% Now get the direct data, both unfiltered and nondominated
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-23_true_ctheta-output'],...
+    'ctheta_output');
+% load([dpath,'Example\Ex_results\'...
+%     '2018-05-23_true_ctheta-output_nondom'],...
+%     'ctheta_output_nondom');
+ctheta_output_at_cost = ...
+    ctheta_output(round(ctheta_output(:,6))==cost_target,:);
+dd_dat = ctheta_output_at_cost(:,2:3);
+% Find nondoms just wrt defl, rotn:
+[nd_dd_out, nd_dd_idx] = nondominated(ctheta_output_at_cost(:,4:5)) ; 
+
+
+nd_dd_dat = ctheta_output_at_cost(nd_dd_idx,2:3);                                                      
+%nd_dd_dat = ctheta_output_nondom(...
+%    round(ctheta_output_nondom(:,6))==cost_target,2:3);
+
+% Take a look at the direct data (on same plot)
+hold on;
+plot(dd_dat(:,1),dd_dat(:,2),'og');
+plot(nd_dd_dat(:,1),nd_dd_dat(:,2),'or');
+
+%% Plot posterior calib samps coloring by proximity to pareto front
+
 
 

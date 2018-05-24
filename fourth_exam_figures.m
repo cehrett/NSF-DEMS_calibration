@@ -481,8 +481,6 @@ plot(...%cost_lambda,post_cost_median,'r',...
     x,pcost,'-r',...
     x,pcostuq,'-k',...
     x,pcostlq,'-k');
-% Plot 2sd errbar
-% errorbar(cost_lambda,post_cost_mean,post_cost_sd,'ob'); 
 xl1=xlabel('\lambda_c_o_s_t');
 ylim(ylim_cost);
 ylabel('Cost');
@@ -529,28 +527,28 @@ for ii = 1:m % This loop populates the above arrays
     puo(ii,:) = quantile(grid_outputs{ii},1-alpha/2);
 end
 % Now we break the arrays up each into 3 vectors, one for each output
-post_cost_median = pdo(:,3);
+%post_cost_median = pdo(:,3);
 post_defl_median = pdo(:,1);
 post_rotn_median = pdo(:,2);
-post_cost_sd = pso(:,3);
+%post_cost_sd = pso(:,3);
 post_defl_sd = pso(:,1);
 post_rotn_sd = pso(:,2);
-post_cost_lq = plo(:,3);
-post_cost_uq = puo(:,3);
+%post_cost_lq = plo(:,3);
+%post_cost_uq = puo(:,3);
 post_defl_lq = plo(:,1);
 post_defl_uq = puo(:,1);
 post_rotn_lq = plo(:,2);
 post_rotn_uq = puo(:,2);
 % Get quantiles plus code uncertainty
-post_cost_uq_cu = post_cost_uq + post_cost_sd;
-post_cost_lq_cu = post_cost_lq - post_cost_sd;
+%post_cost_uq_cu = post_cost_uq + post_cost_sd;
+%post_cost_lq_cu = post_cost_lq - post_cost_sd;
 post_defl_uq_cu = post_defl_uq + post_defl_sd;
 post_defl_lq_cu = post_defl_lq - post_defl_sd;
 post_rotn_uq_cu = post_rotn_uq + post_rotn_sd;
 post_rotn_lq_cu = post_rotn_lq - post_rotn_sd;
 % Get ylims for the two sets of plots
 ylimrat=1.01;
-ylim_cost = [min(post_cost_lq_cu)/ylimrat max(post_cost_uq_cu)*ylimrat];
+%ylim_cost = [min(post_cost_lq_cu)/ylimrat max(post_cost_uq_cu)*ylimrat];
 ylim_defl = [min(post_defl_lq_cu)/ylimrat max(post_defl_uq_cu)*ylimrat];
 ylim_rotn = [min(post_rotn_lq_cu)/ylimrat max(post_rotn_uq_cu)*ylimrat];
 
@@ -619,10 +617,11 @@ ylabel('Rotation');
 % Save the figure temporarily so we can mess with it later, because
 % suptitle seems to mess things up somehow for making changes after calling
 % it
+figpos = get(h,'pos');
 savefig(h,'tempfig');
 
 % Put a main title over anything, and fix any misplaced labels etc
-suptitle(['Cost vs. \lambda_c_o_s_t and performance metric vs. cost',...
+suptitle(['Cost vs. \lambda_c_o_s_t, and performance metric vs. cost',...
     ' with ',num2str(cred_level),'% credible interval']); 
 p = get(xl1,'position');
 set(xl1,'position',p + [0 4 0]);
@@ -639,6 +638,7 @@ saveas(h,'FIG_cost_lambda_upd.png');
 % First, open the figure prior to calling suptitle.
 h=openfig('tempfig');
 subplot(1,3,1);
+x = 0:1:100;
 pcostuq_code_uncert = pchip(cost_lambda,post_cost_uq_cu,x);
 pcostlq_code_uncert = pchip(cost_lambda,post_cost_lq_cu,x);
 f=fill([ x , fliplr(x) ], [pcostuq_code_uncert,...
@@ -651,8 +651,9 @@ ylim(ylim_cost);
 xl1=xlabel('\lambda_c_o_s_t');
 
 subplot(1,3,2);
-pdefluq_code_uncert = pchip(cost_lambda,post_defl_uq_cu,x);
-pdefllq_code_uncert = pchip(cost_lambda,post_defl_lq_cu,x);
+x = min(vals):1:max(vals);
+pdefluq_code_uncert = pchip(vals,post_defl_uq_cu,x);
+pdefllq_code_uncert = pchip(vals,post_defl_lq_cu,x);
 f=fill([ x , fliplr(x) ], [pdefluq_code_uncert,...
     fliplr(pdefluq)],'b');
 ff=fill([ x , fliplr(x) ], [pdefllq_code_uncert,...
@@ -660,11 +661,11 @@ ff=fill([ x , fliplr(x) ], [pdefllq_code_uncert,...
 set(f,'facealpha',.25);
 set(ff,'facealpha',.25);
 ylim(ylim_defl);
-xl2=xlabel('\lambda_c_o_s_t');
+xl2=xlabel('Cost ($)');
 
 subplot(1,3,3);
-protnuq_code_uncert = pchip(cost_lambda,post_rotn_uq_cu,x);
-protnlq_code_uncert = pchip(cost_lambda,post_rotn_lq_cu,x);
+protnuq_code_uncert = pchip(vals,post_rotn_uq_cu,x);
+protnlq_code_uncert = pchip(vals,post_rotn_lq_cu,x);
 f=fill([ x , fliplr(x) ], [protnuq_code_uncert,...
     fliplr(protnuq)],'b');
 ff=fill([ x , fliplr(x) ], [protnlq_code_uncert,...
@@ -672,20 +673,47 @@ ff=fill([ x , fliplr(x) ], [protnlq_code_uncert,...
 set(f,'facealpha',.25);
 set(ff,'facealpha',.25);
 ylim(ylim_rotn);
-xl3=xlabel('\lambda_c_o_s_t');
+xl3=xlabel('Cost ($)');
 
-suptitle(['Performance metrics vs. \lambda_c_o_s_t,',...
+suptitle(['Cost vs. \lambda_c_o_s_t, and performance metrics vs. cost',...
     ' with ',num2str(cred_level),'% credible interval '...
     'including code uncertainty']); 
 set(h,'pos',figpos);
 p = get(xl1,'position');
-set(xl1,'position',p + [0 6 0]);
-p = get(xl2,'position');
-set(xl2,'position',p + [0 0.003 0])
-p = get(xl3,'position');
-set(xl3,'position',p + [0 0.00045 0])
+set(xl1,'position',p + [0 4 0]);
+% p = get(xl2,'position');
+% set(xl2,'position',p + [0 0.003 0])
+% p = get(xl3,'position');
+% set(xl3,'position',p + [0 0.00045 0])
 
-saveas(h,'FIG_cost_lambda_code_uncert.png');
+saveas(h,'FIG_cost_lambda_code_uncert_upd.png');
 
 delete('tempfig.fig');
 
+%% Posterior theta distribution over lambda_cost grid
+% Load data
+
+% Let's scatterplotclc; clearvars -except dpath ; close all;
+
+load([dpath,'stored_data\'...
+    'results_Cost_lambda_grid_exploration'],...
+    'results');
+
+% Get data in one big array, [theta lambda_cost]
+dat = [];
+for ii = 1:size(results,1)
+    sos = results{ii}.samples_os(results{ii}.burn_in:end,:);
+    dat = [dat ; sos ...
+        results{ii}.Cost_lambda * ones(size(sos,1),1) ];
+end
+
+colors = [dat(dat(:,3)<10,3) * 5 ; dat(dat(:,3)>10,3)+41];
+scatter3(dat(:,1),dat(:,2),dat(:,3),5,colors); axis vis3d;
+
+% Now make a scatterplot only of lower lambda_cost values. Rather than set
+% the height proportional to lambda_cost, just set them at regular
+% intervals and label the ticks with the real values. To do this, we need
+% to make a vector of the heights at regular intervals.
+upto=25;
+scatter3(dat(dat(:,3)<upto,1),dat(dat(:,3)<upto,2),dat(dat(:,3)<upto,3)...
+    ,5,colors(dat(:,3)<upto)); axis vis3d;
