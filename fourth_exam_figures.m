@@ -691,29 +691,63 @@ saveas(h,'FIG_cost_lambda_code_uncert_upd.png');
 delete('tempfig.fig');
 
 %% Posterior theta distribution over lambda_cost grid
+clc; clearvars -except dpath ; close all
 % Load data
-
-% Let's scatterplotclc; clearvars -except dpath ; close all;
-
 load([dpath,'stored_data\'...
     'results_Cost_lambda_grid_exploration'],...
     'results');
 
-% Get data in one big array, [theta lambda_cost]
+% Get data in one big array, [theta lambda_cost], both with lambda_cost and
+% one version with equally spaced identifiers for each lambda_cost
 dat = [];
+dati = [];
 for ii = 1:size(results,1)
     sos = results{ii}.samples_os(results{ii}.burn_in:end,:);
     dat = [dat ; sos ...
         results{ii}.Cost_lambda * ones(size(sos,1),1) ];
+    dati = [dati ; sos ii*ones(size(sos,1),1) ] ;
 end
 
 colors = [dat(dat(:,3)<10,3) * 5 ; dat(dat(:,3)>10,3)+41];
-scatter3(dat(:,1),dat(:,2),dat(:,3),5,colors); axis vis3d;
+scatter3(dat(:,1),dat(:,2),dati(:,3),5,dati(:,3)); axis vis3d;
 
 % Now make a scatterplot only of lower lambda_cost values. Rather than set
 % the height proportional to lambda_cost, just set them at regular
 % intervals and label the ticks with the real values. To do this, we need
 % to make a vector of the heights at regular intervals.
-upto=25;
-scatter3(dat(dat(:,3)<upto,1),dat(dat(:,3)<upto,2),dat(dat(:,3)<upto,3)...
-    ,5,colors(dat(:,3)<upto)); axis vis3d;
+h=figure();
+upto=15;
+scatter3(dat(dat(:,3)<upto,1),dat(dat(:,3)<upto,2),dati(dat(:,3)<upto,3)...
+    ,14,dati(dat(:,3)<upto,3)); axis vis3d; colormap(linspecer);
+zticks([1 2 3 4 5 6 ]);
+zticklabels({'0','2','4','6','8','10'});
+view([1 -1 .3]); 
+zlabel('\lambda_c_o_s_t'); xlabel('Volume fraction'); 
+ylabel('Thickness (mm)');
+title(['Posterior distribution of volume fraction and thickness']);
+saveas(h,'FIG_post_dist_across_cost_lambda-3d.png');
+
+% Now make a 2d scatterplot with just three levels of lambda_cost
+dat2d = dat(dat(:,3)==0,1:2) ; cons = ones(size(dat2d,1),1);
+dat2d = [dat2d cons];
+dat2d = [dat2d ; dat(dat(:,3)==4,1:2) 2*cons] ;
+dat2d = [dat2d ; dat(dat(:,3)==200/9,1:2) 3*cons ] ;
+h=figure('Position',[10 10 420 360]);
+l1idx = dat2d(:,3)==1; l2idx = dat2d(:,3)==2 ; l3idx = dat2d(:,3)==3;
+hold on;
+scatter(dat2d(l2idx,1),dat2d(l2idx,2),20,dat2d(l2idx,3)); 
+scatter(dat2d(l1idx,1),dat2d(l1idx,2),20,dat2d(l1idx,3)); 
+scatter(dat2d(l3idx,1),dat2d(l3idx,2),20,dat2d(l3idx,3)); 
+colormap([0 1 0 ; 1 0 0 ; 0 0 1]);
+title('Posterior distribution at three levels of \lambda_c_o_s_t');
+xlabel('Volume fraction');
+ylabel('Thickness (mm)');
+lgd = legend(...
+    '0','4',...
+    '22',...
+    'Location','northwest');
+title(lgd,'\lambda_c_o_s_t value');
+saveas(h,'FIG_post_dist_across_3_cost_lambda_vals-2d.png');
+
+%% 3d Pareto surface (cost, defl, rotn)
+% Get data

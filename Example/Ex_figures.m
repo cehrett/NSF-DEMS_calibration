@@ -21,7 +21,8 @@ addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
 addpath([dpath,'Example\Ex_results']);
 
-%% Get deflection, rotation "bands" as function of cost, with true trade-off
+%% Get deflection, rotation "bands" as function of cost, w\ true trade-off
+clc ; clearvars -except dpath ; close all;
 % First using the one big calibration including cost
 load([dpath,'Example\Ex_results\'...
 '2018-05-17_d0_incl_min_cost'],...
@@ -47,8 +48,10 @@ uqs = zeros(length(costs),2);
 lqs = zeros(length(costs),2);
 dir_uqs = zeros(length(costs),2);
 dir_lqs = zeros(length(costs),2);
-data_true = nondominated(allperfs); % Get allperfs 
-                               % from Ex_optimization_workspace
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+data_true = ctheta_output_nondom(:,4:6);
 data = emout.output_means;
 
 for ii = 1:16
@@ -123,6 +126,7 @@ load([dpath,'Example\Ex_results\'...
     'nondom_ap');
 
 %% Get figure at particular cost describing rotation/deflection tradeoff
+clc; clearvars -except dpath ; close all;
 load([dpath,'Example\Ex_results\'...
 '2018-05-17_d0_incl_min_cost'],...
 'results'); % This is the results
@@ -145,7 +149,7 @@ plot(samps_at_cost(:,1),samps_at_cost(:,2),'ob');
 
 % Now find the same using direct data
 load([dpath,'Example\Ex_results\'...
-    '2018-05-23_true_ctheta-output'],...
+    '2018-05-25_true_ctheta-output'],...
     'ctheta_output');
 dd_at_cost_idx = (round(ctheta_output(:,6)) == cost_target);
 dd_at_cost = ctheta_output(dd_at_cost_idx,4:5);
@@ -221,8 +225,9 @@ nondoms = nondominated(emout.output_means);
 % ( Get direct data from Ex_optimization_workspace, allperfs )
 %nondom_ap = nondominated(allperfs);
 load([dpath,'Example\Ex_results\'...
-    '2018-05-18_direct_data_nondom'],...
-    'nondom_ap');
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+nondom_ap = ctheta_output_nondom(:,4:6);
 
 % Take a look
 Circlesize=50;
@@ -243,6 +248,7 @@ scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
     Circlesize,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',.2);
 
 %% Get 3d figure of nondominated direct data plus nondom cost grid MCMC
+clc ; clearvars -except dpath ; close all;
 load([dpath,'Example\Ex_results\'...
 '2018-05-17_cost_grid_results'],...
 'results');
@@ -256,8 +262,9 @@ end
 nondoms = nondominated(emout);
 % ( Get direct data from Ex_optimization_workspace, allperfs )
 load([dpath,'Example\Ex_results\'...
-    '2018-05-18_direct_data_nondom'],...
-    'nondom_ap');
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+nondom_ap = ctheta_output_nondom(:,4:6);
 
 % Take a look
 Circlesize=50;
@@ -274,6 +281,7 @@ title(['Nondominated direct data (red) and MCMC samples'...
     '(blue) from cost grid']);
 
 %% 3d figure of nondom'd direct data w/ all samps output from full calib
+clc; clearvars -except dpath ; close all;
 load([dpath,'Example\Ex_results\'...
 '2018-05-17_d0_incl_min_cost'],...
 'results');
@@ -292,8 +300,9 @@ nondoms = emout.output_means;
 % ( Get direct data from Ex_optimization_workspace, allperfs )
 %nondom_ap = nondominated(allperfs);
 load([dpath,'Example\Ex_results\'...
-    '2018-05-18_direct_data_nondom'],...
-    'nondom_ap');
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+nondom_ap = ctheta_output_nondom(:,4:6);
 
 % Take a look
 Circlesize=50;
@@ -318,10 +327,10 @@ load([dpath,'Example\Ex_results\'...
 
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
-    '2018-05-23_true_ctheta-output'],...
+    '2018-05-25_true_ctheta-output'],...
     'ctheta_output');
 load([dpath,'Example\Ex_results\'...
-    '2018-05-23_true_ctheta-output_nondom'],...
+    '2018-05-25_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 
 
@@ -341,8 +350,7 @@ nondom_theta_true = ctheta_output_nondom(:,2:3);
 
 % Plot theta from nondominated direct outcomes
 plot(nondom_theta_true(:,1),nondom_theta_true(:,2),'.');
-scatterhist(nondom_theta_true(:,1),nondom_theta_true(:,2),'Kernel','on',...
-    'Bandwidth',);
+scatterhist(nondom_theta_true(:,1),nondom_theta_true(:,2),'Kernel','on');
 
 % Get density estimate of direct data and MCMC samples
 [ pi_samps , xi_samps , bw_samps ] = ksdensity ( samps );%, 'Bandwidth',...
@@ -374,7 +382,7 @@ plot(dat(:,1),dat(:,2),'ob');
 % Now get the direct data, both unfiltered and nondominated
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
-    '2018-05-23_true_ctheta-output'],...
+    '2018-05-25_true_ctheta-output'],...
     'ctheta_output');
 % load([dpath,'Example\Ex_results\'...
 %     '2018-05-23_true_ctheta-output_nondom'],...
@@ -396,6 +404,51 @@ plot(dd_dat(:,1),dd_dat(:,2),'og');
 plot(nd_dd_dat(:,1),nd_dd_dat(:,2),'or');
 
 %% Plot posterior calib samps coloring by proximity to pareto front
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
 
+% Get ranges of outputs
+output_ranges = range(ctheta_output(:,4:6));
+output_sds    = std(ctheta_output(:,4:6))  ;
 
+% Get proportion of output ranges
+alpha = .5;
+tol = output_sds * alpha ;
 
+% Load MCMC samples (full calib)
+load([dpath,'Example\Ex_results\'...
+'2018-05-17_d0_incl_min_cost'],...
+'results');
+samps_os = results.samples_os(results.settings.burn_in:end,:);
+
+% Get true performance at each sample draw
+mcmc_perfs = Ex_sim([ 2*ones(size(samps_os,1),1) samps_os ] );
+
+% Subtract tol from mcmc_perfs to boost their ``nondominance rating'' by
+% tol, and then for each element of mcmc_perfs_boosted, check whether it is
+% dominated by any output from the dense direct data grid. (This can be
+% done by checking only the nondominated direct data outputs, which are
+% stored separately and are loaded above.) If not, then the mcmc sample is
+% within tol of the pareto front.
+mcmc_perfs_boosted = mcmc_perfs - tol ;
+dd_nondoms = ctheta_output_nondom(:,4:6);
+mcmc_perfs_tol_nd_idx = [] ; % This will be indices of tol-nondom'd elts
+for ii = 1:size(mcmc_perfs_boosted,1)
+    % samp_ii_nd will be true iff the boosted mcmc samp dominates any
+    % element of dd_nondoms (in which case the mcmc samp is within tol of
+    % the pareto front)
+    samp_ii_nd = any(all(mcmc_perfs_boosted(ii,:) < dd_nondoms,2));
+    mcmc_perfs_tol_nd_idx = [ mcmc_perfs_tol_nd_idx ; samp_ii_nd ] ;
+    if mod(ii,1000) == 0
+        fprintf('Step %d/%d\n',ii,size(mcmc_perfs_boosted,1));
+    end
+end
+% Check outcome: how many samps were within tol
+fprintf('Total within tol:%d/%d\n',sum(mcmc_perfs_tol_nd_idx),...
+    size(mcmc_perfs_boosted,1));
