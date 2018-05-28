@@ -417,18 +417,25 @@ load([dpath,'Example\Ex_results\'...
 output_ranges = range(ctheta_output(:,4:6));
 output_sds    = std(ctheta_output(:,4:6))  ;
 
-% Get proportion of output ranges
-alpha = .5;
-tol = output_sds * alpha ;
-
 % Load MCMC samples (full calib)
 load([dpath,'Example\Ex_results\'...
 '2018-05-17_d0_incl_min_cost'],...
 'results');
 samps_os = results.samples_os(results.settings.burn_in:end,:);
+% For comparison, also get uniform random samples
+unif_samps = ctheta_output(randsample(1:size(ctheta_output,1),...
+    size(samps_os,1)),2:3) ; 
 
 % Get true performance at each sample draw
 mcmc_perfs = Ex_sim([ 2*ones(size(samps_os,1),1) samps_os ] );
+unif_perfs = Ex_sim([ 2*ones(size(unif_samps,1),1) unif_samps ] );
+
+% Get proportions of output ranges
+alphas = [0.001 0.01 0.05 0.1 0.5 1 2 3 ];
+
+
+% Get the true pareto front:
+dd_nondoms = ctheta_output_nondom(:,4:6);
 
 % Subtract tol from mcmc_perfs to boost their ``nondominance rating'' by
 % tol, and then for each element of mcmc_perfs_boosted, check whether it is
@@ -436,19 +443,74 @@ mcmc_perfs = Ex_sim([ 2*ones(size(samps_os,1),1) samps_os ] );
 % done by checking only the nondominated direct data outputs, which are
 % stored separately and are loaded above.) If not, then the mcmc sample is
 % within tol of the pareto front.
-mcmc_perfs_boosted = mcmc_perfs - tol ;
-dd_nondoms = ctheta_output_nondom(:,4:6);
-mcmc_perfs_tol_nd_idx = [] ; % This will be indices of tol-nondom'd elts
-for ii = 1:size(mcmc_perfs_boosted,1)
-    % samp_ii_nd will be true iff the boosted mcmc samp dominates any
-    % element of dd_nondoms (in which case the mcmc samp is within tol of
-    % the pareto front)
-    samp_ii_nd = any(all(mcmc_perfs_boosted(ii,:) < dd_nondoms,2));
-    mcmc_perfs_tol_nd_idx = [ mcmc_perfs_tol_nd_idx ; samp_ii_nd ] ;
-    if mod(ii,1000) == 0
-        fprintf('Step %d/%d\n',ii,size(mcmc_perfs_boosted,1));
+mcmc_perfs_tol_nd_idxs = cell(length(alphas),1) ; % This will store indices
+                                                  % of samples within tol
+unif_perfs_tol_nd_idxs = cell(length(alphas),1) ; % Similar for unif samps
+for jj =1:length(alphas) % Loop through several alpha settings
+    alpha = alphas(jj);
+    tol = output_sds * alpha ;
+%     mcmc_perfs_boosted = mcmc_perfs - tol ;
+%     unif_perfs_boosted = unif_perfs - tol ;
+    % Get alpha-boosted versions of the outputs
+    mcmc_perfs_boosted = [ mcmc_perfs - [tol(1) 0 0 ] ; 
+        mcmc_perfs - [0 tol(2) 0 ] ; 
+        mcmc_perfs - [0 0 tol(3) ] ] ; 
+    unif_perfs_boosted = [ unif_perfs - [tol(1) 0 0 ] ; 
+        unif_perfs - [0 tol(2) 0 ] ; 
+        unif_perfs - [0 0 tol(3) ] ] ; 
+    % Set up for looping through boosted performances
+    mcmc_perfs_tol_nd_idx = [] ; % This will be indxs of tol-nondom'd elts
+    unif_perfs_tol_nd_idx = [] ;
+    for ii = 1:size(mcmc_perfs_boosted,1)
+        % samp_ii_nd will be true iff the boosted mcmc samp dominates any
+        % element of dd_nondoms (in which case mcmc samp is within tol of
+        % the pareto front)
+        samp_ii_nd = any(all(mcmc_perfs_boosted(ii,:) < dd_nondoms,2));
+        unif_samp_ii_nd = any(all(unif_perfs_boosted(ii,:)<dd_nondoms,2));
+        mcmc_perfs_tol_nd_idx = [ mcmc_perfs_tol_nd_idx ;samp_ii_nd ] ;
+        unif_perfs_tol_nd_idx = [ unif_perfs_tol_nd_idx ;unif_samp_ii_nd ];
+        if mod(ii,1000) == 0
+            fprintf('Step %d/%d\n',ii,size(mcmc_perfs_boosted,1));
+        end
     end
+    % Check outcome: how many samps were within tol
+    fprintf('Mcmc within tol:%d/%d\nUnif within tol:%d/%d\n',...
+        sum(mcmc_perfs_tol_nd_idx),size(mcmc_perfs_boosted,1),...
+        sum(unif_perfs_tol_nd_idx),size(unif_perfs_boosted,1));
+    mcmc_perfs_tol_nd_idxs{jj} = mcmc_perfs_tol_nd_idx ; 
+    unif_perfs_tol_nd_idxs{jj} = unif_perfs_tol_nd_idx ; 
 end
-% Check outcome: how many samps were within tol
-fprintf('Total within tol:%d/%d\n',sum(mcmc_perfs_tol_nd_idx),...
-    size(mcmc_perfs_boosted,1));
+
+samps_within_tol_of_nd.mcmc_perfs_tol_nd_idxs=mcmc_perfs_tol_nd_idxs;
+samps_within_tol_of_nd.unif_perfs_tol_nd_idxs=unif_perfs_tol_nd_idxs;
+samps_within_tol_of_nd.alphas=alphas;
+samps_within_tol_of_nd.output_sds=output_sds;
+samps_within_tol_of_nd.mcmc_samps=samps_os;
+samps_within_tol_of_nd.unif_samps=unif_samps;
+samps_within_tol_of_nd.dd_nondoms=dd_nondoms ;
+
+% save([dpath,'Example\Ex_results\'...
+% '2018-05-28_samps_within_tol_of_nd'],...
+% 'samps_within_tol_of_nd');
+
+% Find those samples surviving after any of the three perf boosts
+mcmc_perfs_tol_nd_any_idxs = cell(size(samps_within_tol_of_nd,1),1);
+unif_perfs_tol_nd_any_idxs = cell(size(samps_within_tol_of_nd,1),1);
+for ii = 1:size(samps_within_tol_of_nd.alphas,2)
+    mx = ...
+        samps_within_tol_of_nd.mcmc_perfs_tol_nd_idxs{ii} ; 
+    ux = ...
+        samps_within_tol_of_nd.unif_perfs_tol_nd_idxs{ii} ; 
+    num_samps = size(mx,1)/3;
+    mcmc_perfs_tol_nd_any_idx = ...
+        any([mx(1:num_samps) mx(num_samps+1:2*num_samps) ...
+        mx(2*num_samps+1:end)],2);
+    unif_perfs_tol_nd_any_idx = ...
+        any([ux(1:num_samps) ux(num_samps+1:2*num_samps) ...
+        ux(2*num_samps+1:end)],2);
+    fprintf('MCMC within tol:%d/%d\nUnif within tol: %d/%d\n\n',...
+        sum(mcmc_perfs_tol_nd_any_idx),num_samps,...
+        sum(unif_perfs_tol_nd_any_idx),num_samps) ;
+    mcmc_perfs_tol_nd_any_idxs{ii} = mcmc_perfs_tol_nd_any_idx;
+    unif_perfs_tol_nd_any_idxs{ii} = unif_perfs_tol_nd_any_idx;
+end

@@ -1,8 +1,5 @@
 % Figures for fourth exam
 
-
-
-
 %% Clear and add paths
 clc; clear all; close all;
 
@@ -735,14 +732,14 @@ dat2d = [dat2d ; dat(dat(:,3)==200/9,1:2) 3*cons ] ;
 h=figure('Position',[10 10 420 360]);
 l1idx = dat2d(:,3)==1; l2idx = dat2d(:,3)==2 ; l3idx = dat2d(:,3)==3;
 hold on;
-scatter(dat2d(l2idx,1),dat2d(l2idx,2),20,dat2d(l2idx,3)); 
-scatter(dat2d(l1idx,1),dat2d(l1idx,2),20,dat2d(l1idx,3)); 
-scatter(dat2d(l3idx,1),dat2d(l3idx,2),20,dat2d(l3idx,3)); 
-colormap([0 1 0 ; 1 0 0 ; 0 0 1]);
+%colormap([1 0 0 ; 0 1 0 ; 0 0 1]);
+s1=scatter(dat2d(l2idx,1),dat2d(l2idx,2),20,dat2d(l2idx,3),'g'); 
+s2=scatter(dat2d(l1idx,1),dat2d(l1idx,2),20,dat2d(l1idx,3),'r'); 
+s3=scatter(dat2d(l3idx,1),dat2d(l3idx,2),20,dat2d(l3idx,3),'b'); 
 title('Posterior distribution at three levels of \lambda_c_o_s_t');
 xlabel('Volume fraction');
 ylabel('Thickness (mm)');
-lgd = legend(...
+lgd = legend([s2 s1 s3],...
     '0','4',...
     '22',...
     'Location','northwest');
@@ -750,4 +747,43 @@ title(lgd,'\lambda_c_o_s_t value');
 saveas(h,'FIG_post_dist_across_3_cost_lambda_vals-2d.png');
 
 %% 3d Pareto surface (cost, defl, rotn)
-% Get data
+clc; clearvars -except dpath ; close all
+% Load data
+load([dpath,'stored_data\'...
+    'results_Cost_lambda_grid_exploration'],...
+    'results');
+
+% Gather all sample output estimates together
+outputs = [];
+for ii = 1:size(results,1)
+    outputs = [ outputs ; results{ii}.model_output.by_sample ] ;
+end
+
+% Scatterplot
+h=scatter3(outputs(:,1),outputs(:,2),outputs(:,3),100,outputs(:,3),...
+    'filled');
+xlim([min(outputs(:,1)) max(outputs(:,1)) ]);
+ylim([min(outputs(:,2)) max(outputs(:,2)) ]);
+zlim([min(outputs(:,3)) max(outputs(:,3)) ]);
+view([1 -1 .15]);
+axis vis3d; hold on;
+title('Posterior output mean estimates at sampled points');
+xlabel('Deflection (m)');
+ylabel('Rotation (radians)');
+zlabel('Cost ($)');
+saveas(h,'FIG_post_outputs_3d');
+
+% Try to make it a surface
+x = outputs(:,1) ; y = outputs(:,2) ; z = outputs(:,3) ;
+dt = delaunayTriangulation(x,y) ;
+tri = dt.ConnectivityList ;
+xi = dt.Points(:,1) ; 
+yi = dt.Points(:,2) ; 
+F = scatteredInterpolant(x,y,z);
+zi = F(xi,yi) ;
+trisurf(tri,xi,yi,zi) 
+%view(2)
+shading interp 
+% No bueno
+
+%% 
