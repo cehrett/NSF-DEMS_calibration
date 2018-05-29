@@ -160,7 +160,7 @@ cost_grid = linspace(15,30,m);
 
 % Load data
 load([dpath,'Example\Ex_results\'...
-'2018-05-17-raw_dat-3-12-12']);
+'2018-05-28-raw_dat-3-12-12']);
 sim_xt = raw_dat.sim_xt;
 sim_y = raw_dat.sim_y;
 clear raw_dat;
@@ -225,16 +225,16 @@ for ii = 1:m
     results{ii} = result ; 
     
     save([dpath,'Example\Ex_results\'...
-        '2018-05-17_cost_grid_results'],...
+        '2018-05-29_cost_grid_results'],...
         'results');
 
 end
 
 load([dpath,'Example\Ex_results\'...
-    '2018-05-17_cost_grid_results'],...
+    '2018-05-29_cost_grid_results'],...
     'results');
 
-% Add model outputs for each sample point
+% Add estimated model outputs for each sample point
 % These will store the results, sd's and means at each cost
 outputs = cell(m,1);
 intervals = zeros(m,3);
