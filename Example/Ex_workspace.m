@@ -1,8 +1,8 @@
 % Simulation workspace
 
+%% Set path string and add paths
 clc; clear all; close all;
 
-%% Set path string
 direc = pwd; if direc(1)=='C' 
     dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
 else
@@ -10,7 +10,7 @@ else
 end
 clear direc;
 
-%% Add paths
+% Add paths
 addpath(dpath);
 addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
@@ -88,6 +88,7 @@ save([dpath,'Example\Ex_results\'...
 
 
 %% Run MCMC
+clc ; clearvars -except dpath ; close all;
 % Load raw data
 load([dpath,'Example\Ex_results\'...
 '2018-05-28-raw_dat-3-12-12']);
@@ -349,3 +350,76 @@ hold on;
 % Compare with data obtained directly
 scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
     Circlesize,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',.2);
+
+%% Perform calibration with set total observation variance
+% Allowing proportion of observation variance allocated to each output to
+% vary throughout the chain.
+clc ; clearvars -except dpath ; close all;
+% Load raw data
+load([dpath,'Example\Ex_results\'...
+'2018-05-28-raw_dat-3-12-12']);
+sim_xt = raw_dat.sim_xt;
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% User defined values
+M = 2e4;
+desired_obs = [0 0 0];
+which_outputs = [ 1 1 1 ] ; % Which of oscl, perf, cost
+% Calculated optimum for example simulation:
+Rho_lam_optimum  = [  0.280981573480363   0.999189406633873...
+   0.600440750045477  0.719652153362981   0.102809702497319...
+   0.000837772517865 ] ;
+
+% Settings
+settings = MCMC_settings (M,desired_obs,sim_xt(:,1),sim_xt(:,2:3),...
+    sim_y,which_outputs,Rho_lam_optimum);
+settings.doplot = false;
+settings.doplot = true;
+
+% Alter settings to perform calibration with set total obs. variance
+settings.sigma2 = 10; % Total observation variance
+settings.log_sigma2_prior = @(x) 0 ; % No prior on total variance
+settings.init_sigma2_divs = [ 1/3 2/3 ] ; % Initial weights
+settings.log_sig_mh_correction = @(x,s) 0 ; % No MH correction for sigma2
+settings.proposal.sigma2_prop_density = ...
+    @(x,s) x + rand(1,2) * s - s/2;
+settings.proposal.Sigma_sig = .1;
+
+% MCMC
+[samples,sigma2_rec,Sigma] = MCMC_set_total_obs_var(settings);
+
+% Get extra info about results and save everything
+post_mean_out = em_out(samples,settings)
+samples_os = samples .* [3 6 ];
+
+results = struct('samples',samples,...
+    'sigma2',sigma2_rec,...
+    'Sigma',Sigma,...
+    'desired_obs',desired_obs,...
+    'post_mean_theta',mean(samples(settings.burn_in:end,:)),...
+    'post_mean_sigma2',mean(sigma2_rec(settings.burn_in:end,:)),...
+    'post_mean_out',post_mean_out,...
+    'settings',settings);
+
+% save([dpath,'Example\Ex_results\'...
+% '2018-05-29_set_obs_var_d0'],...
+% 'results');
+
+% Add model predictions for each sample point to results
+emout = em_out_many(results.samples,results.settings,0);
+model_output.by_sample_est = emout.output_means;
+model_output.by_sample_true = Ex_sim(...
+    [2 * ones(size(samples_os,1),1) samples_os ]);
+% Then the means
+model_output.means_est = mean(emout.output_means);
+model_output.at_post_means_est = em_out(results.samples,...
+    results.settings);
+% Then the standard deviations
+model_output.sds = emout.output_sds;
+% Now package everything up in the results structs
+results.model_output = model_output;
+
+% save([dpath,'Example\Ex_results\'...
+% '2018-05-29_set_obs_var_d0'],...
+% 'results');
