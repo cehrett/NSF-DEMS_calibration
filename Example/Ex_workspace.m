@@ -1,8 +1,8 @@
 % Simulation workspace
 
+%% Set path string and add paths
 clc; clear all; close all;
 
-%% Set path string
 direc = pwd; if direc(1)=='C' 
     dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
 else
@@ -10,7 +10,7 @@ else
 end
 clear direc;
 
-%% Add paths
+% Add paths
 addpath(dpath);
 addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
@@ -148,13 +148,8 @@ save([dpath,'Example\Ex_results\'...
 
 
 %% Gather results over grid of cost values
-clc; clear all; close all;
-direc = pwd; if direc(1)=='C' 
-    dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
-else
-    dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
-end
-clear direc;
+clc; clearvars -except dpath; close all;
+
 m=12;
 cost_grid = linspace(15,30,m);
 
@@ -240,28 +235,32 @@ outputs = cell(m,1);
 intervals = zeros(m,3);
 means = zeros(m,3);
 n=0; 
-for ii = 1:1
+for ii = 2:12
     fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
     
-    % Get the outputs for the ii^th MCMC chain
-    emout = em_out_many(results{ii}.samples,results{ii}.settings,n);
-    % Record them (in a couple places, for convenience)
-    % First, all the outputs (one per sample drawn in MCMC)
-    outputs{ii} = emout;
-    model_output.by_sample = emout.output_means;
-    % Then the means
-    means(ii,:) = mean(emout.output_means);
-    model_output.means = means(ii,:) ;
-    model_output.at_post_means = em_out(results{ii}.samples,...
-        results{ii}.settings);
-    % Then the standard deviations
-    output_gp_sds = emout.output_sds;
-    model_output.sds = output_gp_sds;
+%     % Get the outputs for the ii^th MCMC chain
+%     emout = em_out_many(results{ii}.samples,results{ii}.settings,n);
+%     % Record them (in a couple places, for convenience)
+%     % First, all the outputs (one per sample drawn in MCMC)
+%     outputs{ii} = emout;
+%     model_output.est_by_sample = emout.output_means;
+%     % Then the means
+%     means(ii,:) = mean(emout.output_means);
+%     model_output.est_means = means(ii,:) ;
+%     model_output.est_at_post_means = em_out(results{ii}.samples,...
+%         results{ii}.settings);
+%     % Then the standard deviations
+%     output_gp_sds = emout.output_sds;
+%     model_output.est_sds = output_gp_sds;
+    % Get true output at each sample
+    samps = results{ii}.samples_os;
+    true_by_sample = Ex_sim([2*ones(size(samps,1),1) samps]) ;
+    model_output.true_by_sample=true_by_sample;
     % Now package everything up in the results structs
     results{ii}.model_output = model_output;
     
     save([dpath,'Example\Ex_results\'...
-        '2018-05-17_cost_grid_results'],...
+        '2018-05-29_cost_grid_results'],...
         'results');
 
 end
@@ -349,3 +348,121 @@ hold on;
 % Compare with data obtained directly
 scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
     Circlesize,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',.2);
+
+%% Get cost grid of results using set total variance
+clc; clearvars -except dpath; close all;
+
+m=12;
+cost_grid = linspace(15,30,m);
+
+% Load data
+load([dpath,'Example\Ex_results\'...
+'2018-05-28-raw_dat-3-12-12']);
+sim_xt = raw_dat.sim_xt;
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% User-defined values
+M = 1e4+10;
+desired_obs = [ 0 0 0 ] ;
+which_outputs = [ 1 1 1 ];
+Rho_lam_optimum  = [  0.280981573480363   0.999189406633873...
+   0.600440750045477  0.719652153362981   0.102809702497319...
+   0.000837772517865 ] ;
+cost_var = 0.05; % Specifies known cost variance
+
+% Set up struct to catch everything
+results = cell(m,1);
+
+for ii = 1:m
+    
+    % Get new desired_observations
+    desired_obs = [ 0 0 cost_grid(ii) ] ;
+    
+    % Get settings
+    settings = MCMC_settings (M,desired_obs,sim_xt(:,1),sim_xt(:,2:3),...
+        sim_y,which_outputs,Rho_lam_optimum);
+    settings.doplot = true;
+    
+    % Modify settings to make cost known
+    % First, modify the proposal density for obs var.
+    settings.proposal.sigma2_prop_density = @(x,s) ...
+        [exp(mvnrnd(log([x(1) x(2)]),s(1:2,1:2))) x(3)];
+    % Now modify the prior for obs var.
+    settings.log_sigma2_prior = @(sigma2) -log(prod(sigma2(1:2)));
+    % Now modify the initial obs var.
+    settings.sigma2 = [settings.sigma2(1:2) cost_var];
+    % Now modify the Metrop.-Hastings correction for drawing obs var.
+    settings.log_sig_mh_correction = @(sig_s,sig) ...
+        log(prod(sig_s(1:2)))-log(prod(sig(1:2)));
+    % We don't want an informative prior on VF, thk., so remove that:
+    settings.log_theta_prior = @(theta,Cost_lambda) 0 ;
+    % Okay, now tell it we want progress plots during the MCMC
+    settings.doplot = true;
+    % And set the burn_in to what we want it to be
+    settings.burn_in=2000;
+    
+    % MCMC
+    [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
+
+    % Get extra info about results and save everything
+    post_mean_out = em_out(samples,settings)
+    samples_os = samples .* settings.input_calib_ranges + ...
+        settings.input_calib_mins;
+    result = struct('samples',samples,...
+        'samples_os',samples_os,...
+        'sigma2',sigma2_rec,...
+        'Sigma',Sigma,...
+        'desired_obs',desired_obs,...
+        'post_mean_theta',mean(samples(settings.burn_in:end,:)),...
+        'post_mean_sigma2',mean(sigma2_rec(settings.burn_in:end,:)),...
+        'post_mean_out',post_mean_out,...
+        'settings',settings);
+    
+    results{ii} = result ; 
+    
+    save([dpath,'Example\Ex_results\'...
+        '2018-05-29_cost_grid_results'],...
+        'results');
+
+end
+
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_cost_grid_results'],...
+    'results');
+
+% Add estimated model outputs for each sample point
+% These will store the results, sd's and means at each cost
+outputs = cell(m,1);
+intervals = zeros(m,3);
+means = zeros(m,3);
+n=0; 
+for ii = 2:12
+    fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
+    
+%     % Get the outputs for the ii^th MCMC chain
+%     emout = em_out_many(results{ii}.samples,results{ii}.settings,n);
+%     % Record them (in a couple places, for convenience)
+%     % First, all the outputs (one per sample drawn in MCMC)
+%     outputs{ii} = emout;
+%     model_output.est_by_sample = emout.output_means;
+%     % Then the means
+%     means(ii,:) = mean(emout.output_means);
+%     model_output.est_means = means(ii,:) ;
+%     model_output.est_at_post_means = em_out(results{ii}.samples,...
+%         results{ii}.settings);
+%     % Then the standard deviations
+%     output_gp_sds = emout.output_sds;
+%     model_output.est_sds = output_gp_sds;
+    % Get true output at each sample
+    samps = results{ii}.samples_os;
+    true_by_sample = Ex_sim([2*ones(size(samps,1),1) samps]) ;
+    model_output.true_by_sample=true_by_sample;
+    % Now package everything up in the results structs
+    results{ii}.model_output = model_output;
+    
+    save([dpath,'Example\Ex_results\'...
+        '2018-05-29_cost_grid_results'],...
+        'results');
+
+end
