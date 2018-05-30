@@ -149,13 +149,8 @@ save([dpath,'Example\Ex_results\'...
 
 
 %% Gather results over grid of cost values
-clc; clear all; close all;
-direc = pwd; if direc(1)=='C' 
-    dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
-else
-    dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
-end
-clear direc;
+clc; clearvars -except dpath; close all;
+
 m=12;
 cost_grid = linspace(15,30,m);
 
@@ -241,28 +236,32 @@ outputs = cell(m,1);
 intervals = zeros(m,3);
 means = zeros(m,3);
 n=0; 
-for ii = 1:1
+for ii = 2:12
     fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
     
-    % Get the outputs for the ii^th MCMC chain
-    emout = em_out_many(results{ii}.samples,results{ii}.settings,n);
-    % Record them (in a couple places, for convenience)
-    % First, all the outputs (one per sample drawn in MCMC)
-    outputs{ii} = emout;
-    model_output.by_sample = emout.output_means;
-    % Then the means
-    means(ii,:) = mean(emout.output_means);
-    model_output.means = means(ii,:) ;
-    model_output.at_post_means = em_out(results{ii}.samples,...
-        results{ii}.settings);
-    % Then the standard deviations
-    output_gp_sds = emout.output_sds;
-    model_output.sds = output_gp_sds;
+%     % Get the outputs for the ii^th MCMC chain
+%     emout = em_out_many(results{ii}.samples,results{ii}.settings,n);
+%     % Record them (in a couple places, for convenience)
+%     % First, all the outputs (one per sample drawn in MCMC)
+%     outputs{ii} = emout;
+%     model_output.est_by_sample = emout.output_means;
+%     % Then the means
+%     means(ii,:) = mean(emout.output_means);
+%     model_output.est_means = means(ii,:) ;
+%     model_output.est_at_post_means = em_out(results{ii}.samples,...
+%         results{ii}.settings);
+%     % Then the standard deviations
+%     output_gp_sds = emout.output_sds;
+%     model_output.est_sds = output_gp_sds;
+    % Get true output at each sample
+    samps = results{ii}.samples_os;
+    true_by_sample = Ex_sim([2*ones(size(samps,1),1) samps]) ;
+    model_output.true_by_sample=true_by_sample;
     % Now package everything up in the results structs
     results{ii}.model_output = model_output;
     
     save([dpath,'Example\Ex_results\'...
-        '2018-05-17_cost_grid_results'],...
+        '2018-05-29_cost_grid_results'],...
         'results');
 
 end
@@ -356,6 +355,7 @@ scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
 % vary throughout the chain.
 clc ; clearvars -except dpath ; close all;
 % Load raw data
+
 load([dpath,'Example\Ex_results\'...
 '2018-05-28-raw_dat-3-12-12']);
 sim_xt = raw_dat.sim_xt;
@@ -423,3 +423,4 @@ results.model_output = model_output;
 % save([dpath,'Example\Ex_results\'...
 % '2018-05-29_set_obs_var_d0'],...
 % 'results');
+
