@@ -354,8 +354,8 @@ scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
 % Allowing proportion of observation variance allocated to each output to
 % vary throughout the chain.
 clc ; clearvars -except dpath ; close all;
-% Load raw data
 
+% Load raw data
 load([dpath,'Example\Ex_results\'...
 '2018-05-28-raw_dat-3-12-12']);
 sim_xt = raw_dat.sim_xt;
@@ -424,3 +424,120 @@ results.model_output = model_output;
 % '2018-05-29_set_obs_var_d0'],...
 % 'results');
 
+%% Cost grid calibration using set total observation variance
+clc; clearvars -except dpath; close all;
+
+m=12;
+cost_grid = linspace(15,30,m);
+
+% Load data
+load([dpath,'Example\Ex_results\'...
+'2018-05-28-raw_dat-3-12-12']);
+sim_xt = raw_dat.sim_xt;
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% User-defined values
+M = 1e4;
+desired_obs = [ 0 0 0 ] ;
+which_outputs = [ 1 1 1 ];
+Rho_lam_optimum  = [  0.280981573480363   0.999189406633873...
+   0.600440750045477  0.719652153362981   0.102809702497319...
+   0.000837772517865 ] ;
+cost_var = 0.05; % Specifies known cost variance
+
+% Set up struct to catch everything
+results = cell(m,1);
+
+for ii = 1:m
+    
+    % Get new desired_observations
+    desired_obs = [ 0 0 cost_grid(ii) ] ;
+    
+    % Get settings
+    settings = MCMC_settings (M,desired_obs,sim_xt(:,1),sim_xt(:,2:3),...
+        sim_y,which_outputs,Rho_lam_optimum);
+    settings.doplot = true;
+    
+    % Modify settings to make cost known
+    % We don't want an informative prior on VF, thk., so remove that:
+    settings.log_theta_prior = @(theta,Cost_lambda) 0 ;
+    % Okay, now tell it we want progress plots during the MCMC
+    settings.doplot = true;
+    % And set the burn_in to what we want it to be
+    settings.burn_in=2000;
+    
+    % Alter settings to perform calibration with set total obs. variance
+    settings.sigma2 = 50; % Total observation variance
+    settings.log_sigma2_prior = @(x) 0 ; % No prior on total variance
+    % Initial weights - this gives cost obs var cost_var
+    settings.init_sigma2_divs = [ 1/2 1-cost_var/settings.sigma2 ] ; 
+    settings.log_sig_mh_correction = @(x,s) 0 ; % No MH corr'n for sigma2
+    settings.proposal.sigma2_prop_density = ...
+        @(x,s) [ x(1) + rand * s - s/2 , x(2) ] ;
+    settings.proposal.Sigma_sig = .1;
+
+    % MCMC
+    [samples,sigma2_rec,Sigma] = MCMC_set_total_obs_var(settings);
+
+    % Get extra info about results and save everything
+    post_mean_out = em_out(samples,settings)
+    samples_os = samples .* settings.input_calib_ranges + ...
+        settings.input_calib_mins;
+    result = struct('samples',samples,...
+        'samples_os',samples_os,...
+        'sigma2_weights',sigma2_rec,...
+        'Sigma',Sigma,...
+        'desired_obs',desired_obs,...
+        'post_mean_theta',mean(samples(settings.burn_in:end,:)),...
+        'post_mean_sigma2',mean(sigma2_rec(settings.burn_in:end,:)),...
+        'post_mean_out',post_mean_out,...
+        'settings',settings);
+    
+    results{ii} = result ; 
+    
+    save([dpath,'Example\Ex_results\'...
+        '2018-05-30_cost_grid_with_set_total_obs_var'],...
+        'results');
+
+end
+
+load([dpath,'Example\Ex_results\'...
+    '2018-05-30_cost_grid_with_set_total_obs_var'],...
+    'results');
+
+% Add estimated model outputs for each sample point
+% These will store the results, sd's and means at each cost
+outputs = cell(m,1);
+intervals = zeros(m,3);
+means = zeros(m,3);
+n=0; 
+for ii = 2:12
+    fprintf('Step %d/%d\n',ii,m); % Let us know what step we're on
+    
+%     % Get the outputs for the ii^th MCMC chain
+%     emout = em_out_many(results{ii}.samples,results{ii}.settings,n);
+%     % Record them (in a couple places, for convenience)
+%     % First, all the outputs (one per sample drawn in MCMC)
+%     outputs{ii} = emout;
+%     model_output.est_by_sample = emout.output_means;
+%     % Then the means
+%     means(ii,:) = mean(emout.output_means);
+%     model_output.est_means = means(ii,:) ;
+%     model_output.est_at_post_means = em_out(results{ii}.samples,...
+%         results{ii}.settings);
+%     % Then the standard deviations
+%     output_gp_sds = emout.output_sds;
+%     model_output.est_sds = output_gp_sds;
+    % Get true output at each sample
+    samps = results{ii}.samples_os;
+    true_by_sample = Ex_sim([2*ones(size(samps,1),1) samps]) ;
+    model_output.true_by_sample=true_by_sample;
+    % Now package everything up in the results structs
+    results{ii}.model_output = model_output;
+    
+    save([dpath,'Example\Ex_results\'...
+        '2018-05-30_cost_grid_with_set_total_obs_var'],...
+        'results');
+
+end

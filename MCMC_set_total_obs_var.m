@@ -246,7 +246,7 @@ for ii = 1:M
 %             mult = 1.25 * mult
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances increased\n');
-            mult = 1.25 * mult 
+            mult = 1.35 * mult 
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         uniqsl = unique(samples(ii/4:ii+1,:),'rows');
