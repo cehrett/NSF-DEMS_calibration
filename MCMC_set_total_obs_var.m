@@ -104,7 +104,7 @@ msg                = 0                ;
 samples            = init_theta       ;
 sigma2_weights_rec = sigma2_weights   ;
 out_of_range_sig   = zeros(1,num_out) ;
-mult               = 2.4^2;           ;
+mult               = 10   ;           ;
 
 %% Get initial log likelihood
 % Set new observation input matrix:
@@ -239,14 +239,14 @@ for ii = 1:M
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
         %% Tune theta proposal variance
-        if accepted < 20 mult = .9 * mult 
+        if accepted < 20 mult = .75 * mult 
         end
         if accepted > 30
             %Sigma = Sigma * mult;%1.25;
 %             mult = 1.25 * mult
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances increased\n');
-            mult = 1.35 * mult 
+            mult = 1.5 * mult 
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         uniqsl = unique(samples(ii/4:ii+1,:),'rows');
