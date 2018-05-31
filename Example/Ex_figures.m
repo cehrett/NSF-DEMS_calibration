@@ -351,10 +351,12 @@ load([dpath,'Example\Ex_results\'...
     '2018-05-29_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 
+figure();
 samps = results.samples_os(results.settings.burn_in:end,:);
 % Take a look
 plot(samps(:,1),samps(:,2),'.');
 scatterhist(samps(:,1),samps(:,2),'Kernel','on');
+xlim([0,2]); ylim([0,4]);
 
 %%%
 % Get allperfs, all_ctheta from Ex_optimization_workspace
@@ -365,9 +367,14 @@ scatterhist(samps(:,1),samps(:,2),'Kernel','on');
 %nondom_theta_true = all_ctheta(ndidx,2:3);
 nondom_theta_true = ctheta_output_nondom(:,2:3);
 
+figure();
 % Plot theta from nondominated direct outcomes
 plot(nondom_theta_true(:,1),nondom_theta_true(:,2),'.');
 scatterhist(nondom_theta_true(:,1),nondom_theta_true(:,2),'Kernel','on');
+xlim([0,2]); ylim([0,4]); hold on;
+scatter1=scatter(samps(:,1),samps(:,2),'.');
+scatter1.MarkerFaceAlpha = .1;
+scatter1.MarkerEdgeAlpha = .1;
 
 % Get density estimate of direct data and MCMC samples
 [ pi_samps , xi_samps , bw_samps ] = ksdensity ( samps );%, 'Bandwidth',...
@@ -676,9 +683,9 @@ samps_within_tol_of_nd.mcmc_perfs_tol_nd_any_idxs = ...
 samps_within_tol_of_nd.unif_perfs_tol_nd_any_idxs = ...
     unif_perfs_tol_nd_any_idxs;
 
-save([dpath,'Example\Ex_results\'...
-'2018-05-30_samps_within_tol_of_nd__with_set_total_obs_var'],...
-'samps_within_tol_of_nd');
+% save([dpath,'Example\Ex_results\'...
+% '2018-05-30_samps_within_tol_of_nd__with_set_total_obs_var'],...
+% 'samps_within_tol_of_nd');
 
 % Now make a scatter3 plot with colors indicating alpha level
 sz=10 ; % circle size
@@ -701,3 +708,184 @@ scatter3(mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{2},1),...
 scatter3(mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},1),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},2),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},3),sz);
+
+%% Plot full set total obs var calib with direct data close to 0
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get true samples with output closest to 0 (Euclidean distance on
+% standardized scale
+% First put data on standardized scale
+cost_std = (ctheta_output(:,6) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (ctheta_output(:,4) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (ctheta_output(:,5) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+dd_outputs_std = [defl_std rotn_std cost_std];
+
+% Get zero on standardized scale
+zero_pt = -mean(ctheta_output(:,4:6))./std(ctheta_output(:,4:6));
+
+% Now get Euclidean norms of each standardized output
+dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Now get the Euclidean norm for all mcmc samples. First, load them:
+load([dpath,'Example\Ex_results\'...
+'2018-05-29_set_obs_var_d0'],...
+'results');
+outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
+% Put on standardized scale:
+cost_std = (outs(:,3) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (outs(:,1) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (outs(:,2) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
+
+% Now get Euclidean norms of each standardized output
+mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Take a look
+figure();
+scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+hold on;
+scatter(1:length(mcmc_dists),mcmc_dists);
+
+% Now take a 3d look at all outputs versus the close direct data outputs
+cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+figure();
+scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+scatter3(...
+    close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+
+% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+samps = results.samples_os;
+close_dd_theta = ctheta_output(close_dd_idx,2:3);
+figure(); scatterhist(samps(:,1),samps(:,2));
+figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+
+% Now get a scatterhist of mcmc theta draws with, behind it, all direct
+% data theta values colored by Euclidean distance of the standardized
+% output to the zero point.
+h=figure(); colormap(flipud(jet));
+sh=scatterhist(samps(:,1),samps(:,2),'Kernel','on'); 
+hold on; xlim([0 3]); ylim([0 6]);
+scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
+colorbar('East');
+scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+    'MarkerEdgeAlpha',.05);
+title({'Posterior \theta draws with marginal distributions'});
+xlabel('\theta_1'); ylabel('\theta_2') ;
+saveas(h,'FIG_post_theta_settotalvar_w_marginals_and_heatmap.png')
+
+% While we've got that plot up, take a look at the locations of the
+% non-dominated thetas.
+scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
+scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+    'MarkerEdgeAlpha',.05);
+saveas(h,'FIG_post_theta_settotalvar_w_marginals_heatmap_and_nondoms.png');
+
+%% Plot cost grid set total obs var calib with direct data close to 0
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get true samples w/ defl,rotn output closest to 0 (Euclidean distance on
+% standardized scale)
+% First put data on standardized scale
+cost_std = (ctheta_output(:,6) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (ctheta_output(:,4) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (ctheta_output(:,5) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+dd_outputs_std = [defl_std rotn_std];
+
+% Get zero on standardized scale
+zero_pt = -mean(ctheta_output(:,4:5))./std(ctheta_output(:,4:5));
+
+% Now get Euclidean norms of each standardized output
+dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Now get the Euclidean norm for all mcmc samples. First, load them:
+load([dpath,'Example\Ex_results\'...
+'2018-05-30_cost_grid_with_set_total_obs_var'],...
+'results');
+% Gather all outputs and theta draws together
+outs = [];
+samps = [];
+for ii = 1:size(results,1)
+    outs = [outs ; results{ii}.model_output.by_sample_true] ;
+    samps = [samps ; results{ii}.samples_os ];
+end
+% Put on standardized scale:
+cost_std = (outs(:,3) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (outs(:,1) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (outs(:,2) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+mcmc_outputs_std = [ defl_std rotn_std ] ;
+
+% Now get Euclidean norms of each standardized output
+mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Take a look
+figure();
+scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+hold on;
+scatter(1:length(mcmc_dists),mcmc_dists);
+
+% Now take a 3d look at all outputs versus the close direct data outputs
+cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+figure();
+scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+scatter3(...
+    close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+
+% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+close_dd_theta = ctheta_output(close_dd_idx,2:3);
+figure(); scatterhist(samps(:,1),samps(:,2));
+figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+
+% Now get a scatterhist of mcmc theta draws with, behind it, all direct
+% data theta values colored by Euclidean distance of the standardized
+% output to the zero point.
+h=figure(); colormap(flipud(jet));
+sh=scatterhist(samps(:,1),samps(:,2),'Kernel','on'); 
+hold on; xlim([0 3]); ylim([0 6]);
+scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
+colorbar('East');
+scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+    'MarkerEdgeAlpha',.05);
+title({'Posterior \theta draws with marginal distributions'});
+xlabel('\theta_1'); ylabel('\theta_2') ;
+saveas(h,'FIG_post_theta_costgrid_w_marginals_and_heatmap.png')
+
+% While we've got that plot up, take a look at the locations of the
+% non-dominated thetas.
+scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
+scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+    'MarkerEdgeAlpha',.05);
+saveas(h,'FIG_post_theta_costgrid_w_marginals_heatmap_and_nondoms.png');
