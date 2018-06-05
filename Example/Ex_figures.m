@@ -216,14 +216,20 @@ axis vis3d;
 xlabel('\theta_2'); ylabel('\theta_1'); zlabel('Outcomes');
 
 %% Get 3d figure of nondominated direct data plus nondom full calib MCMC
+clc; clearvars -except dpath ; close all;
+% load([dpath,'Example\Ex_results\'...
+% '2018-05-17_d0_incl_min_cost'],...
+% 'results');
+% Use new results from set total observation variance method:
 load([dpath,'Example\Ex_results\'...
-'2018-05-17_d0_incl_min_cost'],...
+'2018-05-28_d0_incl_min_cost'],...
 'results');
 samps_os = results.samples_os(results.settings.burn_in:end,:);
 
-load([dpath,'Example\Ex_results\'...
-    '2018-05-18_full_calib_emulator_output_estimates'],...
-    'emout');
+% load([dpath,'Example\Ex_results\'...
+%     '2018-05-18_full_calib_emulator_output_estimates'],...
+%     'emout');
+
 
 % Use the true function to find the output at these sample points
 y_samps_true = Ex_sim( [2*ones(size(samps_os,1),1) samps_os]);
@@ -517,7 +523,7 @@ samps_within_tol_of_nd.mcmc_samps=samps_os;
 samps_within_tol_of_nd.unif_samps=unif_samps;
 samps_within_tol_of_nd.dd_nondoms=dd_nondoms ;
 
-% save([dpath,'Example\Ex_results\'...
+% load([dpath,'Example\Ex_results\'...
 % '2018-05-29_samps_within_tol_of_nd'],...
 % 'samps_within_tol_of_nd');
 
@@ -567,125 +573,128 @@ scatter3(mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},1),...
 
 %% Plot post. calib samps at spec cost, color by proximity to pareto front
 clc; clearvars -except dpath ; close all;
-% Load true samples;
-load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output'],...
-    'ctheta_output');
-load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output_nondom'],...
-    'ctheta_output_nondom');
-
-% Get ranges of outputs
-output_ranges = range(ctheta_output(:,4:6));
-output_sds    = std(ctheta_output(:,4:6))  ;
-
+% % Load true samples;
+% load([dpath,'Example\Ex_results\'...
+%     '2018-05-25_true_ctheta-output'],...
+%     'ctheta_output');
+% load([dpath,'Example\Ex_results\'...
+%     '2018-05-25_true_ctheta-output_nondom'],...
+%     'ctheta_output_nondom');
+% 
+% % Get ranges of outputs
+% output_ranges = range(ctheta_output(:,4:6));
+% output_sds    = std(ctheta_output(:,4:6))  ;
+% 
 % Load MCMC samples (full calib)
 load([dpath,'Example\Ex_results\'...
 '2018-05-17_cost_grid_results'],...
 'results');
 wh = 5 ; % Which point in grid to use. 5 corresponds to $20.45 des'd cost
 samps_os = results{wh}.samples_os(results{wh}.settings.burn_in:end,:);
-% For comparison, also get uniform random samples
-unif_samps = ctheta_output(randsample(1:size(ctheta_output,1),...
-    size(samps_os,1)),2:3) ; 
-
+% % For comparison, also get uniform random samples
+% unif_samps = ctheta_output(randsample(1:size(ctheta_output,1),...
+%     size(samps_os,1)),2:3) ; 
+% 
 % Get true performance at each sample draw
 mcmc_perfs = Ex_sim([ 2*ones(size(samps_os,1),1) samps_os ] ,true);
-unif_perfs = Ex_sim([ 2*ones(size(unif_samps,1),1) unif_samps ],true );
+% unif_perfs = Ex_sim([ 2*ones(size(unif_samps,1),1) unif_samps ],true );
+% 
+% % Get proportions of output ranges
+% alphas = [0.001 0.01 0.05 0.1 0.5 1 2 3 ];
+% 
+% 
+% % Get the true pareto front:
+% dd_nondoms = ctheta_output_nondom(:,4:6);
+% 
+% % Subtract tol from mcmc_perfs to boost their ``nondominance rating'' by
+% % tol, and then for each element of mcmc_perfs_boosted, check whether it is
+% % dominated by any output from the dense direct data grid. (This can be
+% % done by checking only the nondominated direct data outputs, which are
+% % stored separately and are loaded above.) If not, then the mcmc sample is
+% % within tol of the pareto front.
+% mcmc_perfs_tol_nd_idxs = cell(length(alphas),1) ; % This will store indices
+%                                                   % of samples within tol
+% unif_perfs_tol_nd_idxs = cell(length(alphas),1) ; % Similar for unif samps
+% for jj =1:length(alphas) % Loop through several alpha settings
+%     alpha = alphas(jj);
+%     tol = output_sds * alpha ;
+% %     mcmc_perfs_boosted = mcmc_perfs - tol ;
+% %     unif_perfs_boosted = unif_perfs - tol ;
+%     % Get alpha-boosted versions of the outputs
+%     mcmc_perfs_boosted = [ mcmc_perfs - [tol(1) 0 0 ] ; 
+%         mcmc_perfs - [0 tol(2) 0 ] ; 
+%         mcmc_perfs - [0 0 tol(3) ] ] ; 
+%     unif_perfs_boosted = [ unif_perfs - [tol(1) 0 0 ] ; 
+%         unif_perfs - [0 tol(2) 0 ] ; 
+%         unif_perfs - [0 0 tol(3) ] ] ; 
+%     % Set up for looping through boosted performances
+%     mcmc_perfs_tol_nd_idx = [] ; % This will be indxs of tol-nondom'd elts
+%     unif_perfs_tol_nd_idx = [] ;
+%     for ii = 1:size(mcmc_perfs_boosted,1)
+%         % samp_ii_nd will be true iff the boosted mcmc samp dominates any
+%         % element of dd_nondoms (in which case mcmc samp is within tol of
+%         % the pareto front)
+%         samp_ii_nd = any(all(mcmc_perfs_boosted(ii,:) < dd_nondoms,2));
+%         unif_samp_ii_nd = any(all(unif_perfs_boosted(ii,:)<dd_nondoms,2));
+%         mcmc_perfs_tol_nd_idx = [ mcmc_perfs_tol_nd_idx ;samp_ii_nd ] ;
+%         unif_perfs_tol_nd_idx = [ unif_perfs_tol_nd_idx ;unif_samp_ii_nd ];
+%         if mod(ii,1000) == 0
+%             fprintf('Step %d/%d\n',ii,size(mcmc_perfs_boosted,1));
+%         end
+%     end
+%     % Check outcome: how many samps were within tol
+%     fprintf('Mcmc within tol:%d/%d\nUnif within tol:%d/%d\n',...
+%         sum(mcmc_perfs_tol_nd_idx),size(mcmc_perfs_boosted,1),...
+%         sum(unif_perfs_tol_nd_idx),size(unif_perfs_boosted,1));
+%     mcmc_perfs_tol_nd_idxs{jj} = mcmc_perfs_tol_nd_idx ; 
+%     unif_perfs_tol_nd_idxs{jj} = unif_perfs_tol_nd_idx ; 
+% end
+% 
+% samps_within_tol_of_nd.mcmc_perfs_tol_nd_idxs=mcmc_perfs_tol_nd_idxs;
+% samps_within_tol_of_nd.unif_perfs_tol_nd_idxs=unif_perfs_tol_nd_idxs;
+% samps_within_tol_of_nd.alphas=alphas;
+% samps_within_tol_of_nd.output_sds=output_sds;
+% samps_within_tol_of_nd.mcmc_samps=samps_os;
+% samps_within_tol_of_nd.unif_samps=unif_samps;
+% samps_within_tol_of_nd.dd_nondoms=dd_nondoms ;
+% 
+% % save([dpath,'Example\Ex_results\'...
+% % '2018-05-29_samps_within_tol_of_nd'],...
+% % 'samps_within_tol_of_nd');
+% 
+% % Find those samples surviving after any of the three perf boosts
+% mcmc_perfs_tol_nd_any_idxs = cell(size(samps_within_tol_of_nd,1),1);
+% unif_perfs_tol_nd_any_idxs = cell(size(samps_within_tol_of_nd,1),1);
+% for ii = 1:size(samps_within_tol_of_nd.alphas,2)
+%     mx = ...
+%         samps_within_tol_of_nd.mcmc_perfs_tol_nd_idxs{ii} ; 
+%     ux = ...
+%         samps_within_tol_of_nd.unif_perfs_tol_nd_idxs{ii} ; 
+%     num_samps = size(mx,1)/3;
+%     mcmc_perfs_tol_nd_any_idx = ...
+%         any([mx(1:num_samps) mx(num_samps+1:2*num_samps) ...
+%         mx(2*num_samps+1:end)],2);
+%     unif_perfs_tol_nd_any_idx = ...
+%         any([ux(1:num_samps) ux(num_samps+1:2*num_samps) ...
+%         ux(2*num_samps+1:end)],2);
+%     fprintf('MCMC within tol:%d/%d\nUnif within tol: %d/%d\n\n',...
+%         sum(mcmc_perfs_tol_nd_any_idx),num_samps,...
+%         sum(unif_perfs_tol_nd_any_idx),num_samps) ;
+%     mcmc_perfs_tol_nd_any_idxs{ii} = mcmc_perfs_tol_nd_any_idx;
+%     unif_perfs_tol_nd_any_idxs{ii} = unif_perfs_tol_nd_any_idx;
+% end
+% 
+% samps_within_tol_of_nd.mcmc_perfs_tol_nd_any_idxs = ...
+%     mcmc_perfs_tol_nd_any_idxs;
+% samps_within_tol_of_nd.unif_perfs_tol_nd_any_idxs = ...
+%     unif_perfs_tol_nd_any_idxs;
 
-% Get proportions of output ranges
-alphas = [0.001 0.01 0.05 0.1 0.5 1 2 3 ];
-
-
-% Get the true pareto front:
-dd_nondoms = ctheta_output_nondom(:,4:6);
-
-% Subtract tol from mcmc_perfs to boost their ``nondominance rating'' by
-% tol, and then for each element of mcmc_perfs_boosted, check whether it is
-% dominated by any output from the dense direct data grid. (This can be
-% done by checking only the nondominated direct data outputs, which are
-% stored separately and are loaded above.) If not, then the mcmc sample is
-% within tol of the pareto front.
-mcmc_perfs_tol_nd_idxs = cell(length(alphas),1) ; % This will store indices
-                                                  % of samples within tol
-unif_perfs_tol_nd_idxs = cell(length(alphas),1) ; % Similar for unif samps
-for jj =1:length(alphas) % Loop through several alpha settings
-    alpha = alphas(jj);
-    tol = output_sds * alpha ;
-%     mcmc_perfs_boosted = mcmc_perfs - tol ;
-%     unif_perfs_boosted = unif_perfs - tol ;
-    % Get alpha-boosted versions of the outputs
-    mcmc_perfs_boosted = [ mcmc_perfs - [tol(1) 0 0 ] ; 
-        mcmc_perfs - [0 tol(2) 0 ] ; 
-        mcmc_perfs - [0 0 tol(3) ] ] ; 
-    unif_perfs_boosted = [ unif_perfs - [tol(1) 0 0 ] ; 
-        unif_perfs - [0 tol(2) 0 ] ; 
-        unif_perfs - [0 0 tol(3) ] ] ; 
-    % Set up for looping through boosted performances
-    mcmc_perfs_tol_nd_idx = [] ; % This will be indxs of tol-nondom'd elts
-    unif_perfs_tol_nd_idx = [] ;
-    for ii = 1:size(mcmc_perfs_boosted,1)
-        % samp_ii_nd will be true iff the boosted mcmc samp dominates any
-        % element of dd_nondoms (in which case mcmc samp is within tol of
-        % the pareto front)
-        samp_ii_nd = any(all(mcmc_perfs_boosted(ii,:) < dd_nondoms,2));
-        unif_samp_ii_nd = any(all(unif_perfs_boosted(ii,:)<dd_nondoms,2));
-        mcmc_perfs_tol_nd_idx = [ mcmc_perfs_tol_nd_idx ;samp_ii_nd ] ;
-        unif_perfs_tol_nd_idx = [ unif_perfs_tol_nd_idx ;unif_samp_ii_nd ];
-        if mod(ii,1000) == 0
-            fprintf('Step %d/%d\n',ii,size(mcmc_perfs_boosted,1));
-        end
-    end
-    % Check outcome: how many samps were within tol
-    fprintf('Mcmc within tol:%d/%d\nUnif within tol:%d/%d\n',...
-        sum(mcmc_perfs_tol_nd_idx),size(mcmc_perfs_boosted,1),...
-        sum(unif_perfs_tol_nd_idx),size(unif_perfs_boosted,1));
-    mcmc_perfs_tol_nd_idxs{jj} = mcmc_perfs_tol_nd_idx ; 
-    unif_perfs_tol_nd_idxs{jj} = unif_perfs_tol_nd_idx ; 
-end
-
-samps_within_tol_of_nd.mcmc_perfs_tol_nd_idxs=mcmc_perfs_tol_nd_idxs;
-samps_within_tol_of_nd.unif_perfs_tol_nd_idxs=unif_perfs_tol_nd_idxs;
-samps_within_tol_of_nd.alphas=alphas;
-samps_within_tol_of_nd.output_sds=output_sds;
-samps_within_tol_of_nd.mcmc_samps=samps_os;
-samps_within_tol_of_nd.unif_samps=unif_samps;
-samps_within_tol_of_nd.dd_nondoms=dd_nondoms ;
-
-% save([dpath,'Example\Ex_results\'...
-% '2018-05-29_samps_within_tol_of_nd'],...
-% 'samps_within_tol_of_nd');
-
-% Find those samples surviving after any of the three perf boosts
-mcmc_perfs_tol_nd_any_idxs = cell(size(samps_within_tol_of_nd,1),1);
-unif_perfs_tol_nd_any_idxs = cell(size(samps_within_tol_of_nd,1),1);
-for ii = 1:size(samps_within_tol_of_nd.alphas,2)
-    mx = ...
-        samps_within_tol_of_nd.mcmc_perfs_tol_nd_idxs{ii} ; 
-    ux = ...
-        samps_within_tol_of_nd.unif_perfs_tol_nd_idxs{ii} ; 
-    num_samps = size(mx,1)/3;
-    mcmc_perfs_tol_nd_any_idx = ...
-        any([mx(1:num_samps) mx(num_samps+1:2*num_samps) ...
-        mx(2*num_samps+1:end)],2);
-    unif_perfs_tol_nd_any_idx = ...
-        any([ux(1:num_samps) ux(num_samps+1:2*num_samps) ...
-        ux(2*num_samps+1:end)],2);
-    fprintf('MCMC within tol:%d/%d\nUnif within tol: %d/%d\n\n',...
-        sum(mcmc_perfs_tol_nd_any_idx),num_samps,...
-        sum(unif_perfs_tol_nd_any_idx),num_samps) ;
-    mcmc_perfs_tol_nd_any_idxs{ii} = mcmc_perfs_tol_nd_any_idx;
-    unif_perfs_tol_nd_any_idxs{ii} = unif_perfs_tol_nd_any_idx;
-end
-
-samps_within_tol_of_nd.mcmc_perfs_tol_nd_any_idxs = ...
-    mcmc_perfs_tol_nd_any_idxs;
-samps_within_tol_of_nd.unif_perfs_tol_nd_any_idxs = ...
-    unif_perfs_tol_nd_any_idxs;
-
-% save([dpath,'Example\Ex_results\'...
-% '2018-05-30_samps_within_tol_of_nd__with_set_total_obs_var'],...
-% 'samps_within_tol_of_nd');
+% All the above was used to create the thing now loaded here:
+load([dpath,'Example\Ex_results\'...
+'2018-05-30_samps_within_tol_of_nd_with_set_total_obs_var'],...
+'samps_within_tol_of_nd');
+mcmc_perfs_tol_nd_any_idxs = ...
+    samps_within_tol_of_nd.mcmc_perfs_tol_nd_any_idxs;
 
 % Now make a scatter3 plot with colors indicating alpha level
 sz=10 ; % circle size
@@ -709,7 +718,7 @@ scatter3(mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},1),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},2),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},3),sz);
 
-%% Plot full set total obs var calib with direct data close to 0
+%% Full set total obs var calib with direct data heatmap of proximity to 0
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
@@ -817,13 +826,13 @@ defl_std = (ctheta_output(:,4) - mean(ctheta_output(:,4)))/...
 rotn_std = (ctheta_output(:,5) - mean(ctheta_output(:,5)))/...
     std(ctheta_output(:,5));
 
-dd_outputs_std = [defl_std rotn_std];
+dd_outputs_std = [defl_std rotn_std cost_std];
 
 % Get zero on standardized scale
 zero_pt = -mean(ctheta_output(:,4:5))./std(ctheta_output(:,4:5));
 
 % Now get Euclidean norms of each standardized output
-dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
+dd_dists = sqrt ( sum ( (dd_outputs_std(:,1:2)-zero_pt).^2 , 2 ) ) ;
 
 % Now get the Euclidean norm for all mcmc samples. First, load them:
 load([dpath,'Example\Ex_results\'...
@@ -881,11 +890,170 @@ scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
     'MarkerEdgeAlpha',.05);
 title({'Posterior \theta draws with marginal distributions'});
 xlabel('\theta_1'); ylabel('\theta_2') ;
-saveas(h,'FIG_post_theta_costgrid_w_marginals_and_heatmap.png')
+%saveas(h,'FIG_post_theta_costgrid_w_marginals_and_heatmap.png')
 
 % While we've got that plot up, take a look at the locations of the
 % non-dominated thetas.
 scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
 scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
     'MarkerEdgeAlpha',.05);
-saveas(h,'FIG_post_theta_costgrid_w_marginals_heatmap_and_nondoms.png');
+%saveas(h,'FIG_post_theta_costgrid_w_marginals_heatmap_and_nondoms.png');
+
+% Make a figure like the heatmap above for every point in the cost grid
+m = size(results,1);
+cost_grid = linspace(15,30,m);
+rcosts = round(ctheta_output(:,6)*11/15)*15/11; % Round costs to cost_grid
+for ii = 1 : m % Loop through and make figure for each
+    ctheta_output_at_cost = ...
+        ctheta_output(abs(rcosts - cost_grid(ii))<1e-4,:);
+    theta = ctheta_output_at_cost(:,2:3); % Theta vals near cost point
+    dd_dists_atcost = dd_dists(abs(rcosts-cost_grid(ii))<1e-4); % Euc dists
+    samps = results{ii}.samples_os;
+    h = figure(); colormap(flipud(jet));
+    sh = scatterhist(samps(:,1),samps(:,2),...
+        'Marker','.','Kernel','on');
+    hold on; xlim([min(theta(:,1)) max(theta(:,1)) ]);
+    ylim([min(theta(:,2)) max(theta(:,2))]);
+    scatter(theta(:,1),theta(:,2),500,dd_dists_atcost,'Marker','.'); 
+    hold on;
+    colorbar('East');
+    scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',0.5,...
+        'MarkerEdgeAlpha',0.5);
+    title(['Posterior \theta draws at cost = '...
+        num2str(round(cost_grid(ii),2)) ]);
+    xlabel('\theta_1'); ylabel('\theta_2') ;
+    saveas(h,['FIG_post_theta_w_marginals_heatmap_atcost_' ...
+        num2str(ii) '.png']);
+end
+
+% % Make a figure like the heatmap above for every point in the cost grid
+% m = size(results,1);
+% cost_grid = linspace(15,30,m);
+% alpha = 0.25; % This will be the quantiles of mcmc costs used to locate dd
+% for ii = 1 : m % Loop through and make figure for each
+%     costs = results{ii}.model_output.by_sample_true(:,3); % MCMC costs
+%     cq = [quantile(costs,alpha/2) quantile(costs,1-alpha/2)]; % cost quant.
+%     cidx =all([ctheta_output(:,6) >= cq(1) ctheta_output(:,6) <= cq(2)],2);
+%     ctheta_output_at_cost = ctheta_output(cidx,:);
+%     theta = ctheta_output_at_cost(:,2:3); % Theta vals near cost point
+%     dd_outs_std_atcost = dd_outputs_std(cidx,:); % Euc dists
+%     zero_pt = ([ 0 0 cost_grid(ii) ]-mean(ctheta_output(:,4:6)))...
+%         ./std(ctheta_output(:,4:6));
+%     dd_dists_atcost = sqrt ( sum ( (dd_outs_std_atcost-zero_pt).^2 , 2 ) );
+%     samps = results{ii}.samples_os;
+%     h = figure(); colormap(flipud(jet));
+%     sh = scatterhist(samps(:,1),samps(:,2),...
+%         'Marker','.','Kernel','on');
+%     hold on; xlim([0 3 ]);
+%     ylim([0 6]);
+%     scatter(theta(:,1),theta(:,2),50,...
+%         dd_dists_atcost,'Marker','.'); 
+%     hold on;
+%     colorbar('East');
+%     scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',0.5,...
+%         'MarkerEdgeAlpha',0.5);
+%     title(['Posterior \theta draws at cost = '...
+%         num2str(round(cost_grid(ii),2)) ]);
+%     xlabel('\theta_1'); ylabel('\theta_2') ;
+% end
+
+
+%% Full prior obs var calib with direct data heatmap of proximity to 0
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get true samples with output closest to 0 (Euclidean distance on
+% standardized scale
+% First put data on standardized scale
+cost_std = (ctheta_output(:,6) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (ctheta_output(:,4) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (ctheta_output(:,5) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+dd_outputs_std = [defl_std rotn_std cost_std];
+
+% Get zero on standardized scale
+zero_pt = -mean(ctheta_output(:,4:6))./std(ctheta_output(:,4:6));
+
+% Now get Euclidean norms of each standardized output
+dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Now get the Euclidean norm for all mcmc samples. First, load them:
+load([dpath,'Example\Ex_results\'...
+'2018-05-28_d0_incl_min_cost'],...
+'results');
+outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
+% Put on standardized scale:
+cost_std = (outs(:,3) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (outs(:,1) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (outs(:,2) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
+
+% Now get Euclidean norms of each standardized output
+mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Take a look
+figure();
+scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+hold on;
+scatter(1:length(mcmc_dists),mcmc_dists);
+
+% Now take a 3d look at all outputs versus the close direct data outputs
+cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+figure();
+scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+scatter3(...
+    close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+
+% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+samps = results.samples_os;
+close_dd_theta = ctheta_output(close_dd_idx,2:3);
+figure(); scatterhist(samps(:,1),samps(:,2));
+figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+
+% Now get a scatterhist of mcmc theta draws with, behind it, all direct
+% data theta values colored by Euclidean distance of the standardized
+% output to the zero point.
+h=figure(); colormap(flipud(jet));
+sh=scatterhist(samps(:,1),samps(:,2),'Kernel','on'); 
+hold on; xlim([0 3]); ylim([0 6]);
+scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
+colorbar('East');
+scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
+title({'Posterior \theta draws with marginal distributions'});
+xlabel('\theta_1'); ylabel('\theta_2') ;
+%saveas(h,'FIG_post_theta_priorvar_w_marginals_and_heatmap.png')
+
+% While we've got that plot up, take a look at the locations of the
+% non-dominated thetas.
+scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
+scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+    'MarkerEdgeAlpha',.05);
+%saveas(h,'FIG_post_theta_priorvar_w_marginals_heatmap_and_nondoms.png');
+
+%% Show mahalanobis distance of samples from nondominated pts
+% Both from the calibration using set total observation variance, and the
+% older version using a prior on observation variance.
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-25_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');

@@ -28,7 +28,11 @@ for ii = 1:size(X,1)
     
     if mod(ii,100) == 0 && verbose == true
         fprintf(repmat('\b',1,msg));
-        msg =  fprintf('%3.1f%% done',100*ii/size(X,1));
+        if same == 0
+            msg =  fprintf('%3.1f%% done',100*ii/size(X,1));
+        else
+            msg = fprintf('%3.1f%% done',100*sum(1:ii)/sum(1:size(X,1)));
+        end
     end
     
     

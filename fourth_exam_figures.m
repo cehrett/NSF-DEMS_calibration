@@ -17,6 +17,7 @@ end
 clear direc;
 
 %% Comparison of different versions of observation variance
+clc; clearvars -except dpath ; close all;
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
     'results_1d_homosked6sdObs.mat']);
 results1=results;
@@ -38,33 +39,37 @@ bsamps3 = results4.samples(2000:end,:);
 
 subplot(2,2,1);
 plot(bsamps1(:,1),bsamps1(:,2),'ko');
+ylim([0,1]);
 subplot(2,2,2);
 plot(bsamps2(:,1),bsamps2(:,2),'ko');
+ylim([0,1]);
 subplot(2,2,3);
 plot(bsamps3(:,1),bsamps3(:,2),'ko');
+ylim([0,1]);
 subplot(2,2,4);
 plot(bsamps4(:,1),bsamps4(:,2),'ko');
+ylim([0,1]);
 
 subplot(2,2,1);
 plot(bsamps1(:,1),'ko');
 title({'Homoskedastic version,','constant \sigma^2 = 6'});
-xlim([0,8000])
+xlim([0,8000]); ylim([0,1]);
 subplot(2,2,2);
 plot(bsamps2(:,1),'ko');
 title({'Heteroskedastic version,','constant 2 s.d.''s positive'});
-xlim([0,8000])
+xlim([0,8000]); ylim([0,1]);
 subplot(2,2,3);
 plot(bsamps3(:,1),'ko');
 title({'Homoskedastic version,','1/\sigma^2 prior'});
-xlim([0,8000])
+xlim([0,8000]); ylim([0,1]);
 subplot(2,2,4);
 plot(bsamps4(:,1),'ko');
 title({'Heteroskedastic version,','1/\sigma^2 prior'});
-xlim([0,8000])
+xlim([0,8000]); ylim([0,1]);
 
 
 %% Comparison of 1d vs 0d
-clc; clear all; close all;
+clc; clearvars -except dpath ; close all;
 
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
     'results_1d_heteroskedPriorObs.mat']);
@@ -110,7 +115,7 @@ plot(bsigs2(:,3),'ko');
 xlim([0,8000]);
 
 %% Example of healthy and unhealthy results from current version
-clc; clear all; close all;
+clc; clearvars -except dpath ; close all;
 logit = @(x) log(x./(1-x));
 
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
@@ -176,8 +181,7 @@ end
 
 
 %% Comparison w/ and w/o boundary constraints
-
-clc; clear all; close all;
+clc; clearvars -except dpath ; close all;
 
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\stored_data\'...
    'results_0d_heteroskedPriorObs_hasBndCnds.mat']);
@@ -220,6 +224,7 @@ legend('Without boundary constraints','With boundary constraints');
 saveas(h,sprintf('ACF_bnd_cnds_fig.png'));
 
 %% Lambda_cost pareto bands (original)
+clc; clearvars -except dpath ; close all;
 load([dpath,'stored_data\'...
     'results_Cost_lambda_grid_exploration'],...
     'results');
@@ -409,6 +414,7 @@ saveas(h,'FIG_cost_lambda_code_uncert.png');
 delete('tempfig.fig');
 
 %% Lambda_cost pareto bands (updated)
+clc; clearvars -except dpath ; close all;
 % Start out by getting the plot of Cost vs lambda_cost
 load([dpath,'stored_data\'...
     'results_Cost_lambda_grid_exploration'],...
