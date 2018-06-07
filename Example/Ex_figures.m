@@ -3,8 +3,6 @@
 % calibration to desired observations
 
 
-
-
 %% Set path string and add paths
 clc; clear all; close all;
 
@@ -216,6 +214,7 @@ axis vis3d;
 xlabel('\theta_2'); ylabel('\theta_1'); zlabel('Outcomes');
 
 %% Get 3d figure of nondominated direct data plus nondom full calib MCMC
+% Both outputs and inputs. In that order.
 clc; clearvars -except dpath ; close all;
 % load([dpath,'Example\Ex_results\'...
 % '2018-05-17_d0_incl_min_cost'],...
@@ -224,43 +223,86 @@ clc; clearvars -except dpath ; close all;
 load([dpath,'Example\Ex_results\'...
 '2018-05-28_d0_incl_min_cost'],...
 'results');
-samps_os = results.samples_os(results.settings.burn_in:end,:);
+samps_os = results.samples_os(results.settings.burn_in+2:end,:);
 
 % load([dpath,'Example\Ex_results\'...
 %     '2018-05-18_full_calib_emulator_output_estimates'],...
 %     'emout');
+emout.output_means = results.model_output.by_sample_est(...
+    results.settings.burn_in+2:end,:);
 
-
-% Use the true function to find the output at these sample points
-y_samps_true = Ex_sim( [2*ones(size(samps_os,1),1) samps_os]);
-% Get nondominated outcomes
-nondoms = nondominated(y_samps_true);
-% Alternative: use GP estimates rather than true function:
-nondoms = nondominated(emout.output_means);
+% Use GP estimates rather than true function:
+[nondoms,ndidx] = nondominated(emout.output_means);
+nondom_inputs = samps_os(ndidx,:);
 % ( Get direct data from Ex_optimization_workspace, allperfs )
 %nondom_ap = nondominated(allperfs);
+% Old version of Ex_sim direct data:
+% load([dpath,'Example\Ex_results\'...
+%     '2018-05-25_true_ctheta-output_nondom'],...
+%     'ctheta_output_nondom');
+% Current version:
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output_nondom'],...
+    '2018-05-29_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 nondom_ap = ctheta_output_nondom(:,4:6);
+nondom_ddin = ctheta_output_nondom(:,2:3);
 
 % Take a look
-Circlesize=50;
-%figure; h1 = scatter3(y_samps(:,3),y_samps(:,1),y_samps(:,2),...
-%    Circlesize,'b','filled','MarkerFaceAlpha',.4);
+Circlesize=20;
 figure; h1 = scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
-    Circlesize,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',.2);
+    1,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',0.3,...
+    'MarkerEdgeAlpha',0.3);
 axis vis3d;
 hold on;
 scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
-    Circlesize,'b','filled','MarkerFaceAlpha',.4);
+    Circlesize,'b','filled','MarkerFaceAlpha',.4,'MarkerEdgeAlpha',0.4);
 xlabel('Cost'); ylabel('Deflection'); zlabel('Rotation');
-title(['Nondominated direct data (red) and MCMC samples (blue)'...
-    ' from full calibration']);
+title(['Nondominated direct data (red) and MCMC sample est. output (blue)'...
+    '']);
+viewpt = [45 20];
+view(viewpt);
+gif('FIG_nd.gif','frame',gcf);
+nfms = 120;
+for ii = 1:nfms
+    viewpt = viewpt + [ 360/nfms 0 ];
+    view(viewpt);
+    gif
+end
 
-% Compare with data obtained directly
-scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
-    Circlesize,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',.2);
+% Now make the same figure, but look at the true output at mcmc sample pts
+% Use the true function to find the output at these sample points
+y_samps_true = Ex_sim( [2*ones(size(samps_os,1),1) samps_os]);
+% Get nondominated outcomes
+[nondoms,ndidx] = nondominated(y_samps_true);
+figure; h1 = scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
+    1,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',0.3,...
+    'MarkerEdgeAlpha',0.3);
+axis vis3d;
+hold on;
+scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
+    Circlesize,'b','filled','MarkerFaceAlpha',.4,'MarkerEdgeAlpha',0.4);
+xlabel('Cost'); ylabel('Deflection'); zlabel('Rotation');
+title(['Nondominated direct data (red) and MCMC sample true output (blue)'...
+    '']);
+viewpt = [45 20];
+view(viewpt);
+gif('FIG_nd_true.gif','frame',gcf);
+nfms = 120;
+for ii = 1:nfms
+    viewpt = viewpt + [ 360/nfms 0 ];
+    view(viewpt);
+    gif
+end
+
+% Now get a comparison of inputs. First, put up the nondominated inputs:
+figure; h2 = scatter(nondom_ddin(:,1),nondom_ddin(:,2),Circlesize,'r',...
+    'filled');
+hold on;
+scatter(nondom_inputs(:,1),nondom_inputs(:,2),...
+    Circlesize,'b','filled','MarkerFaceAlpha',0.25);
+xlim([0 3]); ylim([0 6]);
+title('MCMC samples filtered by estimated nondominance');
+saveas(h2,'FIG_nd_in');
 
 %% Get 3d figure of nondominated direct data plus nondom cost grid MCMC
 clc ; clearvars -except dpath ; close all;
@@ -789,12 +831,14 @@ figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
 % data theta values colored by Euclidean distance of the standardized
 % output to the zero point.
 h=figure(); colormap(flipud(jet));
-sh=scatterhist(samps(:,1),samps(:,2),'Kernel','on'); 
+sh=scatterhist(samps(:,1),samps(:,2)); 
 hold on; xlim([0 3]); ylim([0 6]);
 scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
 colorbar('East');
-scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
-    'MarkerEdgeAlpha',.05);
+% scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+%     'MarkerEdgeAlpha',.05);
+scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
 title({'Posterior \theta draws with marginal distributions'});
 xlabel('\theta_1'); ylabel('\theta_2') ;
 saveas(h,'FIG_post_theta_settotalvar_w_marginals_and_heatmap.png')
@@ -1005,31 +1049,31 @@ mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
 mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
 
 % Take a look
-figure();
-scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
-hold on;
-scatter(1:length(mcmc_dists),mcmc_dists);
+% figure();
+% scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+% hold on;
+% scatter(1:length(mcmc_dists),mcmc_dists);
 
 % Now take a 3d look at all outputs versus the close direct data outputs
-cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
-close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
-close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
-figure();
-scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
-scatter3(...
-    close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
-
-% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+% cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+% close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+% close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+% figure();
+% scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+% scatter3(...
+%     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+% 
+% % Now take a look at all calib settings at mcmc outputs vs close dd outputs
 samps = results.samples_os;
-close_dd_theta = ctheta_output(close_dd_idx,2:3);
-figure(); scatterhist(samps(:,1),samps(:,2));
-figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+% close_dd_theta = ctheta_output(close_dd_idx,2:3);
+% figure(); scatterhist(samps(:,1),samps(:,2));
+% figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
 
 % Now get a scatterhist of mcmc theta draws with, behind it, all direct
 % data theta values colored by Euclidean distance of the standardized
 % output to the zero point.
 h=figure(); colormap(flipud(jet));
-sh=scatterhist(samps(:,1),samps(:,2),'Kernel','on'); 
+sh=scatterhist(samps(:,1),samps(:,2)); 
 hold on; xlim([0 3]); ylim([0 6]);
 scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
 colorbar('East');
@@ -1037,14 +1081,14 @@ scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
     'MarkerEdgeAlpha',.5);
 title({'Posterior \theta draws with marginal distributions'});
 xlabel('\theta_1'); ylabel('\theta_2') ;
-%saveas(h,'FIG_post_theta_priorvar_w_marginals_and_heatmap.png')
+saveas(h,'FIG_hmfc.png')
 
 % While we've got that plot up, take a look at the locations of the
 % non-dominated thetas.
 scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
-scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
-    'MarkerEdgeAlpha',.05);
-%saveas(h,'FIG_post_theta_priorvar_w_marginals_heatmap_and_nondoms.png');
+scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
+saveas(h,'FIG_hmfc_nd.png');
 
 %% Show mahalanobis distance of samples from nondominated pts
 % Both from the calibration using set total observation variance, and the
@@ -1057,3 +1101,95 @@ load([dpath,'Example\Ex_results\'...
 load([dpath,'Example\Ex_results\'...
     '2018-05-25_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
+
+load([dpath,'Example\Ex_results\'...
+    '2018-05-28_d0_incl_min_cost'],...
+    'results');
+
+% Get nondominated theta points by themselves
+nondoms = ctheta_output_nondom(:,2:3);
+
+% Get sample draws
+samps = results.samples_os(results.settings.burn_in+2:end,:);
+
+% Get random (uniform) sample from the parameter space
+unif_samps = rand(size(samps)) .* [3 6];
+
+% Now get info o mahalanobis distance of unif_samps and samps from nondoms
+unif_md = mahal(unif_samps,nondoms);
+samps_md = mahal(samps,nondoms);
+n=size(unif_md,1);
+%plot(1:n,unif_md,'.'); hold on; plot(1:n,samps_md,'.');
+
+% Get histograms of mahalanobis distance of samples from nondoms
+f=figure();
+h=histogram(samps_md);
+title('Mahalanobis distance of samples from nondominated region');
+xlabel('Distance'); ylabel('Number of samples');
+ylim([0 4000]);
+saveas(h,'FIG_md.png');
+hold on;
+title({'Mahalanobis distance of samples from nondominated region:'...
+    'comparison with uniformly sampled points (red)'});
+histogram(unif_md);
+saveas(h,'FIG_mdwus.png');
+% 
+% % Get scatterhist of samps with nondoms
+% figure();
+% h=scatterhist(samps(:,1),samps(:,2),'Marker','.'); hold on;
+% scatter(nondoms(:,1),nondoms(:,2),'Marker','.','MarkerFaceAlpha',0.5);
+% scatter(samps(:,1),samps(:,2),15,[0 0.447 .741],'Marker','.',...
+%     'MarkerFaceAlpha',0.3,'MarkerEdgeAlpha',0.4);
+% ttl=title('Posterior distribution with marginals and nondominated region');
+% xlabel('\theta_1');ylabel('\theta_2');
+% ttl.Position=[.8 6.5 0];
+% saveas(h,'FIG_post_dist_w_marginals_and_nondoms_for_prior_obs_var.png');
+% 
+% % Now do the above stuff for the new calib version, set total obs var
+% load([dpath,'Example\Ex_results\'...
+%     '2018-05-29_set_obs_var_d0'],...
+%     'results');
+% samps = results.samples_os(results.settings.burn_in+2:end,:);
+% samps_md = mahal(samps,nondoms);
+% figure();
+% h=scatterhist(samps(:,1),samps(:,2),'Marker','.'); hold on;
+% xlim([0,3]);ylim([0,6]);
+% scatter(nondoms(:,1),nondoms(:,2),'Marker','.','MarkerFaceAlpha',0.5);
+% scatter(samps(:,1),samps(:,2),15,[0 0.447 .741],'Marker','.',...
+%     'MarkerFaceAlpha',0.3,'MarkerEdgeAlpha',0.4);
+% ttl=title({['Posterior distribution with marginals '...
+%     'and nondominated region,'],'using set total observation variance' });
+% xlabel('\theta_1');ylabel('\theta_2');
+% ttl.Position=[.8 6.2 0];
+% saveas(h,'FIG_post_dist_w_marginals_and_nondoms_for_prior_obs_var.png');
+
+% Now get the same hist of mahalanobis distances for the new method samps
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_set_obs_var_d0'],...
+    'results');
+samps = results.samples_os(results.settings.burn_in+2:end,:);
+samps_md = mahal(samps,nondoms);
+% Get histograms of mahalanobis distance of samples from nondoms
+figure();
+h=histogram(samps_md);
+h.BinWidth=0.35; ylim([0 4000]);
+title('Mahalanobis distance of samples from nondominated region');
+xlabel('Distance'); ylabel('Number of samples');
+saveas(h,'FIG_md_stov.png');
+hold on;
+histogram(unif_md);
+title({'Mahalanobis distance of samples from nondominated region'...
+    'comparison with uniformly sampled points (red)'});
+saveas(h,'FIG_mdwus_stov.png');
+
+% Now compare samps to the nondoms themselves
+figure(); h=histogram(samps_md);
+h.BinWidth=0.35; ylim([0 4000]);
+title({'Mahalanobis distance of samples from nondominated region:'...
+    'comparison to random sample of nondominated points (red)'});
+xlabel('Distance'); ylabel('Number of samples');
+hold on;
+nondom_samp = nondoms(randsample(1:size(nondoms,1),size(samps,1)),:);
+nd_md = mahal(nondom_samp,nondom_samp);
+histogram(nd_md,'BinWidth',0.35);
+saveas(h,'FIG_mdwnd_stov.png');
