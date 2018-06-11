@@ -257,16 +257,17 @@ hold on;
 scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
     Circlesize,'b','filled','MarkerFaceAlpha',.4,'MarkerEdgeAlpha',0.4);
 xlabel('Cost'); ylabel('Deflection'); zlabel('Rotation');
-title(['Nondominated direct data (red) and MCMC sample est. output (blue)'...
+title(['Nondominated direct data (red)'...
+    ' and MCMC sample est. output (blue)'...
     '']);
 viewpt = [45 20];
 view(viewpt);
-gif('FIG_nd.gif','frame',gcf);
+%gif('FIG_nd.gif','frame',gcf);
 nfms = 120;
 for ii = 1:nfms
     viewpt = viewpt + [ 360/nfms 0 ];
     view(viewpt);
-    gif
+    %gif
 end
 
 % Now make the same figure, but look at the true output at mcmc sample pts
@@ -286,23 +287,23 @@ title(['Nondominated direct data (red) and MCMC sample true output (blue)'...
     '']);
 viewpt = [45 20];
 view(viewpt);
-gif('FIG_nd_true.gif','frame',gcf);
+%gif('FIG_nd_true.gif','frame',gcf);
 nfms = 120;
 for ii = 1:nfms
     viewpt = viewpt + [ 360/nfms 0 ];
     view(viewpt);
-    gif
+    %gif
 end
 
 % Now get a comparison of inputs. First, put up the nondominated inputs:
-figure; h2 = scatter(nondom_ddin(:,1),nondom_ddin(:,2),Circlesize,'r',...
-    'filled');
+f=figure(); h2 = scatter(nondom_ddin(:,1),nondom_ddin(:,2),...
+    Circlesize,'r','filled');
 hold on;
 scatter(nondom_inputs(:,1),nondom_inputs(:,2),...
     Circlesize,'b','filled','MarkerFaceAlpha',0.25);
 xlim([0 3]); ylim([0 6]);
 title('MCMC samples filtered by estimated nondominance');
-saveas(h2,'FIG_nd_in');
+%saveas(f,'FIG_nd_in');
 
 %% Get 3d figure of nondominated direct data plus nondom cost grid MCMC
 clc ; clearvars -except dpath ; close all;
@@ -764,10 +765,10 @@ scatter3(mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},1),...
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output'],...
+    '2018-05-29_true_ctheta-output'],...
     'ctheta_output');
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output_nondom'],...
+    '2018-05-29_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 
 % Get true samples with output closest to 0 (Euclidean distance on
@@ -807,25 +808,25 @@ mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
 mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
 
 % Take a look
-figure();
-scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
-hold on;
-scatter(1:length(mcmc_dists),mcmc_dists);
-
-% Now take a 3d look at all outputs versus the close direct data outputs
+% figure();
+% scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+% hold on;
+% scatter(1:length(mcmc_dists),mcmc_dists);
+% 
+% % Now take a 3d look at all outputs versus the close direct data outputs
 cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
 close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
 close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
-figure();
-scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
-scatter3(...
-    close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+% figure();
+% scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+% scatter3(...
+%     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
 
 % Now take a look at all calib settings at mcmc outputs vs close dd outputs
 samps = results.samples_os;
 close_dd_theta = ctheta_output(close_dd_idx,2:3);
-figure(); scatterhist(samps(:,1),samps(:,2));
-figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+% figure(); scatterhist(samps(:,1),samps(:,2));
+% figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
 
 % Now get a scatterhist of mcmc theta draws with, behind it, all direct
 % data theta values colored by Euclidean distance of the standardized
@@ -841,23 +842,25 @@ scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
     'MarkerEdgeAlpha',.5);
 title({'Posterior \theta draws with marginal distributions'});
 xlabel('\theta_1'); ylabel('\theta_2') ;
-saveas(h,'FIG_post_theta_settotalvar_w_marginals_and_heatmap.png')
+saveas(h,'FIG_hmfc_stov.png')
 
 % While we've got that plot up, take a look at the locations of the
 % non-dominated thetas.
 scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
-scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
-    'MarkerEdgeAlpha',.05);
-saveas(h,'FIG_post_theta_settotalvar_w_marginals_heatmap_and_nondoms.png');
+% scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+%     'MarkerEdgeAlpha',.05);
+scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
+saveas(h,'FIG_hmfc_nd_stov.png');
 
 %% Plot cost grid set total obs var calib with direct data close to 0
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output'],...
+    '2018-05-29_true_ctheta-output'],...
     'ctheta_output');
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output_nondom'],...
+    '2018-05-29_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 
 % Get true samples w/ defl,rotn output closest to 0 (Euclidean distance on
@@ -1006,10 +1009,10 @@ end
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output'],...
+    '2018-05-29_true_ctheta-output'],...
     'ctheta_output');
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output_nondom'],...
+    '2018-05-29_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 
 % Get true samples with output closest to 0 (Euclidean distance on
@@ -1073,7 +1076,9 @@ samps = results.samples_os;
 % data theta values colored by Euclidean distance of the standardized
 % output to the zero point.
 h=figure(); colormap(flipud(jet));
-sh=scatterhist(samps(:,1),samps(:,2)); 
+sh=scatterhist(samps(:,1),samps(:,2),'Marker','.'); 
+x=get(gca,'children'); % So we can change properties
+col=[0 1 0];x.MarkerSize=1; x.MarkerFaceColor=col; x.MarkerEdgeColor=col;
 hold on; xlim([0 3]); ylim([0 6]);
 scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
 colorbar('East');
@@ -1096,10 +1101,10 @@ saveas(h,'FIG_hmfc_nd.png');
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output'],...
+    '2018-05-29_true_ctheta-output'],...
     'ctheta_output');
 load([dpath,'Example\Ex_results\'...
-    '2018-05-25_true_ctheta-output_nondom'],...
+    '2018-05-29_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 
 load([dpath,'Example\Ex_results\'...
@@ -1124,9 +1129,9 @@ n=size(unif_md,1);
 % Get histograms of mahalanobis distance of samples from nondoms
 f=figure();
 h=histogram(samps_md);
-title('Mahalanobis distance of samples from nondominated region');
+title({'Mahalanobis distance of samples from nondominated region' ''});
 xlabel('Distance'); ylabel('Number of samples');
-ylim([0 4000]);
+ylim([0 4200]);
 saveas(h,'FIG_md.png');
 hold on;
 title({'Mahalanobis distance of samples from nondominated region:'...
@@ -1134,34 +1139,34 @@ title({'Mahalanobis distance of samples from nondominated region:'...
 histogram(unif_md);
 saveas(h,'FIG_mdwus.png');
 % 
-% % Get scatterhist of samps with nondoms
-% figure();
-% h=scatterhist(samps(:,1),samps(:,2),'Marker','.'); hold on;
-% scatter(nondoms(:,1),nondoms(:,2),'Marker','.','MarkerFaceAlpha',0.5);
-% scatter(samps(:,1),samps(:,2),15,[0 0.447 .741],'Marker','.',...
-%     'MarkerFaceAlpha',0.3,'MarkerEdgeAlpha',0.4);
-% ttl=title('Posterior distribution with marginals and nondominated region');
-% xlabel('\theta_1');ylabel('\theta_2');
-% ttl.Position=[.8 6.5 0];
-% saveas(h,'FIG_post_dist_w_marginals_and_nondoms_for_prior_obs_var.png');
-% 
-% % Now do the above stuff for the new calib version, set total obs var
-% load([dpath,'Example\Ex_results\'...
-%     '2018-05-29_set_obs_var_d0'],...
-%     'results');
-% samps = results.samples_os(results.settings.burn_in+2:end,:);
-% samps_md = mahal(samps,nondoms);
-% figure();
-% h=scatterhist(samps(:,1),samps(:,2),'Marker','.'); hold on;
-% xlim([0,3]);ylim([0,6]);
-% scatter(nondoms(:,1),nondoms(:,2),'Marker','.','MarkerFaceAlpha',0.5);
-% scatter(samps(:,1),samps(:,2),15,[0 0.447 .741],'Marker','.',...
-%     'MarkerFaceAlpha',0.3,'MarkerEdgeAlpha',0.4);
-% ttl=title({['Posterior distribution with marginals '...
-%     'and nondominated region,'],'using set total observation variance' });
-% xlabel('\theta_1');ylabel('\theta_2');
-% ttl.Position=[.8 6.2 0];
-% saveas(h,'FIG_post_dist_w_marginals_and_nondoms_for_prior_obs_var.png');
+% Get scatterhist of samps with nondoms
+f=figure();
+h1=scatterhist(samps(:,1),samps(:,2),'Marker','.'); hold on;
+scatter(nondoms(:,1),nondoms(:,2),'Marker','.','MarkerFaceAlpha',0.5);
+scatter(samps(:,1),samps(:,2),15,[0 0.447 .741],'Marker','.',...
+    'MarkerFaceAlpha',0.3,'MarkerEdgeAlpha',0.4);
+ttl=title('Posterior distribution with marginals and nondominated region');
+xlabel('\theta_1');ylabel('\theta_2');
+ttl.Position=[.8 6.5 0];
+saveas(f,'FIG_post_dist_w_marginals_and_nondoms_for_prior_obs_var.png');
+
+% Now do the above stuff for the new calib version, set total obs var
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_set_obs_var_d0'],...
+    'results');
+samps = results.samples_os(results.settings.burn_in+2:end,:);
+samps_md = mahal(samps,nondoms);
+f=figure();
+h=scatterhist(samps(:,1),samps(:,2),'Marker','.'); hold on;
+xlim([0,3]);ylim([0,6]);
+scatter(nondoms(:,1),nondoms(:,2),'Marker','.','MarkerFaceAlpha',0.5);
+scatter(samps(:,1),samps(:,2),15,[0 0.447 .741],'Marker','.',...
+    'MarkerFaceAlpha',0.3,'MarkerEdgeAlpha',0.4);
+ttl=title({['Posterior distribution with marginals '...
+    'and nondominated region,'],'using set total observation variance' });
+xlabel('\theta_1');ylabel('\theta_2');
+ttl.Position=[.8 6.2 0];
+saveas(f,'FIG_post_dist_w_marginals_and_nondoms_for_prior_obs_var.png');
 
 % Now get the same hist of mahalanobis distances for the new method samps
 load([dpath,'Example\Ex_results\'...
@@ -1170,26 +1175,60 @@ load([dpath,'Example\Ex_results\'...
 samps = results.samples_os(results.settings.burn_in+2:end,:);
 samps_md = mahal(samps,nondoms);
 % Get histograms of mahalanobis distance of samples from nondoms
-figure();
+f=figure();
 h=histogram(samps_md);
-h.BinWidth=0.35; ylim([0 4000]);
-title('Mahalanobis distance of samples from nondominated region');
+h.BinWidth=0.525; ylim([0 4200]);
+title({'Mahalanobis distance of samples from nondominated region' ''});
 xlabel('Distance'); ylabel('Number of samples');
 saveas(h,'FIG_md_stov.png');
 hold on;
-histogram(unif_md);
+h2=histogram(unif_md); %h2.BinWidth=0.7525;
 title({'Mahalanobis distance of samples from nondominated region'...
     'comparison with uniformly sampled points (red)'});
-saveas(h,'FIG_mdwus_stov.png');
+saveas(f,'FIG_mdwus_stov.png');
 
 % Now compare samps to the nondoms themselves
-figure(); h=histogram(samps_md);
-h.BinWidth=0.35; ylim([0 4000]);
+f=figure(); h=histogram(samps_md);
+h.BinWidth=0.525; ylim([0 4200]);
 title({'Mahalanobis distance of samples from nondominated region:'...
     'comparison to random sample of nondominated points (red)'});
 xlabel('Distance'); ylabel('Number of samples');
 hold on;
 nondom_samp = nondoms(randsample(1:size(nondoms,1),size(samps,1)),:);
 nd_md = mahal(nondom_samp,nondom_samp);
-histogram(nd_md,'BinWidth',0.35);
-saveas(h,'FIG_mdwnd_stov.png');
+histogram(nd_md,'BinWidth',0.525);
+saveas(f,'FIG_mdwnd_stov.png');
+
+%% 3d scatterplot of outputs from cost grid under set total obs var
+clc; clearvars -except dpath; close all;
+
+% Load cost_grid results
+load([dpath,'Example\Ex_results\'...
+'2018-05-30_cost_grid_with_set_total_obs_var'],...
+'results');
+% Gather true outputs at sample points:
+outs_true = [];
+for ii = 1:size(results,1)
+    outs_true = [outs_true ; results{ii}.model_output.by_sample_true ] ;
+end
+
+
+% Scatterplot the true outputs
+f=figure();
+sp=scatter3(outs_true(:,1),outs_true(:,2),outs_true(:,3)); hold on;
+
+% Now get true nondominated region across costs
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output'],...
+    'ctheta_output');
+h=1/5; % Granularity of cost_grid on direct data
+rnd_costs = round(ctheta_output(:,6)/h)*h;
+outs_dd = ctheta_output(:,4:6);
+nd_outs_dd=[];
+for ii = 15:h:30
+    relvnt_dd = outs_dd(rnd_costs==ii,:);
+    [nondoms ndidx] = nondominated(relvnt_dd(:,1:2));
+    nd_outs_dd = [nd_outs_dd ; relvnt_dd(ndidx,:)];
+end
+scatter3(nd_outs_dd(:,1),nd_outs_dd(:,2),nd_outs_dd(:,3));
+
