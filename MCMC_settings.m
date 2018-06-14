@@ -1,5 +1,62 @@
-function settings = MCMC_settings (M,desired_obs,sim_x,sim_t,sim_y,...
-    which_outputs, Rho_lam_optimum)
+function settings = MCMC_settings (desired_obs,sim_x,sim_t,sim_y,varargin)
+% settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...).
+% 
+% Parameter/Value pairs:
+% 'M':
+%   Number of samples to draw in the MCMC, includes burn-in. Default: 1e4.
+% 'burn_in':
+%   Proportion of samples to treat as burn-in. Default: 1/5.
+% 'ObsVar':
+%   'RefPrior' - (Default) Puts independent 1/sigma^2 prior on each obs var
+%                          for each of the outputs.
+%   'STOV'     - Uses set total observation variance. Default 10.
+%   'Constant' - Uses constant observation variance. Default 0.05.
+% 'Cost_lambda':
+%   false      - (Default) does not place informative prior on vf, thk.
+%   true       - Places exp(-||(vf,thk)||^2) prior on vf, thk.
+% 'which_outputs':
+%   Row vector of 0/1 values indicating which of the outputs are to be
+%   used. Default is to use all inputs.
+% 'Rho_lam_optimum':
+%   Row vector: [omega rho lambda]. Default is:
+%               [   0.280981573480363   0.999189406633873...
+%               0.600440750045477  0.719652153362981   0.102809702497319...
+%               0.000837772517865 ]. If set to 0, then ML estimation via
+%   gradient descent is used to find appropriate values.
+% 'Discrepancy':
+%   false      - (Default) No discrepancy function is used.
+%   true       - Discrepancy function is used.
+% 'doplot':
+%   true       - (Default) Update scatterplot every ten draws.
+%   false      - No plots during MCMC.
+
+% Parse inputs
+p = inputParser;
+p.addRequired('desired_obs',@ismatrix);
+p.addRequired('sim_x',@ismatrix);
+p.addRequired('sim_t',@ismatrix);
+p.addRequired('sim_y',@ismatrix);
+p.addParameter('M',1e4,@isscalar);
+p.addParameter('burn_in',1/5,@(x) x>0 && x<1);
+p.addParameter('ObsVar','RefPrior',@isstr);
+p.addParameter('Cost_lambda',0,@isscalar);
+p.addParameter('which_outputs',ones(size(desired_obs)),@ismatrix);
+p.addParameter('Rho_lam_optimum',...
+    [   0.280981573480363   0.999189406633873   0.600440750045477...
+        0.719652153362981   0.102809702497319   0.000837772517865 ],...
+        @ismatrix);
+p.addParameter('Discrepancy',false,@islogical);
+p.addParameter('doplot',true,@islogical);
+p.parse(desired_obs,sim_x,sim_t,sim_y,varargin{:});
+% Collect inputs
+M               = p.Results.M;
+burn_in         = floor(p.Results.burn_in*M);
+ObsVar          = p.Results.ObsVar;
+Cost_lambda     = p.Results.Cost_lambda;
+which_outputs   = p.Results.which_outputs;
+Rho_lam_optimum = p.Results.Rho_lam_optimum;
+Discrepancy     = p.Results.Discrepancy;
+doplot          = p.Results.doplot;
 
 %% Infer useful values
 num_cal = size(sim_t,2);
@@ -8,7 +65,6 @@ num_cntrl = size(sim_x,2) + num_out - 1 ; % The num_out - 1 is for dum vars
 num_cntrl_wod = size(sim_x,2) ; % Without dummy vars
 
 %% MCMC settings
-burn_in = ceil(M/5) ; % burn-in
 % Covariance parameter settings, found by optimization routine:
 if Rho_lam_optimum == 0
     fprintf('No rho,lambda values specified; commencing ML estimation.\n');
@@ -45,33 +101,66 @@ nugsize = @(Covmat) 1e-4 ; % Why make it a function? So later it can be
                            % made fancier.
                            
 %% Set prior for sigma^2_y: 1/sigma^2_y, and log version
-sigma2 = 1; % initial value
-sigma2_prior = @(sigma2) 1/prod(sigma2);
-log_sigma2_prior = @(sigma2) -log(prod(sigma2));
-sigma2_prop_density = @(x,s) normrnd(x,s);
-Sigma_sig = 2 ;
-% Piecewise version:
-sigma2 = rand(1,num_out)*10;
-sigma2_prop_density = @(x,s) normrnd(x,s);
-Sigma_sig = 4 * ones(1,num_out);
-% Joint multivariate draw version:
-sigma2=rand(1,num_out)*20;
-sigma2_prop_density = @(x,s) exp(mvnrnd(log(x),s));
-log_sig_mh_correction = @(sig_s,sig) log(prod(sig_s)) - log(prod(sig));
-Sigma_sig = eye(num_out);
+switch ObsVar
+    case 'RefPrior'
+        % Joint multivariate draw version:
+        sigma2=rand(1,num_out)*20;
+        log_sigma2_prior = @(sigma2) -log(prod(sigma2));
+        sigma2_prop_density = @(x,s) exp(mvnrnd(log(x),s));
+        log_sig_mh_correction=@(sig_s,sig)log(prod(sig_s))-log(prod(sig));
+        Sigma_sig = eye(num_out);
+        init_sigma2_divs = 'null';
+    case 'STOV'
+        sigma2 = 10; % Sum total observation variance
+        log_sigma2_prior = @(x) 0 ; % No prior on total variance
+        init_sigma2_divs = [ 1/3 2/3 ] ; % Initial weights
+        log_sig_mh_correction = @(x,s) 0 ; % No MH correction for sigma2
+        sigma2_prop_density = @(x,s) x + rand(1,2) * s - s/2;
+        Sigma_sig = .1; % Width of unif proposal window
+        init_sigma2_divs = 0:1/num_out:1 ; % Initial proportion of total ov
+        init_sigma2_divs = init_sigma2_divs(2:(end-1));
+    case 'Constant'
+        sigma2 = 0.05 * ones(1,num_out); % Obs. var. of each output
+        log_sigma2_prior = @(x) 0; % No prior on obs var.
+        log_sig_mh_correction = @(x,s) 0 % No MH correction needed
+        sigma2_prop_density = @(x,s) x;
+        Sigma_sig = 0; % No var on proposal for sigma2
+        init_sigma2_divs = 'null';
+    otherwise
+        error('InptErr','You specified an invalid value for ObsVar.');
+end
 
 %% Set prior for theta
-Cost_lambda = 0;
-Cost = @(t,Cost_lambda) Cost_lambda * norm(t)^2;
-theta_prior = @(theta,Cost_lambda) exp(-Cost(theta,Cost_lambda));
+Cost            = @(t,Cost_lambda) Cost_lambda * norm(t)^2;
+theta_prior     = @(theta,Cost_lambda) exp(-Cost(theta,Cost_lambda));
 log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
 
+%% Set initial discrepancy covariance parameters
+if Discrepancy 
+    omega_delta_init    = betarnd(1,0.3,1,num_cntrl); 
+    lambda_delta_init   = gamrnd(5,5);
+    omega_prop_density  = @(x) x + rand(1,size(x,2)) *.1 -.05;
+    lambda_prop_density = @(x) x + rand(1,size(x,2)) *.1 -.05;
+else 
+    omega_delta_init    = 'null';
+    lambda_delta_init   = 'null';
+    omega_prop_density  = 'null';
+    lambda_prop_density = 'null';
+end
+
+%% Set prior for omega_delta
+log_omega_delta_prior = @(od) sum(log( betapdf(od,1,0.3) ));
+
+%% Set prior for lambda_delta
+log_lambda_delta_prior = @(ld) log( gampdf(ld,5,5) );
 
 %% Package proposal density
 proposal.density             = prop_density; 
 proposal.Sigma               = Sigma;
 proposal.sigma2_prop_density = sigma2_prop_density;
 proposal.Sigma_sig           = Sigma_sig;
+proposal.omega_prop_density  = omega_prop_density;
+proposal.lambda_prop_density = lambda_prop_density;
 
 %% MH correction for using log-normal proposal
 log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
@@ -142,7 +231,12 @@ settings = struct(...
     'obs_x',obs_x,...
     'y',y,...
     'sigma2',sigma2,...
+    'init_sigma2_divs',init_sigma2_divs,...
     'log_sigma2_prior',log_sigma2_prior,...
+    'log_omega_delta_prior',log_omega_delta_prior,...
+    'log_lambda_delta_prior',log_lambda_delta_prior,...
+    'omega_delta_init',omega_delta_init,...
+    'lambda_delta_init',lambda_delta_init,...
     'out_of_range',out_of_range,...
     'init_theta',init_theta,...
     'omega',omega,...
@@ -162,6 +256,6 @@ settings = struct(...
     'Cost_lambda',Cost_lambda,...
     'which_outputs',which_outputs,...
     'desired_obs',desired_obs,...
-    'do_plot',true);
+    'doplot',true);
 
 end

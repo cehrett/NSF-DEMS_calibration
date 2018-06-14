@@ -2,12 +2,19 @@
 
 function R = gp_cov (omega, X, X_s, rho, Theta, Theta_s,lambda,verbose)
 
-R = zeros (size(Theta,1),size(Theta_s,1));
+% Set up matrix that will hold the covariance
+R = zeros (size(X,1),size(X_s,1));
 
 msg=0;
 
+% If this involves only X and not Theta, then set values for rho, Theta to
+% make them irrelevant:
+if Theta == 0
+    rho = 1; Theta = X; Theta_s = X_s ;
+end
 
 
+% Check whether X==X_s, Theta==Theta_s; if so, saves us half the computns
 if isequal(X,X_s) && isequal(Theta,Theta_s)
     same = 1 ; % Indicator for whether X==X_2, Theta==Theta_s
 else

@@ -220,7 +220,7 @@ xlim([1,50]);
 line([1 50] , [ 0 0 ],'Color','k','LineWidth',1.5);
 xlabel('Lag'); ylabel('Autocorrelation');
 title('Volume fraction autocorrelation');
-legend('Without boundary constraints','With boundary constraints');
+legend('With boundary constraints','Boundary constraints removed');
 saveas(h,sprintf('ACF_bnd_cnds_fig.png'));
 
 %% Lambda_cost pareto bands (original)

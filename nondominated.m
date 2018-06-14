@@ -1,8 +1,15 @@
 function [nondoms,ndidx] = nondominated(results,tol)
+% [nondoms, ndidx] = nondominated(X,tolerance) gives the nondominated rows
+% of the matrix X. tolerance is an experimental input that generalizes the
+% notion of nondominance. The default tolerance is 0.
+% 
 % This function takes as input a set of outcomes and returns those that are
 % nondominated, ie Pareto efficient. Minimization is assumed to be optimal.
 % tol is an optional variable which loosens the idea of nondominance. It
 % should be a vector of length equal to the number of columns in results. 
+%
+
+
 
 % tol is optional so set it to 0 if it isn't there
 if ~exist('tol','var')
