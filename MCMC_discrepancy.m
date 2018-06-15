@@ -47,6 +47,10 @@ omega_prop_density      = settings.proposal.omega_prop_density;
 lambda_prop_density     = settings.proposal.lambda_prop_density;
 prop_density            = settings.proposal.density ; %prop for theta
 Sigma                   = settings.proposal.Sigma; %pv for theta
+Sigma_od                = settings.proposal.Sigma_od; %pv for omega_delta
+Sigma_ld                = settings.proposal.Sigma_ld; %pv for lambda_delta
+log_mh_correction_od    = settings.proposal.log_mh_correction_od;
+log_mh_correction_ld    = settings.proposal.log_mh_correction_ld;
 nugsize                 = settings.nugsize; 
 num_out                 = settings.num_out; 
 log_sig_mh_correction   = settings.log_sig_mh_correction;
@@ -108,7 +112,9 @@ msg                = 0                            ;
 samples            = init_theta                   ;
 delta_rec          = [omega_delta lambda_delta]   ;
 out_of_range_sig   = zeros(1,num_out)             ;
-mult               = 10                           ;           
+mult               = 10                           ; % multiplier, prop dens
+mult_od            = 10                           ; % mult for pd of om_del
+mult_ld            = 10                           ; % mult for pd of lam_dl
 
 %% Get initial log likelihood
 % Set new observation input matrix:
@@ -245,7 +251,7 @@ for ii = 1:M
 %     end
 
     %% Draw omega_delta
-    omega_delta_s = omega_prop_density(omega_delta) ; % Get new prop draw
+    omega_delta_s = omega_prop_density(omega_delta,Sigma_od) ; 
         
     
 
@@ -265,7 +271,8 @@ for ii = 1:M
     %X%loglik_od   = L_D + log_omega_delta_prior(omega_delta);
     
     %% Get acceptance ratio statistic
-    log_alpha = loglik_od_s - loglik_od ;
+    log_alpha = loglik_od_s - loglik_od + ...
+        log_mh_correction(omega_delta_s,omega_delta);
     
     %% Randomly accept or reject with prob. alpha; update accordingly
     if log(rand) < log_alpha
@@ -283,7 +290,7 @@ for ii = 1:M
     end
     
     %% Draw lambda_delta
-    lambda_delta_s =lambda_prop_density(lambda_delta) ; % Get new prop draw
+    lambda_delta_s =lambda_prop_density(lambda_delta,Sigma_ld) ; 
         
    
     %% Get new Sigma_z = Sigma_eta + [Sigma_y_Sigma_delta 0 ; 0 0]
@@ -302,7 +309,8 @@ for ii = 1:M
     %X%loglik_ld   = L_D + log_lambda_delta_prior(lambda_delta);
     
     %% Get acceptance ratio statistic
-    log_alpha = loglik_ld_s - loglik_ld ;
+    log_alpha = loglik_ld_s - loglik_ld + ...
+        log_mh_correction_ld(lambda_delta_s,lambda_delta);
     
     %% Randomly accept or reject with prob. alpha; update accordingly
     if log(rand) < log_alpha
@@ -338,32 +346,32 @@ for ii = 1:M
             mult = 1.5 * mult 
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-%X%        uniqsl = unique(samples(ii/4:ii+1,:),'rows');
-%X%        uniqss = unique(samples(3*ii/4:ii+1,:),'rows');
-%         if size(uniqss,1) > 3
-%             Sigadd = .5 * (cov(logit(uniqss)) + cov(logit(uniqsl)));
-%         else 
-%             Sigadd = Sigma ;
-%         end
         Sigma = cov(samples) * mult 
-%         Sigma  = (Sigadd*.85*mult + Sigma*.15)
         msg = fprintf('Completed: %g/%g\n',ii,M);
         
-%         %% Tune discrepancy hyperparam proposal variance
-%         if accepted_sig < 20
-%             Sigma_sig = Sigma_sig * 0.75;
-%             fprintf(repmat('\b',1,msg));
-%             fprintf('sigma2 proposal variances reduced to %g,%g\n',...
-%                 diag(Sigma_sig))
-%             msg = fprintf('Completed: %g/%g\n',ii,M);
-%         end
-%         if accepted_sig > 30
-%             Sigma_sig = Sigma_sig * 1.25;
-%             fprintf(repmat('\b',1,msg));
-%             fprintf('sigma2 proposal variances increased to %g,%g\n',...
-%                 diag(Sigma_sig))
-%             msg = fprintf('Completed: %g/%g\n',ii,M);
-%         end
+        %% Tune discrepancy proposal variance
+        % First omega_delta
+        if accepted_od < 20 mult_od = .75 * mult_od 
+        end
+        if accepted_od > 30
+            fprintf(repmat('\b',1,msg));
+            fprintf('\Omega_\delta proposal variances increased\n');
+            mult_od = 1.5 * mult_od 
+            msg = fprintf('Completed: %g/%g\n',ii,M);
+        end
+        Sigma_od = cov(delta_rec(:,1:(end-1))) * mult_od
+        msg = fprintf('Completed: %g/%g\n',ii,M);
+        % Now lambda_delta
+        if accepted_ld < 20 mult_ld = .75 * mult_od
+        end
+        if accepted_ld > 30
+            fprintf(repmat('\b',1,msg));
+            fprintf('\lambda_\delta proposal variance increased\n');
+            mult_ld = 1.5 * mult_ld
+            msg = fprintf('Completed: %g/%g\n',ii,M);
+        end
+        Sigma_ld = var(delta_rec(:,end)) * mult_ld;
+        msg = fprintf('Completed: %g/%g\n',ii,M);
         
     end
     

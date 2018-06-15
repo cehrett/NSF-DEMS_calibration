@@ -37,16 +37,17 @@ bsamps2 = results2.samples(2000:end,:);
 bsamps4 = results3.samples(2000:end,:);
 bsamps3 = results4.samples(2000:end,:);
 
-subplot(2,2,1);
+f=figure();
+s1=subplot(2,2,1);
 plot(bsamps1(:,1),bsamps1(:,2),'ko');
 ylim([0,1]);
-subplot(2,2,2);
+s2=subplot(2,2,2);
 plot(bsamps2(:,1),bsamps2(:,2),'ko');
 ylim([0,1]);
-subplot(2,2,3);
+s3=subplot(2,2,3);
 plot(bsamps3(:,1),bsamps3(:,2),'ko');
 ylim([0,1]);
-subplot(2,2,4);
+s4=subplot(2,2,4);
 plot(bsamps4(:,1),bsamps4(:,2),'ko');
 ylim([0,1]);
 
@@ -67,6 +68,19 @@ plot(bsamps4(:,1),'ko');
 title({'Heteroskedastic version,','1/\sigma^2 prior'});
 xlim([0,8000]); ylim([0,1]);
 
+% Add common axis labels
+p1 = get(s1,'position');
+p2 = get(s2,'position');
+p3 = get(s3,'position');
+p4 = get(s4,'position');
+hgt = p1(2) + p1(4) - p3(2) ;
+wth = p2(1) + p2(3) - p1(1) ;
+cax = axes('Position', [ p3(1) p3(2) wth hgt ],'visible','off');
+cylabel = ylabel('Normalized value of volume fraction draw',...
+    'visible','on'); 
+cxlabel = xlabel('Sample draw of volume fraction in MCMC','visible','on');
+
+saveas(f,'FIG_comp_obs_var.png');
 
 %% Comparison of 1d vs 0d
 clc; clearvars -except dpath ; close all;

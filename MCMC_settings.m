@@ -82,7 +82,6 @@ end
 omega  = Rho_lam_optimum(1:num_cntrl);
 rho    = Rho_lam_optimum(num_cntrl+1:num_cntrl+num_cal);
 lambda = Rho_lam_optimum(num_cntrl+num_cal+1);
-%num_out = length(desired_obs);
 % Need different omega in case not all three outputs used
 if sum(which_outputs) ~= 3
     error('To use <3 outputs, sort out manually what to do with omega');
@@ -99,6 +98,10 @@ LB = min(sim_t) ; UB = max(sim_t) ;
 % Nugget size for computational stability of covariance matrices
 nugsize = @(Covmat) 1e-4 ; % Why make it a function? So later it can be 
                            % made fancier.
+                           
+%% MH correction for using log-normal proposal
+log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
+    log(prod(theta)*prod(1-theta));
                            
 %% Set prior for sigma^2_y: 1/sigma^2_y, and log version
 switch ObsVar
@@ -137,15 +140,25 @@ log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
 
 %% Set initial discrepancy covariance parameters
 if Discrepancy 
-    omega_delta_init    = betarnd(1,0.3,1,num_cntrl); 
-    lambda_delta_init   = gamrnd(5,5);
-    omega_prop_density  = @(x) x + rand(1,size(x,2)) *.1 -.05;
-    lambda_prop_density = @(x) x + rand(1,size(x,2)) *.1 -.05;
+    omega_delta_init     = betarnd(1,0.3,1,num_cntrl); 
+    lambda_delta_init    = gamrnd(5,5);
+    %omega_prop_density  = @(x) x + rand(1,size(x,2)) *.1 -.05;
+    omega_prop_density   = @(x,Sigma) logit_inv(mvnrnd(logit(x),Sigma)); 
+    Sigma_od             = .5 * eye(num_cntrl); % Initial var for prop_dens
+    log_mh_correction_od = @(od_s,od) log(prod(od_s)*prod(1-od_s))-...
+        log(prod(od)*prod(1-od)); % log metr. hast. correction for prop
+    lambda_prop_density  = @(x,s) exp(mvnrnd(log(x),s));
+    Sigma_ld             = 1 ; % Var for prop density on lambda_delta
+    log_mh_correction_ld = @(sig_s,sig)log(prod(sig_s))-log(prod(sig));
 else 
-    omega_delta_init    = 'null';
-    lambda_delta_init   = 'null';
-    omega_prop_density  = 'null';
-    lambda_prop_density = 'null';
+    omega_delta_init     = 'null';
+    lambda_delta_init    = 'null';
+    omega_prop_density   = 'null';
+    Sigma_od             = 'null';
+    log_mh_correction_od = 'null';
+    lambda_prop_density  = 'null';
+    Sigma_ld             = 'null';
+    log_mh_correction_ld = 'null';
 end
 
 %% Set prior for omega_delta
@@ -155,16 +168,16 @@ log_omega_delta_prior = @(od) sum(log( betapdf(od,1,0.3) ));
 log_lambda_delta_prior = @(ld) log( gampdf(ld,5,5) );
 
 %% Package proposal density
-proposal.density             = prop_density; 
-proposal.Sigma               = Sigma;
-proposal.sigma2_prop_density = sigma2_prop_density;
-proposal.Sigma_sig           = Sigma_sig;
-proposal.omega_prop_density  = omega_prop_density;
-proposal.lambda_prop_density = lambda_prop_density;
-
-%% MH correction for using log-normal proposal
-log_mh_correction = @(theta_s,theta) log(prod(theta_s)*prod(1-theta_s))-...
-    log(prod(theta)*prod(1-theta));
+proposal.density              = prop_density; 
+proposal.Sigma                = Sigma;
+proposal.sigma2_prop_density  = sigma2_prop_density;
+proposal.Sigma_sig            = Sigma_sig;
+proposal.omega_prop_density   = omega_prop_density;
+proposal.lambda_prop_density  = lambda_prop_density;
+proposal.Sigma_od             = Sigma_od;
+proposal.log_mh_correction_od = log_mh_correction_od;
+proposal.Sigma_ld             = Sigma_ld;
+proposal.log_mh_correction_ld = log_mh_correction_ld;
 
 
 %% Load data and get initial theta value
