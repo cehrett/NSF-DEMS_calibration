@@ -1,4 +1,4 @@
-function result = MCMC_discrepancy(settings)
+function results = MCMC_discrepancy(settings)
 % M is the total number of draws (inluding burn-in)
 % burn_in is the length of the burn-in; may be set either as a count or as
 % a proportion of M
@@ -46,7 +46,7 @@ Sigma_sig               = settings.proposal.Sigma_sig ; %pv for sigma2
 omega_prop_density      = settings.proposal.omega_prop_density;
 lambda_prop_density     = settings.proposal.lambda_prop_density;
 prop_density            = settings.proposal.density ; %prop for theta
-Sigma                   = settings.proposal.Sigma; %pv for theta
+Sigma                   = settings.proposal.Sigma;    %pv for theta
 Sigma_od                = settings.proposal.Sigma_od; %pv for omega_delta
 Sigma_ld                = settings.proposal.Sigma_ld; %pv for lambda_delta
 log_mh_correction_od    = settings.proposal.log_mh_correction_od;
@@ -202,53 +202,6 @@ for ii = 1:M
         L_D          = L_D_s;
     end
     
-%     %% Propose new sigma2 weights
-%     sigma2_divs_s = sigma2_prop_density(sigma2_divs,Sigma_sig);
-%     sigma2_weights_s = [ sigma2_divs_s(1) ...
-%         sigma2_divs_s(2)-sigma2_divs_s(1) 1-sigma2_divs_s(2) ] ;
-%     
-%     %% Get loglikelihood
-%     if any([sigma2_weights_s sigma2_divs_s] <= 0)
-%         out_of_range_sig = out_of_range_sig + (sigma2_weights_s<=0) + ...
-%             (sigma2_weights_s>=1);
-%         loglik_sigma2_s = -Inf;
-%     else
-%         %% Now make sigma2_s into a covariance matrix:
-%         sigma2_props_s = sigma2_weights_s/sum(sigma2_weights_s);
-%         %Xd sigma_2_s = sigma2_weights_s .* sigma_2;
-%         sigma2_s_long = repelem(sigma2 * sigma2_props_s,num_obs);
-%         Sigma_y_s = diag(sigma2_s_long);
-% 
-%         %% Get new Sigma_z = Sigma_eta + [Sigma_y 0 ; 0 0], in pieces
-%         Sigma_z_s = [ Sigma_eta_yy + Sigma_y_s  Sigma_eta_yx ; ...
-%                       Sigma_eta_xy              Sigma_eta_xx ] ;
-%         % Add a nugget to Sigma_z for computational stability
-%         Sigma_z_s = Sigma_z_s + eye(size(Sigma_z_s)) * nugsize(Sigma_z_s);
-%         % Get log likelihood of sigma2_s
-%         loglik_sigma2_s = logmvnpdf(z',0,Sigma_z_s) + ...
-%             log_sigma2_prior(sigma2_weights_s);
-%         loglik_sigma2   = logmvnpdf(z',0,Sigma_z) + ...
-%             log_sigma2_prior(sigma2_weights);
-%     end
-%     
-%     %% Get acceptance ratio statistic
-%     log_alpha = loglik_sigma2_s - loglik_sigma2 + ...
-%         log_sig_mh_correction(sigma2_weights_s,sigma2_weights) ; 
-%     
-%     %% Randomly accept or reject with prob. alpha; update accordingly
-%     if log(rand) < log_alpha
-%         accept_sig = 1;
-%         accepted_sig = accepted_sig + 1;
-%     else 
-%         accept_sig = 0;
-%     end
-%     if accept_sig % Set up for next time
-%         loglik_sigma2 = loglik_sigma2_s ;
-%         sigma2_weights = sigma2_weights_s ;
-%         sigma2_divs    = sigma2_divs_s ;
-%         Sigma_y = Sigma_y_s;
-%         Sigma_z = Sigma_z_s;
-%     end
 
     %% Draw omega_delta
     omega_delta_s = omega_prop_density(omega_delta,Sigma_od) ; 
@@ -268,7 +221,7 @@ for ii = 1:M
     L_D_s = logmvnpdf(z',0,Sigma_z_s) ;
     loglik_od_s = L_D_s + log_omega_delta_prior(omega_delta_s);
     %X%L_D = logmvnpdf(z',0,Sigma_z) ;
-    %X%loglik_od   = L_D + log_omega_delta_prior(omega_delta);
+    loglik_od   = L_D + log_omega_delta_prior(omega_delta);
     
     %% Get acceptance ratio statistic
     log_alpha = loglik_od_s - loglik_od + ...
@@ -306,7 +259,7 @@ for ii = 1:M
     L_D_s = logmvnpdf(z',0,Sigma_z_s) ;
     loglik_ld_s = L_D_s + log_lambda_delta_prior(lambda_delta_s);
     %X%L_D = logmvnpdf(z',0,Sigma_z) ;
-    %X%loglik_ld   = L_D + log_lambda_delta_prior(lambda_delta);
+    loglik_ld   = L_D + log_lambda_delta_prior(lambda_delta);
     
     %% Get acceptance ratio statistic
     log_alpha = loglik_ld_s - loglik_ld + ...
@@ -336,41 +289,41 @@ for ii = 1:M
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
         %% Tune theta proposal variance
-        if accepted < 20 mult = .75 * mult 
+        if accepted < 24 mult = max(mult*.5,mult*accepted/24)
         end
-        if accepted > 30
+        if accepted > 24
             %Sigma = Sigma * mult;%1.25;
 %             mult = 1.25 * mult
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances increased\n');
-            mult = 1.5 * mult 
+            mult = min(mult*2,mult*accepted/24) 
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        Sigma = cov(samples) * mult 
+        Sigma = cov(logit(samples)) * mult 
         msg = fprintf('Completed: %g/%g\n',ii,M);
         
         %% Tune discrepancy proposal variance
         % First omega_delta
-        if accepted_od < 20 mult_od = .75 * mult_od 
+        if accepted_od < 24 mult_od=max(mult_od*.5,mult_od*accepted_od/24)
         end
-        if accepted_od > 30
+        if accepted_od > 24
             fprintf(repmat('\b',1,msg));
-            fprintf('\Omega_\delta proposal variances increased\n');
-            mult_od = 1.5 * mult_od 
+            fprintf('Omega delta proposal variances increased\n');
+            mult_od = min(mult_od*2,mult_od*accepted_od/24) 
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        Sigma_od = cov(delta_rec(:,1:(end-1))) * mult_od
+        Sigma_od = cov(logit(delta_rec(:,1:(end-1)))) * mult_od
         msg = fprintf('Completed: %g/%g\n',ii,M);
         % Now lambda_delta
-        if accepted_ld < 20 mult_ld = .75 * mult_od
+        if accepted_ld < 24 mult_ld =max(mult_ld*.5,mult_ld*accepted_ld/24)
         end
-        if accepted_ld > 30
+        if accepted_ld > 24
             fprintf(repmat('\b',1,msg));
-            fprintf('\lambda_\delta proposal variance increased\n');
-            mult_ld = 1.5 * mult_ld
+            fprintf('lambda delta proposal variance increased\n');
+            mult_ld = min(mult_ld*2,mult_ld*accepted_ld/24)
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        Sigma_ld = var(delta_rec(:,end)) * mult_ld;
+        Sigma_ld = var(log(delta_rec(:,end))) * mult_ld;
         msg = fprintf('Completed: %g/%g\n',ii,M);
         
     end
@@ -400,7 +353,7 @@ for ii = 1:M
     end
     
     
-        %% Output to console to let us know progress
+        %% Output to console and plot to let us know progress
     if mod(ii,10) == 0 && doplot == true
         fprintf(repmat('\b',1,msg));
         msg = fprintf('Completed: %g/%g\n',ii,M);
@@ -412,17 +365,14 @@ for ii = 1:M
         title('Thickness');
         for jj = 1:sum(size(delta_rec,2))
             subplot(2,4,jj+2);
-            % Comment out old version
-%             plot(sigma2_weights_rec(startplot:end,jj)./...
-%                 sum(sigma2_weights_rec(startplot:end,:),2),'ko');
             plot(delta_rec(startplot:end,jj),'ko');
             title(['\delta: ' labs(jj,:)]);
         end
-        subplot(2,4,8);
+        subplot(2,4,(sum(size(delta_rec,2))+3):8);
         plot(logit(samples(startplot:end,1)),...
             logit(samples(startplot:end,2)),'ko');
         hold on
-        rr = mvnrnd(mean(logit(samples(startplot:end,:))),Sigma,200);
+        rr = mvnrnd(mean(logit(samples(startplot:end,:))),Sigma,250);
         plot(rr(:,1),rr(:,2),'r.');
         hold off
         drawnow
@@ -438,7 +388,7 @@ end
 %% Pack up and leave
 samples_os = samples .* settings.input_calib_ranges + ...
     settings.input_calib_mins;
-result = struct('samples',samples,...
+results = struct('samples',samples,...
     'samples_os',samples_os,...
     'delta_samps',delta_rec,...
     'Sigma',Sigma,...

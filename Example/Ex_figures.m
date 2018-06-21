@@ -19,7 +19,7 @@ addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
 addpath([dpath,'Example\Ex_results']);
 
-%% Get deflection, rotation "bands" as function of cost, w\ true trade-off
+%% Deflection, rotation "bands" as function of cost, w\ true trade-off
 clc ; clearvars -except dpath ; close all;
 % First using the one big calibration including cost
 load([dpath,'Example\Ex_results\'...
@@ -123,7 +123,7 @@ load([dpath,'Example\Ex_results\'...
     '2018-05-18_direct_data_nondom'],...
     'nondom_ap');
 
-%% Get figure at particular cost describing rotation/deflection tradeoff
+%% Figure at particular cost describing rotation/deflection tradeoff
 clc; clearvars -except dpath ; close all;
 % load([dpath,'Example\Ex_results\'...
 % '2018-05-17_d0_incl_min_cost'],...
@@ -170,7 +170,7 @@ plot(dd_at_cost(:,1),dd_at_cost(:,2),'og');
 plot(nd_dd_at_cost(:,1),nd_dd_at_cost(:,2),'or');
 
 
-%% Get figure describing the problem
+%% Figure describing the problem
 % Take a look at surfaces of example function output
 theta1=linspace(0,3);
 theta2=linspace(0,6);
@@ -213,7 +213,7 @@ surf(theta2,theta1,costs,'FaceColor','green','EdgeColor',ec,...
 axis vis3d;
 xlabel('\theta_2'); ylabel('\theta_1'); zlabel('Outcomes');
 
-%% Get 3d figure of nondominated direct data plus nondom full calib MCMC
+%% 3d figure of nondominated direct data plus nondom full calib MCMC
 % Both outputs and inputs. In that order.
 clc; clearvars -except dpath ; close all;
 % load([dpath,'Example\Ex_results\'...
@@ -305,7 +305,7 @@ xlim([0 3]); ylim([0 6]);
 title('MCMC samples filtered by estimated nondominance');
 %saveas(f,'FIG_nd_in');
 
-%% Get 3d figure of nondominated direct data plus nondom cost grid MCMC
+%% 3d figure of nondominated direct data plus nondom cost grid MCMC
 clc ; clearvars -except dpath ; close all;
 load([dpath,'Example\Ex_results\'...
 '2018-05-17_cost_grid_results'],...
@@ -761,7 +761,7 @@ scatter3(mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},1),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},2),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},3),sz);
 
-%% Full set total obs var calib with direct data heatmap of proximity to 0
+%% Heatmap of proximity to 0: Full set total obs var calib with direct data 
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
@@ -853,7 +853,7 @@ scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
     'MarkerEdgeAlpha',.5);
 saveas(h,'FIG_hmfc_nd_stov.png');
 
-%% Plot cost grid set total obs var calib with direct data close to 0
+%% Heatmap of proximity to 0: cost grid STOV with direct data close to 0
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
@@ -1231,4 +1231,96 @@ for ii = 15:h:30
     nd_outs_dd = [nd_outs_dd ; relvnt_dd(ndidx,:)];
 end
 scatter3(nd_outs_dd(:,1),nd_outs_dd(:,2),nd_outs_dd(:,3));
+
+%% Heatmap of proximity to 0: Calib with discrepancy
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get true samples with output closest to 0 (Euclidean distance on
+% standardized scale
+% First put data on standardized scale
+cost_std = (ctheta_output(:,6) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (ctheta_output(:,4) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (ctheta_output(:,5) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+dd_outputs_std = [defl_std rotn_std cost_std];
+
+% Get zero on standardized scale
+zero_pt = -mean(ctheta_output(:,4:6))./std(ctheta_output(:,4:6));
+
+% Now get Euclidean norms of each standardized output
+dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Now get the Euclidean norm for all mcmc samples. First, load them:
+load([dpath,'Example\Ex_results\'...
+'2018-06-20_discrepancy_full_calib_G50-p25_lambda_prior'],...
+'results');
+outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
+% Put on standardized scale:
+cost_std = (outs(:,3) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (outs(:,1) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (outs(:,2) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
+
+% Now get Euclidean norms of each standardized output
+mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Take a look
+% figure();
+% scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+% hold on;
+% scatter(1:length(mcmc_dists),mcmc_dists);
+% 
+% % Now take a 3d look at all outputs versus the close direct data outputs
+cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+% figure();
+% scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+% scatter3(...
+%     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+
+% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+samps = results.samples_os;
+close_dd_theta = ctheta_output(close_dd_idx,2:3);
+% figure(); scatterhist(samps(:,1),samps(:,2));
+% figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+
+% Now get a scatterhist of mcmc theta draws with, behind it, all direct
+% data theta values colored by Euclidean distance of the standardized
+% output to the zero point.
+h=figure(); colormap(flipud(jet));
+sh=scatterhist(samps(:,1),samps(:,2)); 
+hold on; xlim([0 3]); ylim([0 6]);
+scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
+colorbar('East');
+% scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+%     'MarkerEdgeAlpha',.05);
+scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
+title({'Posterior \theta draws with marginal distributions'});
+xlabel('\theta_1'); ylabel('\theta_2') ;
+saveas(h,'FIG_hmfc_disc_g50-p25.png')
+
+% % While we've got that plot up, take a look at the locations of the
+% % non-dominated thetas.
+% scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
+% % scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+% %     'MarkerEdgeAlpha',.05);
+% scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+%     'MarkerEdgeAlpha',.5);
+% saveas(h,'FIG_hmfcnd_disc_g5-5.png');
 

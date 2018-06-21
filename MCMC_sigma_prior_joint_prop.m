@@ -1,4 +1,4 @@
-function [samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings)
+function results = MCMC_sigma_prior_joint_prop(settings)
 % M is the total number of draws (inluding burn-in)
 % burn_in is the length of the burn-in; may be set either as a count or as
 % a proportion of M
@@ -90,17 +90,17 @@ Sigma_y = diag(sigma2_long);
 
 %% Initialize some variables for later use
 out_of_range_rec = zeros(size(init_theta)); 
-reject_rec       = 0                ;
-startplot        = 10               ;
-accepted         = 0                ;
-accepted_sig     = 0                ;
-theta            = init_theta       ;
-msg              = 0                ;
-samples          = init_theta       ;
-sigma2_rec       = sigma2           ;
-out_of_range_sig = zeros(1,num_out) ;
-mult             = 1                ;
-
+reject_rec       = 0                      ;
+startplot        = 10                     ;
+accepted         = 0                      ;
+accepted_sig     = 0                      ;
+theta            = init_theta             ;
+msg              = 0                      ;
+samples          = init_theta             ;
+sigma2_rec       = sigma2                 ;
+out_of_range_sig = zeros(1,num_out)       ;
+mult             = 1                      ;
+  
 %% Get initial log likelihood
 % Set new observation input matrix:
 obs_theta = repmat(theta,n,1) ; 
@@ -228,23 +228,18 @@ for ii = 1:M
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
         %% Tune theta proposal variance
-        mult = 1;
+        if accepted < 20 mult = .75 * mult 
+        end
         if accepted > 30
             %Sigma = Sigma * mult;%1.25;
-            mult = 8;
+%             mult = 1.25 * mult
             fprintf(repmat('\b',1,msg));
-            fprintf('Proposal variances increased');% to %g,%g\n',diag(Sigma))
+            fprintf('Proposal variances increased\n');
+            mult = 1.5 * mult 
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        uniqsl = unique(samples(ii/4:ii+1,:),'rows');
-        uniqss = unique(samples(3*ii/4:ii+1,:),'rows');
-        if size(uniqss,1) > 3
-            Sigadd = .5 * (cov(logit(uniqss)) + cov(logit(uniqsl)));
-        else 
-            Sigadd = Sigma ;
-        end
-        Sigma  = Sigadd*.85 + Sigma*.15*mult
-        fprintf('Completed: %g/%g\n',ii,M);
+        Sigma = cov(logit(samples)) * mult 
+        msg = fprintf('Completed: %g/%g\n',ii,M);
         
         %% Tune sigma2 proposal variance
         if accepted_sig < 20
@@ -320,5 +315,16 @@ for ii = 1:M
 end
 
 
+%% Pack up and leave
+samples_os = samples .* settings.input_calib_ranges + ...
+    settings.input_calib_mins;
+results = struct('samples',samples,...
+    'samples_os',samples_os,...
+    'sigma2',sigma2_rec,...
+    'Sigma',Sigma,...
+    'desired_obs',settings.desired_obs,...
+    'post_mean_theta',mean(samples(settings.burn_in+2:end,:)),...
+    'post_mean_sigma2',mean(sigma2_rec(settings.burn_in+2:end,:)),...
+    'settings',settings);
 
 end

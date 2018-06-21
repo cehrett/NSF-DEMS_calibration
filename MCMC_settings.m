@@ -125,7 +125,7 @@ switch ObsVar
     case 'Constant'
         sigma2 = 0.05 * ones(1,num_out); % Obs. var. of each output
         log_sigma2_prior = @(x) 0; % No prior on obs var.
-        log_sig_mh_correction = @(x,s) 0 % No MH correction needed
+        log_sig_mh_correction = @(x,s) 0; % No MH correction needed
         sigma2_prop_density = @(x,s) x;
         Sigma_sig = 0; % No var on proposal for sigma2
         init_sigma2_divs = 'null';
@@ -141,7 +141,7 @@ log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
 %% Set initial discrepancy covariance parameters
 if Discrepancy 
     omega_delta_init     = betarnd(1,0.3,1,num_cntrl); 
-    lambda_delta_init    = gamrnd(5,5);
+    lambda_delta_init    = gamrnd(1,1);
     %omega_prop_density  = @(x) x + rand(1,size(x,2)) *.1 -.05;
     omega_prop_density   = @(x,Sigma) logit_inv(mvnrnd(logit(x),Sigma)); 
     Sigma_od             = .5 * eye(num_cntrl); % Initial var for prop_dens
@@ -162,10 +162,10 @@ else
 end
 
 %% Set prior for omega_delta
-log_omega_delta_prior = @(od) sum(log( betapdf(od,1,0.3) ));
+log_omega_delta_prior = @(od) sum(log( betapdf(od,1,0.6) ));
 
 %% Set prior for lambda_delta
-log_lambda_delta_prior = @(ld) log( gampdf(ld,5,5) );
+log_lambda_delta_prior = @(ld) log( gampdf(ld,50,.25) );
 
 %% Package proposal density
 proposal.density              = prop_density; 

@@ -239,25 +239,17 @@ for ii = 1:M
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
         %% Tune theta proposal variance
-        if accepted < 20 mult = .75 * mult 
+        if accepted < 20 mult = max(mult*.75,mult*accepted/24)
         end
         if accepted > 30
             %Sigma = Sigma * mult;%1.25;
 %             mult = 1.25 * mult
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances increased\n');
-            mult = 1.5 * mult 
+            mult = min(mult*2,mult*accepted/24) 
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        uniqsl = unique(samples(ii/4:ii+1,:),'rows');
-        uniqss = unique(samples(3*ii/4:ii+1,:),'rows');
-%         if size(uniqss,1) > 3
-%             Sigadd = .5 * (cov(logit(uniqss)) + cov(logit(uniqsl)));
-%         else 
-%             Sigadd = Sigma ;
-%         end
-        Sigma = cov(samples) * mult 
-%         Sigma  = (Sigadd*.85*mult + Sigma*.15)
+        Sigma = cov(logit(samples)) * mult 
         msg = fprintf('Completed: %g/%g\n',ii,M);
         
         %% Tune sigma2 proposal variance
@@ -275,6 +267,7 @@ for ii = 1:M
                 diag(Sigma_sig))
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
+        % Need to fix up this tuning of sigma2 prop variance.
         
     end
     
