@@ -6,7 +6,8 @@
 %% Set path string and add paths
 clc; clear all; close all;
 
-direc = pwd; if direc(1)=='C' 
+direc = pwd; 
+if direc(1)=='C' 
     dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
 else
     dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
@@ -1262,7 +1263,7 @@ dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
 
 % Now get the Euclidean norm for all mcmc samples. First, load them:
 load([dpath,'Example\Ex_results\'...
-'2018-06-20_discrepancy_full_calib_G50-p25_lambda_prior'],...
+'2018-06-19_discrepancy_full_calib_G5-5_lambda_prior'],...
 'results');
 outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
 % Put on standardized scale:
@@ -1303,7 +1304,7 @@ close_dd_theta = ctheta_output(close_dd_idx,2:3);
 % data theta values colored by Euclidean distance of the standardized
 % output to the zero point.
 h=figure(); colormap(flipud(jet));
-sh=scatterhist(samps(:,1),samps(:,2)); 
+sh=scatterhist(samps(:,1),samps(:,2),'Marker','.'); 
 hold on; xlim([0 3]); ylim([0 6]);
 scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
 colorbar('East');
@@ -1311,9 +1312,12 @@ colorbar('East');
 %     'MarkerEdgeAlpha',.05);
 scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
     'MarkerEdgeAlpha',.5);
-title({'Posterior \theta draws with marginal distributions'});
+title({'Posterior \theta draws with marginal distributions' ...
+    'using \lambda_\delta prior Gamma(5,5)'});
 xlabel('\theta_1'); ylabel('\theta_2') ;
-saveas(h,'FIG_hmfc_disc_g50-p25.png')
+pos = sh(1).Position;
+sh(1).Position = pos + [0 0 0 -.025];
+%saveas(h,'FIG_hmfc_disc_g5-5.png')
 
 % % While we've got that plot up, take a look at the locations of the
 % % non-dominated thetas.
