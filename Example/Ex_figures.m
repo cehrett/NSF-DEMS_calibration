@@ -12,7 +12,7 @@ if direc(1)=='C'
 else
     dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
 end
-clear direc;
+cler direc;
 
 % Add paths
 addpath(dpath);
@@ -46,7 +46,7 @@ dir_medians = zeros(length(costs),2);
 uqs = zeros(length(costs),2);
 lqs = zeros(length(costs),2);
 dir_uqs = zeros(length(costs),2);
-dir_lqs = zeros(length(costs),2);
+dir++++++l++qs = zeros(length(costs),2);
 load([dpath,'Example\Ex_results\'...
     '2018-05-25_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
@@ -1328,3 +1328,86 @@ sh(1).Position = pos + [0 0 0 -.025];
 %     'MarkerEdgeAlpha',.5);
 % saveas(h,'FIG_hmfcnd_disc_g5-5.png');
 
+%% Heatmap of proximity to zero: STOV with true function
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get true samples with output closest to 0 (Euclidean distance on
+% standardized scale
+% First put data on standardized scale
+cost_std = (ctheta_output(:,6) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (ctheta_output(:,4) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (ctheta_output(:,5) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+dd_outputs_std = [defl_std rotn_std cost_std];
+
+% Get zero on standardized scale
+zero_pt = -mean(ctheta_output(:,4:6))./std(ctheta_output(:,4:6));
+
+% Now get Euclidean norms of each standardized output
+dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+load([dpath,'Example\Ex_results\'...
+    '2018-06-27_STOV_true_fn'],...
+    'results');
+outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
+% Put on standardized scale:
+cost_std = (outs(:,3) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (outs(:,1) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (outs(:,2) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
+
+% Now get Euclidean norms of each standardized output
+mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+% Take a look
+% figure();
+% scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+% hold on;
+% scatter(1:length(mcmc_dists),mcmc_dists);
+% 
+% % Now take a 3d look at all outputs versus the close direct data outputs
+cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+% figure();
+% scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+% scatter3(...
+%     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+
+% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+samps = results.samples_os;
+close_dd_theta = ctheta_output(close_dd_idx,2:3);
+% figure(); scatterhist(samps(:,1),samps(:,2));
+% figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+
+% Now get a scatterhist of mcmc theta draws with, behind it, all direct
+% data theta values colored by Euclidean distance of the standardized
+% output to the zero point.
+h=figure(); colormap(flipud(jet));
+sh=scatterhist(samps(:,1),samps(:,2),'Marker','.'); 
+hold on; xlim([0 3]); ylim([0 6]);
+scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
+colorbar('East');
+% scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+%     'MarkerEdgeAlpha',.05);
+scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
+title({'Posterior \theta draws with marginal distributions' ...
+    'using set total observation variance'});
+xlabel('\theta_1'); ylabel('\theta_2') ;
+pos = sh(1).Position;
+sh(1).Position = pos + [0 0 0 -.025];

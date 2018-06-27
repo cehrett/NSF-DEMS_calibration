@@ -574,3 +574,24 @@ results = MCMC_discrepancy(settings);
 %     '2018-06-20_discrepancy_full_calib_G50-p25_lambda_prior'],...
 %     'results');
 
+%% STOV calibration using true function (not emulator)
+clc; clearvars -except dpath; close all;
+
+% Load data
+load([dpath,'Example\Ex_results\'...
+'2018-05-28-raw_dat-3-12-12']);
+sim_x = raw_dat.sim_xt(:,1);
+sim_t = raw_dat.sim_xt(:,2:3);
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% Get settings
+desired_obs = [ 0 0 0 ] ; 
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
+    'M',2e4,'ObsVar','STOV');
+
+results = MCMC_set_total_obs_var_true_fn(settings);
+
+save([dpath,'Example\Ex_results\'...
+    '2018-06-27_STOV_true_fn'],...
+    'results');
