@@ -12,7 +12,7 @@ if direc(1)=='C'
 else
     dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
 end
-cler direc;
+clear direc;
 
 % Add paths
 addpath(dpath);
@@ -46,7 +46,7 @@ dir_medians = zeros(length(costs),2);
 uqs = zeros(length(costs),2);
 lqs = zeros(length(costs),2);
 dir_uqs = zeros(length(costs),2);
-dir++++++l++qs = zeros(length(costs),2);
+dir_lqs = zeros(length(costs),2);
 load([dpath,'Example\Ex_results\'...
     '2018-05-25_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
@@ -200,6 +200,7 @@ ec = 'black' ;  % edge color
 ea = .25       ;  % edge alpha
 fa = .75       ;  % face alpha
 
+f=figure();
 surf(theta2,theta1,oscls,'FaceColor','red','EdgeColor',ec,...
     'EdgeAlpha',ea,'FaceAlpha',fa);
 axis vis3d;
@@ -213,6 +214,17 @@ surf(theta2,theta1,costs,'FaceColor','green','EdgeColor',ec,...
     'EdgeAlpha',ea,'FaceAlpha',fa); 
 axis vis3d;
 xlabel('\theta_2'); ylabel('\theta_1'); zlabel('Outcomes');
+
+h=gca;
+h.View = [13.1667 11.3333] ; % Sets the perspective
+
+title('Model outcomes on normalized scale');
+
+hh = legend('Deflection','Rotation','Cost','Orientation','horizontal',...
+    'Location','south');
+hh.Position = hh.Position + [ 0 -.1 0 0 ];
+
+saveas(f,'FIG_toy_sim_model_outputs.png');
 
 %% 3d figure of nondominated direct data plus nondom full calib MCMC
 % Both outputs and inputs. In that order.
@@ -250,7 +262,7 @@ nondom_ddin = ctheta_output_nondom(:,2:3);
 
 % Take a look
 Circlesize=20;
-figure; h1 = scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
+f1=figure; h1 = scatter3(nondom_ap(:,3),nondom_ap(:,1),nondom_ap(:,2),...
     1,nondom_ap(:,3),'r','filled','MarkerFaceAlpha',0.3,...
     'MarkerEdgeAlpha',0.3);
 axis vis3d;
@@ -261,7 +273,7 @@ xlabel('Cost'); ylabel('Deflection'); zlabel('Rotation');
 title(['Nondominated direct data (red)'...
     ' and MCMC sample est. output (blue)'...
     '']);
-viewpt = [45 20];
+viewpt = [-27.2667 10.4000];
 view(viewpt);
 %gif('FIG_nd.gif','frame',gcf);
 nfms = 120;
@@ -270,6 +282,7 @@ for ii = 1:nfms
     view(viewpt);
     %gif
 end
+saveas(f1,'FIG_nondom_dir_data_vs_est_MCMC_output.png')
 
 % Now make the same figure, but look at the true output at mcmc sample pts
 % Use the true function to find the output at these sample points
@@ -284,7 +297,8 @@ hold on;
 scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
     Circlesize,'b','filled','MarkerFaceAlpha',.4,'MarkerEdgeAlpha',0.4);
 xlabel('Cost'); ylabel('Deflection'); zlabel('Rotation');
-title(['Nondominated direct data (red) and MCMC sample true output (blue)'...
+title(...
+    ['Nondominated direct data (red) and MCMC sample true output (blue)'...
     '']);
 viewpt = [45 20];
 view(viewpt);
@@ -468,7 +482,7 @@ dd_dat = ctheta_output_at_cost(:,2:3);
 [nd_dd_out, nd_dd_idx] = nondominated(ctheta_output_at_cost(:,4:5)) ; 
 
 
-nd_dd_dat = ctheta_output_at_cost(nd_dd_idx,2:3);                                                      
+nd_dd_dat = ctheta_output_at_cost(nd_dd_idx,2:3); 
 %nd_dd_dat = ctheta_output_nondom(...
 %    round(ctheta_output_nondom(:,6))==cost_target,2:3);
 
@@ -651,14 +665,14 @@ mcmc_perfs = Ex_sim([ 2*ones(size(samps_os,1),1) samps_os ] ,true);
 % dd_nondoms = ctheta_output_nondom(:,4:6);
 % 
 % % Subtract tol from mcmc_perfs to boost their ``nondominance rating'' by
-% % tol, and then for each element of mcmc_perfs_boosted, check whether it is
+% % tol, and then for each elt of mcmc_perfs_boosted, check whether it is
 % % dominated by any output from the dense direct data grid. (This can be
 % % done by checking only the nondominated direct data outputs, which are
-% % stored separately and are loaded above.) If not, then the mcmc sample is
+% % stored separately and are loaded above.) If not, then th mcmc sample is
 % % within tol of the pareto front.
-% mcmc_perfs_tol_nd_idxs = cell(length(alphas),1) ; % This will store indices
-%                                                   % of samples within tol
-% unif_perfs_tol_nd_idxs = cell(length(alphas),1) ; % Similar for unif samps
+% mcmc_perfs_tol_nd_idxs = cell(length(alphas),1) ;%This will store indices
+%                                                  %of samples within tol
+% unif_perfs_tol_nd_idxs = cell(length(alphas),1); %Similar for unif samps
 % for jj =1:length(alphas) % Loop through several alpha settings
 %     alpha = alphas(jj);
 %     tol = output_sds * alpha ;
@@ -672,16 +686,16 @@ mcmc_perfs = Ex_sim([ 2*ones(size(samps_os,1),1) samps_os ] ,true);
 %         unif_perfs - [0 tol(2) 0 ] ; 
 %         unif_perfs - [0 0 tol(3) ] ] ; 
 %     % Set up for looping through boosted performances
-%     mcmc_perfs_tol_nd_idx = [] ; % This will be indxs of tol-nondom'd elts
+%     mcmc_perfs_tol_nd_idx = [] ;% This will be indxs of tol-nondom'd elts
 %     unif_perfs_tol_nd_idx = [] ;
 %     for ii = 1:size(mcmc_perfs_boosted,1)
 %         % samp_ii_nd will be true iff the boosted mcmc samp dominates any
 %         % element of dd_nondoms (in which case mcmc samp is within tol of
 %         % the pareto front)
 %         samp_ii_nd = any(all(mcmc_perfs_boosted(ii,:) < dd_nondoms,2));
-%         unif_samp_ii_nd = any(all(unif_perfs_boosted(ii,:)<dd_nondoms,2));
-%         mcmc_perfs_tol_nd_idx = [ mcmc_perfs_tol_nd_idx ;samp_ii_nd ] ;
-%         unif_perfs_tol_nd_idx = [ unif_perfs_tol_nd_idx ;unif_samp_ii_nd ];
+%         unif_samp_ii_nd =any(all(unif_perfs_boosted(ii,:)<dd_nondoms,2));
+%         mcmc_perfs_tol_nd_idx =[ mcmc_perfs_tol_nd_idx ;samp_ii_nd ] ;
+%         unif_perfs_tol_nd_idx =[unif_perfs_tol_nd_idx ;unif_samp_ii_nd ];
 %         if mod(ii,1000) == 0
 %             fprintf('Step %d/%d\n',ii,size(mcmc_perfs_boosted,1));
 %         end
@@ -762,7 +776,7 @@ scatter3(mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},1),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},2),...
     mcmc_perfs(mcmc_perfs_tol_nd_any_idxs{1},3),sz);
 
-%% Heatmap of proximity to 0: Full set total obs var calib with direct data 
+%% Heatmap of proximity to 0: Full set total obs var calib with direct data
 clc; clearvars -except dpath ; close all;
 % Load true samples;
 load([dpath,'Example\Ex_results\'...
@@ -845,14 +859,14 @@ title({'Posterior \theta draws with marginal distributions'});
 xlabel('\theta_1'); ylabel('\theta_2') ;
 saveas(h,'FIG_hmfc_stov.png')
 
-% While we've got that plot up, take a look at the locations of the
-% non-dominated thetas.
-scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
-% scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
-%     'MarkerEdgeAlpha',.05);
-scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
-    'MarkerEdgeAlpha',.5);
-saveas(h,'FIG_hmfc_nd_stov.png');
+% % While we've got that plot up, take a look at the locations of the
+% % non-dominated thetas.
+% scatter(ctheta_output_nondom(:,2),ctheta_output_nondom(:,3),'.m');
+% % scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
+% %     'MarkerEdgeAlpha',.05);
+% scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+%     'MarkerEdgeAlpha',.5);
+% saveas(h,'FIG_hmfc_nd_stov.png');
 
 %% Heatmap of proximity to 0: cost grid STOV with direct data close to 0
 clc; clearvars -except dpath ; close all;
@@ -905,26 +919,26 @@ mcmc_outputs_std = [ defl_std rotn_std ] ;
 
 % Now get Euclidean norms of each standardized output
 mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
-
-% Take a look
-figure();
-scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
-hold on;
-scatter(1:length(mcmc_dists),mcmc_dists);
-
-% Now take a 3d look at all outputs versus the close direct data outputs
-cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
-close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
-close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
-figure();
-scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
-scatter3(...
-    close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
-
-% Now take a look at all calib settings at mcmc outputs vs close dd outputs
-close_dd_theta = ctheta_output(close_dd_idx,2:3);
-figure(); scatterhist(samps(:,1),samps(:,2));
-figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+% 
+% % Take a look
+% figure();
+% scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+% hold on;
+% scatter(1:length(mcmc_dists),mcmc_dists);
+% 
+% % Now take a 3d look at all outputs versus the close direct data outputs
+% cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+% close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+% close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+% figure();
+% scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+% scatter3(...
+%     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+% 
+% %Now take a look at all calib settngs at mcmc outputs vs close dd outputs
+% close_dd_theta = ctheta_output(close_dd_idx,2:3);
+% figure(); scatterhist(samps(:,1),samps(:,2));
+% figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
 
 % Now get a scatterhist of mcmc theta draws with, behind it, all direct
 % data theta values colored by Euclidean distance of the standardized
@@ -977,17 +991,17 @@ end
 % % Make a figure like the heatmap above for every point in the cost grid
 % m = size(results,1);
 % cost_grid = linspace(15,30,m);
-% alpha = 0.25; % This will be the quantiles of mcmc costs used to locate dd
+% alpha = 0.25; % This wll be the quantiles of mcmc costs used to locate dd
 % for ii = 1 : m % Loop through and make figure for each
 %     costs = results{ii}.model_output.by_sample_true(:,3); % MCMC costs
-%     cq = [quantile(costs,alpha/2) quantile(costs,1-alpha/2)]; % cost quant.
-%     cidx =all([ctheta_output(:,6) >= cq(1) ctheta_output(:,6) <= cq(2)],2);
+%     cq=[quantile(costs,alpha/2) quantile(costs,1-alpha/2)]; % cost quant.
+%     cidx=all([ctheta_output(:,6) >=cq(1) ctheta_output(:,6) <= cq(2)],2);
 %     ctheta_output_at_cost = ctheta_output(cidx,:);
 %     theta = ctheta_output_at_cost(:,2:3); % Theta vals near cost point
 %     dd_outs_std_atcost = dd_outputs_std(cidx,:); % Euc dists
 %     zero_pt = ([ 0 0 cost_grid(ii) ]-mean(ctheta_output(:,4:6)))...
 %         ./std(ctheta_output(:,4:6));
-%     dd_dists_atcost = sqrt ( sum ( (dd_outs_std_atcost-zero_pt).^2 , 2 ) );
+%     dd_dists_atcost = sqrt(sum ( (dd_outs_std_atcost-zero_pt).^2 , 2 ) );
 %     samps = results{ii}.samples_os;
 %     h = figure(); colormap(flipud(jet));
 %     sh = scatterhist(samps(:,1),samps(:,2),...
@@ -1067,7 +1081,7 @@ mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
 % scatter3(...
 %     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
 % 
-% % Now take a look at all calib settings at mcmc outputs vs close dd outputs
+% %Now take a look at all calib settngs at mcmc outputs vs close dd outputs
 samps = results.samples_os;
 % close_dd_theta = ctheta_output(close_dd_idx,2:3);
 % figure(); scatterhist(samps(:,1),samps(:,2));
@@ -1317,7 +1331,7 @@ title({'Posterior \theta draws with marginal distributions' ...
 xlabel('\theta_1'); ylabel('\theta_2') ;
 pos = sh(1).Position;
 sh(1).Position = pos + [0 0 0 -.025];
-%saveas(h,'FIG_hmfc_disc_g5-5.png')
+saveas(h,'FIG_hmfc_disc_g5-5.png')
 
 % % While we've got that plot up, take a look at the locations of the
 % % non-dominated thetas.
@@ -1359,6 +1373,9 @@ dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
 load([dpath,'Example\Ex_results\'...
     '2018-06-27_STOV_true_fn'],...
     'results');
+% load([dpath,'Example\Ex_results\'...
+%     '2018-06-28-discrepancy_true_fn'],...
+%     'results');
 outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
 % Put on standardized scale:
 cost_std = (outs(:,3) - mean(ctheta_output(:,6)))/...
@@ -1372,7 +1389,7 @@ mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
 
 % Now get Euclidean norms of each standardized output
 mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
-
+ 
 % Take a look
 % figure();
 % scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
@@ -1402,8 +1419,6 @@ sh=scatterhist(samps(:,1),samps(:,2),'Marker','.');
 hold on; xlim([0 3]); ylim([0 6]);
 scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
 colorbar('East');
-% scatter(samps(:,1),samps(:,2),1,'og','MarkerFaceAlpha',.05,...
-%     'MarkerEdgeAlpha',.05);
 scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
     'MarkerEdgeAlpha',.5);
 title({'Posterior \theta draws with marginal distributions' ...
@@ -1411,3 +1426,160 @@ title({'Posterior \theta draws with marginal distributions' ...
 xlabel('\theta_1'); ylabel('\theta_2') ;
 pos = sh(1).Position;
 sh(1).Position = pos + [0 0 0 -.025];
+
+%% Heatmap of proximity to zero: discrepancy with true function
+clc; clearvars -except dpath ; close all;
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get true samples with output closest to 0 (Euclidean distance on
+% standardized scale
+% First put data on standardized scale
+cost_std = (ctheta_output(:,6) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (ctheta_output(:,4) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (ctheta_output(:,5) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+dd_outputs_std = [defl_std rotn_std cost_std];
+
+% Get zero on standardized scale
+zero_pt = -mean(ctheta_output(:,4:6))./std(ctheta_output(:,4:6));
+
+% Now get Euclidean norms of each standardized output
+dd_dists = sqrt ( sum ( (dd_outputs_std-zero_pt).^2 , 2 ) ) ;
+
+load([dpath,'Example\Ex_results\'...
+    '2018-06-28_discrepancy_true_fn_G50-p5_lambda_prior'],...
+    'results');
+% load([dpath,'Example\Ex_results\'...
+%     '2018-06-28-discrepancy_true_fn'],...
+%     'results');
+outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
+% Put on standardized scale:
+cost_std = (outs(:,3) - mean(ctheta_output(:,6)))/...
+    std(ctheta_output(:,6));
+defl_std = (outs(:,1) - mean(ctheta_output(:,4)))/...
+    std(ctheta_output(:,4));
+rotn_std = (outs(:,2) - mean(ctheta_output(:,5)))/...
+    std(ctheta_output(:,5));
+
+mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
+
+% Now get Euclidean norms of each standardized output
+mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-zero_pt).^2 , 2 ) ) ;
+ 
+% Take a look
+% figure();
+% scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+% hold on;
+% scatter(1:length(mcmc_dists),mcmc_dists);
+% 
+% % Now take a 3d look at all outputs versus the close direct data outputs
+cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+% figure();
+% scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+% scatter3(...
+%     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+
+% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+samps = results.samples_os;
+close_dd_theta = ctheta_output(close_dd_idx,2:3);
+% figure(); scatterhist(samps(:,1),samps(:,2));
+% figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+
+% Now get a scatterhist of mcmc theta draws with, behind it, all direct
+% data theta values colored by Euclidean distance of the standardized
+% output to the zero point.
+h=figure(); colormap(flipud(jet));
+sh=scatterhist(samps(:,1),samps(:,2),'Marker','.'); 
+hold on; xlim([0 3]); ylim([0 6]);
+scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
+colorbar('East');
+scatter(samps(:,1),samps(:,2),20,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
+title({'Posterior \theta draws with marginal distributions' ...
+    'using discrepancy function'});
+xlabel('\theta_1'); ylabel('\theta_2') ;
+pos = sh(1).Position;
+sh(1).Position = pos + [0 0 0 -.025];
+
+%% Plot discrepancy function from calibration using true function
+clc ; clearvars -except dpath ; close all ;
+
+% load results
+load([dpath,'Example\Ex_results\'...
+    '2018-06-28_discrepancy_true_fn_G50-p5_lambda_prior'],...
+    'results');
+burn_in  = results.settings.burn_in;
+ngridpts = 21;
+
+% Set prediction points
+xpred=((linspace(1.95,2.05,ngridpts)-results.settings.input_cntrl_mins)/...
+    results.settings.input_cntrl_ranges)';
+
+pred_pts = [ repmat([1 0],size(xpred,1),1) xpred ; ...
+             repmat([0 1],size(xpred,1),1) xpred ; ...
+             repmat([0 0],size(xpred,1),1) xpred ] ;
+
+% First check just the first sample
+delta_draw = results.delta_samps(burn_in+1,:)   ;
+omega = delta_draw(1:3);
+rho   = []             ;
+lambda= delta_draw(4)  ;
+theta_draw = results.samples_os(burn_in+1,:)    ;
+
+% Now get the training points (ie the desired data points)
+sim_dat_input = results.settings.obs_x;
+% Get the inputs back into original scale
+obs_x_os = sim_dat_input(:,3) * results.settings.input_cntrl_ranges + ...
+    results.settings.input_cntrl_mins;
+obs_x_os = unique(obs_x_os,'stable');
+% Get the true output at obs_x_os
+true_y_os = Ex_sim([obs_x_os repmat(theta_draw,size(obs_x_os,1),1)]);
+% Convert this to standardized scale
+true_y = (true_y_os - results.settings.output_means')./...
+    results.settings.output_sds';
+true_y = true_y(:);
+% Get "observed" output at obs_x_os
+des_obs = results.settings.y;
+% Get discrepancy value at observed points
+sim_dat_output = des_obs - true_y;
+
+% Get emulator output
+em = emulator(sim_dat_input,sim_dat_output,pred_pts,omega,rho,lambda,...
+    0,0,true);
+
+% take a look at the values
+disc_outs = reshape(em.mu,size(em.mu,1)/3,[]);
+sim_dat_output = reshape(sim_dat_output,size(sim_dat_output,1)/3,[]);
+sdo_spread = nan(size(xpred,1),size(sim_dat_output,2));
+sdo_spread(1,:) = sim_dat_output(1,:);
+sdo_spread(floor(ngridpts/2)+1,:) = sim_dat_output(2,:);
+sdo_spread(ngridpts,:) = sim_dat_output(3,:);
+disp([xpred disc_outs sdo_spread])
+
+sim_dat_obs_pts = unique(sim_dat_input(:,3),'stable');
+plot(xpred,disc_outs(:,1),'-b',...
+    sim_dat_obs_pts,sim_dat_output(:,1),'ob',...
+    xpred,disc_outs(:,2),'-r',...
+    sim_dat_obs_pts,sim_dat_output(:,2),'or',...
+    xpred,disc_outs(:,3),'-g',...
+    sim_dat_obs_pts,sim_dat_output(:,3),'og')
+
+%% Heatmap of proximity to zero: discrep w/ true fn, lambda_d = 1, close DO
+clc ; clearvars -except dpath ; close all ;
+
+load([dpath,'Example\Ex_results\'...
+    '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+    'results');
+
+%TBC

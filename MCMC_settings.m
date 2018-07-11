@@ -165,7 +165,7 @@ end
 log_omega_delta_prior = @(od) sum(log( betapdf(od,1,0.6) ));
 
 %% Set prior for lambda_delta
-log_lambda_delta_prior = @(ld) log( gampdf(ld,50,.25) );
+log_lambda_delta_prior = @(ld) log( gampdf(ld,50,.5) );
 
 %% Package proposal density
 proposal.density              = prop_density; 

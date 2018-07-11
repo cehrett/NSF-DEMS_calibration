@@ -136,7 +136,7 @@ theta_os = theta .* theta_ranges + theta_mins ;
 obs_x_theta = [obs_x_os repmat(theta_os,size(obs_x_os,1),1)];
 true_y = (Ex_sim(obs_x_theta) - y_means)./y_sds;
 true_y = true_y(:);
-L_D = logmvnpdf(y',true_y,Sigma_y);
+L_D = logmvnpdf(y',true_y',Sigma_y);
 loglik_theta = L_D + log_theta_prior(theta,Cost_lambda);
 % Get log likelihood of sigma2
 loglik_sigma2 = L_D + log_sigma2_prior(sigma2);
@@ -290,7 +290,7 @@ for ii = 1:M
     
     
         %% Output to console to let us know progress
-    if mod(ii,10) == 0 && doplot == true
+    if mod(ii,100) == 0 && doplot == true
         fprintf(repmat('\b',1,msg));
         msg = fprintf('Completed: %g/%g\n',ii,M);
         subplot(2,3,1);

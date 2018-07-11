@@ -59,6 +59,10 @@ doplot                  = settings.doplot;
 log_theta_prior         = settings.log_theta_prior;
 Cost_lambda             = settings.Cost_lambda;
 which_outputs           = settings.which_outputs;
+y_means                 = settings.output_means';
+y_sds                   = settings.output_sds';
+theta_ranges            = settings.input_calib_ranges;
+theta_mins              = settings.input_calib_mins;
 %X%sigma2_divs            = settings.init_sigma2_divs;
 %X%sigma2_weights         =[sigma2_divs(1) sigma2_divs(2)-sigma2_divs(1)...
 %X%    1-sigma2_divs(2) ] ;
@@ -88,13 +92,7 @@ num_calib = length(init_theta) ;
 n = size(obs_x,1);
 num_obs = n/num_out; % Gets number of multivariate observations.
 m = size(eta,1);
-z = [y ; eta ] ; 
-sim_x = sim_xt(:,1:num_cntrl) ;
-sim_t = sim_xt(:,num_cntrl+1:end) ;
-% The cov matrix we need, Sigma_z, can be decomposed so that this big part
-% of it remains unchanged, so that we need calculate that only this once.
-% Massive computation savings over getting Sigma_z from scratch each time:
-Sigma_eta_xx = gp_cov(omega,sim_x,sim_x,rho,sim_t,sim_t,lambda,false);
+z = [y] ; 
 % Now make sigma2 into a covariance matrix:
 sigma2_long = repelem(sigma2,num_obs);
 Sigma_y = diag(sigma2_long);
@@ -119,36 +117,34 @@ mult_ld          = 5                          ; % mult for pd of lam_dl
 %% Get initial log likelihood
 % Set new observation input matrix:
 obs_theta = repmat(theta,n,1) ; 
-% Get Sigma_eta_yy:
-Sigma_eta_yy = gp_cov(omega,obs_x,obs_x,rho,...
-    obs_theta,obs_theta,lambda,false);
-% Get Sigma_eta_xy, and hence Sigma_eta_yx
-Sigma_eta_xy = gp_cov(omega,sim_x,obs_x,...
-    rho,sim_t,obs_theta,lambda,false);
-Sigma_eta_yx = Sigma_eta_xy';
 % Get discrepancy covariance:
 Sigma_delta = gp_cov(omega_delta,obs_x,obs_x,0,0,0,lambda_delta,false);
 % Combine these to get Sigma_z
-Sigma_z = [ Sigma_eta_yy + Sigma_y + Sigma_delta     Sigma_eta_yx   ; ...
-            Sigma_eta_xy                             Sigma_eta_xx ] ;
+Sigma_z = Sigma_y + Sigma_delta ;
 % Add a nugget to Sigma_z for computational stability
 Sigma_z = Sigma_z + eye(size(Sigma_z)) * nugsize(Sigma_z);
-% Get log likelihood of theta
-L_D = logmvnpdf(z',0,Sigma_z);
-loglik_theta = L_D + log_theta_prior(theta,Cost_lambda);
+obs_x_os = obs_x(1:size(obs_x,1)/3,end) ...
+    * settings.input_cntrl_ranges + settings.input_cntrl_mins;
+theta_os = theta .* theta_ranges + theta_mins ;
+obs_x_theta = [obs_x_os repmat(theta_os,size(obs_x_os,1),1)];
+true_y = (Ex_sim(obs_x_theta) - y_means)./y_sds ;
+true_y = true_y(:) ;
+L_D = logmvnpdf(y',true_y',Sigma_z) ;
+loglik_theta  = L_D + log_theta_prior(theta,Cost_lambda)   ;
 % Get log likelihood of sigma2
-loglik_sigma2 = L_D + log_sigma2_prior(sigma2);
+loglik_sigma2 = L_D + log_sigma2_prior(sigma2)             ;
 % Get log likelihood of omega_delta
-loglik_od = L_D + log_omega_delta_prior(omega_delta);
+loglik_od     = L_D + log_omega_delta_prior(omega_delta)   ;
 % Get log likelihood of lambda_delta
-loglik_ld = L_D + log_lambda_delta_prior(lambda_delta);
+loglik_ld     = L_D + log_lambda_delta_prior(lambda_delta) ;
 
-figure() % For observing MCMC
+if doplot figure(); end % For observing MCMC
 %% Begin MCMC routine
 for ii = 1:M
     
     %% Draw theta
     theta_s = prop_density(theta,Sigma) ; % Get new proposal draw
+    theta_s_os = theta_s .* theta_ranges + theta_mins ;
     
     if any(out_of_range(theta_s))
         
@@ -158,27 +154,14 @@ for ii = 1:M
         reject_rec = reject_rec  + 1; % Keep track of rejections
         
     else
-        % Set new observation input matrix:
-        obs_theta = repmat(theta_s,n,1) ; 
-        
-        %% Get new Sigma_z = Sigma_eta + [Sigma_y 0 ; 0 0], in pieces
-        % Get new Sigma_eta_yy:
-        Sigma_eta_yy_s = gp_cov(omega,obs_x,obs_x,rho,...
-            obs_theta,obs_theta,lambda,false);
-        % Get new Sigma_eta_xy, and hence Sigma_eta_yx
-        Sigma_eta_xy_s = gp_cov(omega,sim_x,obs_x,...
-            rho,sim_t,obs_theta,lambda,false);
-        Sigma_eta_yx_s = Sigma_eta_xy_s';
-        % Combine these to get new Sigma_z
-        Sigma_z_s=[Sigma_eta_yy_s+Sigma_y+Sigma_delta Sigma_eta_yx_s ; ...
-                   Sigma_eta_xy_s                     Sigma_eta_xx ] ;
-        % Add a nugget to Sigma_z for computational stability
-        Sigma_z_s = Sigma_z_s + eye(size(Sigma_z_s)) * nugsize(Sigma_z_s);
-        % Get log likelihood of theta_s
-        L_D_s = logmvnpdf(z',0,Sigma_z_s) ;
+        obs_x_theta_s = [obs_x_os repmat(theta_s_os,size(obs_x_os,1),1)]  ;
+        true_y_s = (Ex_sim(obs_x_theta_s) - y_means)./y_sds  ;
+        true_y_s = true_y_s(:);
+        L_D_s = logmvnpdf(y',true_y_s',Sigma_z);
         loglik_theta_s = L_D_s + log_theta_prior(theta_s,Cost_lambda);
-        L_D = logmvnpdf(z',0,Sigma_z) ;
+        L_D = logmvnpdf(y',true_y',Sigma_z) ;
         loglik_theta   = L_D + log_theta_prior(theta,Cost_lambda);
+        
     end
     
     %% Get acceptance ratio statistic
@@ -195,11 +178,8 @@ for ii = 1:M
     if accept % Set up for next time
         loglik_theta = loglik_theta_s ;
         theta = theta_s ;
-        Sigma_eta_yy = Sigma_eta_yy_s;
-        Sigma_eta_yx = Sigma_eta_yx_s;
-        Sigma_eta_xy = Sigma_eta_xy_s;
-        Sigma_z      = Sigma_z_s;
         L_D          = L_D_s;
+        true_y = true_y_s;
     end
     
 
@@ -213,12 +193,11 @@ for ii = 1:M
     Sigma_delta_s=...
         gp_cov(omega_delta_s,obs_x,obs_x,0,0,0,lambda_delta,false);
     % Combine these to get new Sigma_z
-    Sigma_z_s=[Sigma_eta_yy+Sigma_y+Sigma_delta_s Sigma_eta_yx ; ...
-               Sigma_eta_xy                       Sigma_eta_xx ] ;
+    Sigma_z_s = Sigma_y + Sigma_delta_s ;
     % Add a nugget to Sigma_z for computational stability
     Sigma_z_s = Sigma_z_s + eye(size(Sigma_z_s)) * nugsize(Sigma_z_s);
     % Get log likelihood of omega_delta_s
-    L_D_s = logmvnpdf(z',0,Sigma_z_s) ;
+    L_D_s = logmvnpdf(y',true_y',Sigma_z_s) ;
     loglik_od_s = L_D_s + log_omega_delta_prior(omega_delta_s);
     %X%L_D = logmvnpdf(z',0,Sigma_z) ;
     loglik_od   = L_D + log_omega_delta_prior(omega_delta);
@@ -251,12 +230,11 @@ for ii = 1:M
     Sigma_delta_s=...
         gp_cov(omega_delta,obs_x,obs_x,0,0,0,lambda_delta_s,false);
     % Combine these to get new Sigma_z
-    Sigma_z_s=[Sigma_eta_yy+Sigma_y+Sigma_delta_s Sigma_eta_yx ; ...
-               Sigma_eta_xy                       Sigma_eta_xx ] ;
+    Sigma_z_s = Sigma_y + Sigma_delta_s ;
     % Add a nugget to Sigma_z for computational stability
     Sigma_z_s = Sigma_z_s + eye(size(Sigma_z_s)) * nugsize(Sigma_z_s);
     % Get log likelihood of omega_delta_s
-    L_D_s = logmvnpdf(z',0,Sigma_z_s) ;
+    L_D_s = logmvnpdf(y',true_y',Sigma_z_s) ;
     loglik_ld_s = L_D_s + log_lambda_delta_prior(lambda_delta_s);
     %X%L_D = logmvnpdf(z',0,Sigma_z) ;
     loglik_ld   = L_D + log_lambda_delta_prior(lambda_delta);
@@ -345,7 +323,7 @@ for ii = 1:M
         msg = fprintf('Completed: %g/%g\n',ii,M);
         
         %% Reset counters
-        accepted        = 0;
+        accepted       = 0;
         accepted_od    = 0;
         accepted_ld    = 0;
         %X% out_of_range_rec = 0 * out_of_range_rec;
@@ -354,7 +332,7 @@ for ii = 1:M
     
     
         %% Output to console and plot to let us know progress
-    if mod(ii,10) == 0 && doplot == true
+    if mod(ii,100) == 0 && doplot == true
         fprintf(repmat('\b',1,msg));
         msg = fprintf('Completed: %g/%g\n',ii,M);
         subplot(2,4,1);

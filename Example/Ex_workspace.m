@@ -570,7 +570,7 @@ results = MCMC_discrepancy(settings);
 %     '2018-06-19_discrepancy_full_calib_G5-5_lambda_prior'],...
 %     'results');
 
-% save([dpath,'Example\Ex_results\'...
+% load([dpath,'Example\Ex_results\'...
 %     '2018-06-20_discrepancy_full_calib_G50-p25_lambda_prior'],...
 %     'results');
 
@@ -595,3 +595,182 @@ results = MCMC_set_total_obs_var_true_fn(settings);
 save([dpath,'Example\Ex_results\'...
     '2018-06-27_STOV_true_fn'],...
     'results');
+
+%% Calibration using discrepancy using true function
+clc; clearvars -except dpath; close all;
+
+% Load data
+load([dpath,'Example\Ex_results\'...
+'2018-05-28-raw_dat-3-12-12']);
+sim_x = raw_dat.sim_xt(:,1);
+sim_t = raw_dat.sim_xt(:,2:3);
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% Get settings
+desired_obs = [ 0 0 0 ] ; 
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e4,'ObsVar','Constant');
+
+results = MCMC_discrepancy_true_fn(settings);
+results.model_output.by_sample_true = ...
+    Ex_sim([2*ones(size(results.samples,1),1) results.samples_os]);
+
+
+% save([dpath,'Example\Ex_results\'...
+%     '2018-06-28_discrepancy_true_fn_G50-p5_lambda_prior'],...
+%     'results');
+
+%% Take a look at predictions from discrepancy calib using true function
+clc ; clearvars -except dpath ; close all ;
+
+% load results
+load([dpath,'Example\Ex_results\'...
+    '2018-06-28_discrepancy_true_fn_G50-p5_lambda_prior'],...
+    'results');
+burn_in  = results.settings.burn_in;
+ngridpts = 21;
+
+% Set prediction points
+xpred=((linspace(1.95,2.05,ngridpts)-results.settings.input_cntrl_mins)/...
+    results.settings.input_cntrl_ranges)';
+
+pred_pts = [ repmat([1 0],size(xpred,1),1) xpred ; ...
+             repmat([0 1],size(xpred,1),1) xpred ; ...
+             repmat([0 0],size(xpred,1),1) xpred ] ;
+
+% First check just the first sample
+delta_draw = results.delta_samps(burn_in+1,:)   ;
+omega = delta_draw(1:3);
+rho   = []             ;
+lambda= delta_draw(4)  ;
+theta_draw = results.samples_os(burn_in+1,:)    ;
+
+% Now get the training points (ie the desired data points)
+sim_dat_input = results.settings.obs_x;
+% Get the inputs back into original scale
+obs_x_os = sim_dat_input(:,3) * results.settings.input_cntrl_ranges + ...
+    results.settings.input_cntrl_mins;
+obs_x_os = unique(obs_x_os);
+% Get the true output at obs_x_os
+true_y_os = Ex_sim([obs_x_os repmat(theta_draw,size(obs_x_os,1),1)]);
+% Convert this to standardized scale
+true_y = (true_y_os - results.settings.output_means')./...
+    results.settings.output_sds';
+true_y = true_y(:);
+% Get "observed" output at obs_x_os
+des_obs = results.settings.y;
+% Get discrepancy value at observed points
+sim_dat_output = des_obs - true_y;
+
+% Get emulator output
+em = emulator(sim_dat_input,sim_dat_output,pred_pts,omega,rho,lambda,...
+    0,0,true);
+
+% take a look
+disc_outs = reshape(em.mu,size(em.mu,1)/3,[]);
+sim_dat_output = reshape(sim_dat_output,size(sim_dat_output,1)/3,[]);
+sdo_spread = nan(size(xpred,1),size(sim_dat_output,2));
+sdo_spread(1,:) = sim_dat_output(1,:);
+sdo_spread(floor(ngridpts/2)+1,:) = sim_dat_output(2,:);
+sdo_spread(ngridpts,:) = sim_dat_output(3,:);
+disp([xpred disc_outs sdo_spread])
+
+%% Get desired observation specified distance from estimated Pareto front
+% On standardized scale
+clc ; clearvars -except dpath ; close all ;
+
+% Set desired observation (on original scale)
+des_obs = [ 0 0 0 ];
+
+% Set desired distance from Pareto front for new des obs found below
+spec_dist = 1;
+
+%%% Get points estimating the PF
+% Use new results from set total observation variance method:
+load([dpath,'Example\Ex_results\'...
+'2018-05-28_d0_incl_min_cost'],...
+'results');
+samps_os = results.samples_os(results.settings.burn_in+2:end,:);
+
+% load([dpath,'Example\Ex_results\'...
+%     '2018-05-18_full_calib_emulator_output_estimates'],...
+%     'emout');
+emout.output_means = results.model_output.by_sample_est(...
+    results.settings.burn_in+2:end,:);
+
+% Use GP estimates rather than true function:
+[nondoms,ndidx] = nondominated(emout.output_means);
+nondom_inputs = samps_os(ndidx,:);
+
+% Put the model output estimates on the standardized scale
+nondoms_std = (nondoms - mean(results.settings.output_means'))./...
+    mean(results.settings.output_sds');
+
+% Put des_obs into standardized scale
+des_obs_std = (des_obs - mean(results.settings.output_means'))./...
+    mean(results.settings.output_sds');
+
+%%% Get distances from desired observation to Pareto front
+dists = sqrt(sum((des_obs_std - nondoms_std).^2,2)) ;
+[mindist,mindex] = min(dists);
+% Get closest point in PF to des obs (closest in std scale, pt in orig sc)
+pf_optim = nondoms(mindex,:);
+pf_optim_std = nondoms_std(mindex,:);
+
+% Take a look at the point we chose
+scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2)); hold on;
+line([0 pf_optim(3)],[0 pf_optim(1)],[0 pf_optim(2)],...
+    'Color','r');
+dists_os=sqrt(sum((des_obs - nondoms).^2,2)) ;
+[mindist_os,mindex_os]=min(dists_os);
+line([0 nondoms(mindex_os,3)],[0 nondoms(mindex_os,1)],...
+    [0 nondoms(mindex_os,2)],'Color','g');
+
+%%% Find a point that is set distance (eg 1) from pareto front in the
+%%% direction of the original desired observation
+%X%dirvec = pf_optim - des_obs; dirvec_normd = dirvec / norm(dirvec);
+dirvec = pf_optim_std - des_obs_std; 
+dirvec_normd = dirvec/norm(dirvec);
+%X%des_obs_new = pf_optim - spec_dist * dirvec_normd ; 
+des_obs_new = pf_optim_std - spec_dist * dirvec_normd ;
+des_obs_new_os = des_obs_new .* ...
+    mean(results.settings.output_sds') + ...
+    mean(results.settings.output_means');
+
+% Take a look at the new des obs
+%X%plot3(des_obs_new(3),des_obs_new(1),des_obs_new(2),'ro');
+plot3(des_obs_new_os(3),des_obs_new_os(1),des_obs_new_os(2),'go');
+
+%% Perform calibration with discrep marginal var specified, using true fn
+% Also use intelligently chosen desired observation that is the specified
+% distance from the estimated pareto front. That des obs is found elsewhere
+clc ; clearvars -except dpath ; close all; 
+
+% Load data
+load([dpath,'Example\Ex_results\'...
+'2018-05-28-raw_dat-3-12-12']);
+sim_x = raw_dat.sim_xt(:,1);
+sim_t = raw_dat.sim_xt(:,2:3);
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% Get settings
+desired_obs = [ 0.7130 0.7144 17.9220 ] ; 
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e4,'ObsVar','Constant');
+
+% Modify settings to use constant lambda_delta
+settings.lambda_delta_init = 1;
+settings.log_lambda_delta_prior = @(ld) ld;
+settings.proposal.lambda_prop_density = @(x,s) x;
+settings.proposal.log_mh_correction_ld = @(ld_s,ld) 0 ;
+
+results = MCMC_discrepancy_true_fn(settings);
+results.model_output.by_sample_true = ...
+    Ex_sim([2*ones(size(results.samples,1),1) results.samples_os]);
+
+
+% save([dpath,'Example\Ex_results\'...
+%     '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+%     'results');
