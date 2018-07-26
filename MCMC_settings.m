@@ -26,6 +26,19 @@ function settings = MCMC_settings (desired_obs,sim_x,sim_t,sim_y,varargin)
 % 'Discrepancy':
 %   false      - (Default) No discrepancy function is used.
 %   true       - Discrepancy function is used.
+% 'DiscMargPrecProp':
+%   Function of two inputs which serves as the proposal density for the
+%   marginal precision on the discrepancy function. Default: identity
+%   function on input 1. Also popular: @(x,s) exp(mvnrnd(log(x),s)).
+% 'DiscMargPrecLogMHCorr':
+%   Function of two inputs which serves as the log Metropolis-Hastings
+%   correction factor for calculating the acceptance ratio in MCMC.
+%   Default: constant zero function. If using the proposal function given
+%   by @(x,s) exp(mvnrnd(log(x),s)), then use:
+%   @(sig_s,sig)log(prod(sig_s))-log(prod(sig))
+% 'LambdaDeltaInit':
+%   Initial value for lambda_delta, the marginal precision for the
+%   discrepancy function. Default: 1. Also popular: gamrnd(1,1).
 % 'doplot':
 %   true       - (Default) Update scatterplot every ten draws.
 %   false      - No plots during MCMC.
@@ -42,21 +55,43 @@ p.addParameter('ObsVar','RefPrior',@isstr);
 p.addParameter('Cost_lambda',0,@isscalar);
 p.addParameter('which_outputs',ones(size(desired_obs)),@ismatrix);
 p.addParameter('Rho_lam_optimum',...
-    [   0.280981573480363   0.999189406633873   0.600440750045477...
-        0.719652153362981   0.102809702497319   0.000837772517865 ],...
+        [0 999],... 
         @ismatrix);
 p.addParameter('Discrepancy',false,@islogical);
 p.addParameter('doplot',true,@islogical);
+p.addParameter('DiscMargPrecProp',@(x,s)x,@(x)isa(x,'function_handle'));
+p.addParameter(...
+    'DiscMargPrecLogMHCorr',@(x,y)0,@(x)isa(x,'function_handle'));
+p.addParameter('LambdaDeltaInit',1,@isscalar);
 p.parse(desired_obs,sim_x,sim_t,sim_y,varargin{:});
 % Collect inputs
-M               = p.Results.M;
-burn_in         = floor(p.Results.burn_in*M);
-ObsVar          = p.Results.ObsVar;
-Cost_lambda     = p.Results.Cost_lambda;
-which_outputs   = p.Results.which_outputs;
-Rho_lam_optimum = p.Results.Rho_lam_optimum;
-Discrepancy     = p.Results.Discrepancy;
+M                    = p.Results.M;
+burn_in              = floor(p.Results.burn_in*M);
+ObsVar               = p.Results.ObsVar;
+Cost_lambda          = p.Results.Cost_lambda;
+which_outputs        = p.Results.which_outputs;
+Rho_lam_optimum      = p.Results.Rho_lam_optimum;
+Discrepancy          = p.Results.Discrepancy;
+lambda_delta_init    = p.Results.LambdaDeltaInit;
+lambda_prop_density  = p.Results.DiscMargPrecProp;
+log_mh_correction_ld = p.Results.DiscMargPrecLogMHCorr;
+
+
 doplot          = p.Results.doplot;
+
+%% Output reminder about Rho_lam_optimum
+if isequal(Rho_lam_optimum,[0 999])
+%     fprintf(['Using hyperparameter MLEs previously estimated for '...
+%         'toy simulation problem.\n']);
+%     Rho_lam_optimum = ...
+%         [   0.280981573480363   0.999189406633873   0.600440750045477...
+%         0.719652153362981   0.102809702497319   0.000837772517865 ] ; 
+    fprintf(['Using hyperparameter MLEs previously estimated for '...
+        'wind turbine application.\n']);
+    Rho_lam_optimum  = ...
+        [   0.935753521438069   0.650946653103927   0.673593619101900...
+        0.479684392594821   0.967330479380613   0.015203646313917 ] ;
+end
 
 %% Infer useful values
 num_cal = size(sim_t,2);
@@ -138,34 +173,35 @@ Cost            = @(t,Cost_lambda) Cost_lambda * norm(t)^2;
 theta_prior     = @(theta,Cost_lambda) exp(-Cost(theta,Cost_lambda));
 log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
 
-%% Set initial discrepancy covariance parameters
+%% Set initial discrepancy covariance parameters and priors
 if Discrepancy 
-    omega_delta_init     = betarnd(1,0.3,1,num_cntrl); 
-    lambda_delta_init    = gamrnd(1,1);
-    %omega_prop_density  = @(x) x + rand(1,size(x,2)) *.1 -.05;
-    omega_prop_density   = @(x,Sigma) logit_inv(mvnrnd(logit(x),Sigma)); 
-    Sigma_od             = .5 * eye(num_cntrl); % Initial var for prop_dens
-    log_mh_correction_od = @(od_s,od) log(prod(od_s)*prod(1-od_s))-...
+    omega_delta_init       = betarnd(1,0.3,1,num_cntrl); 
+    % Following is commented out b/c it is now specified in varargin.
+    %lambda_delta_init      = gamrnd(1,1);
+    %omega_prop_density = @(x) x + rand(1,size(x,2)) *.1 -.05;
+    omega_prop_density     = @(x,Sigma) logit_inv(mvnrnd(logit(x),Sigma)); 
+    Sigma_od               = .5 * eye(num_cntrl); % Initial var for prop_dens
+    log_mh_correction_od   = @(od_s,od) log(prod(od_s)*prod(1-od_s))-...
         log(prod(od)*prod(1-od)); % log metr. hast. correction for prop
-    lambda_prop_density  = @(x,s) exp(mvnrnd(log(x),s));
-    Sigma_ld             = 1 ; % Var for prop density on lambda_delta
-    log_mh_correction_ld = @(sig_s,sig)log(prod(sig_s))-log(prod(sig));
+    % Following is commented out b/c it is now specified in varargin.
+    %lambda_prop_density  = @(x,s) exp(mvnrnd(log(x),s));
+    Sigma_ld               = 1 ; % Var for prop density on lambda_delta
+    % Following is commented out b/c it is now specified in varargin.
+    %log_mh_correction_ld   = @(sig_s,sig)log(prod(sig_s))-log(prod(sig));
+    log_omega_delta_prior  = @(od) sum(log( betapdf(od,1,0.6) ));
+    log_lambda_delta_prior = @(ld) log( gampdf(ld,5,5) );
 else 
-    omega_delta_init     = 'null';
-    lambda_delta_init    = 'null';
-    omega_prop_density   = 'null';
-    Sigma_od             = 'null';
-    log_mh_correction_od = 'null';
-    lambda_prop_density  = 'null';
-    Sigma_ld             = 'null';
-    log_mh_correction_ld = 'null';
+    omega_delta_init       = 'null';
+    lambda_delta_init      = 'null';
+    omega_prop_density     = 'null';
+    Sigma_od               = 'null';
+    log_mh_correction_od   = 'null';
+    lambda_prop_density    = 'null';
+    Sigma_ld               = 'null';
+    log_mh_correction_ld   = 'null';
+    log_omega_delta_prior  = 'null';
+    log_lambda_delta_prior = 'null';
 end
-
-%% Set prior for omega_delta
-log_omega_delta_prior = @(od) sum(log( betapdf(od,1,0.6) ));
-
-%% Set prior for lambda_delta
-log_lambda_delta_prior = @(ld) log( gampdf(ld,50,.5) );
 
 %% Package proposal density
 proposal.density              = prop_density; 

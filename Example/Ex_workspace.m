@@ -8,7 +8,7 @@ direc = pwd; if direc(1)=='C'
 else
     dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
 end
-clear direc;
+clear direc; 
 
 % Add paths
 addpath(dpath);
@@ -82,9 +82,9 @@ sim_y = Ex_sim(sim_xt);
 % Package it
 raw_dat = struct('sim_xt',sim_xt,'sim_y',sim_y);
 
-save([dpath,'Example\Ex_results\'...
-'2018-05-28-raw_dat-3-12-12'],...
-'raw_dat');
+% save([dpath,'Example\Ex_results\'...
+% '2018-05-28-raw_dat-3-12-12'],...
+% 'raw_dat');
 
 
 %% Run MCMC
@@ -592,9 +592,9 @@ settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
 
 results = MCMC_set_total_obs_var_true_fn(settings);
 
-save([dpath,'Example\Ex_results\'...
-    '2018-06-27_STOV_true_fn'],...
-    'results');
+%save([dpath,'Example\Ex_results\'...
+%     '2018-06-27_STOV_true_fn'],...
+%     'results');
 
 %% Calibration using discrepancy using true function
 clc; clearvars -except dpath; close all;
@@ -687,7 +687,7 @@ des_obs = [ 0 0 0 ];
 spec_dist = 1;
 
 %%% Get points estimating the PF
-% Use new results from set total observation variance method:
+% Use results from set total observation variance method:
 load([dpath,'Example\Ex_results\'...
 '2018-05-28_d0_incl_min_cost'],...
 'results');
@@ -736,7 +736,7 @@ dirvec_normd = dirvec/norm(dirvec);
 des_obs_new = pf_optim_std - spec_dist * dirvec_normd ;
 des_obs_new_os = des_obs_new .* ...
     mean(results.settings.output_sds') + ...
-    mean(results.settings.output_means');
+    mean(results.settings.output_means')
 
 % Take a look at the new des obs
 %X%plot3(des_obs_new(3),des_obs_new(1),des_obs_new(2),'ro');
@@ -756,12 +756,12 @@ sim_y = raw_dat.sim_y;
 clear raw_dat;
 
 % Get settings
-desired_obs = [ 0.7130 0.7144 17.9220 ] ; 
+desired_obs = [0 0 0 ] ; %[ 0.7130 0.7144 17.9220 ] ; 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
     'Discrepancy',true,'M',2e4,'ObsVar','Constant');
 
 % Modify settings to use constant lambda_delta
-settings.lambda_delta_init = 1;
+settings.lambda_delta_init = 1/64;%1;
 settings.log_lambda_delta_prior = @(ld) ld;
 settings.proposal.lambda_prop_density = @(x,s) x;
 settings.proposal.log_mh_correction_ld = @(ld_s,ld) 0 ;
@@ -772,5 +772,120 @@ results.model_output.by_sample_true = ...
 
 
 % save([dpath,'Example\Ex_results\'...
-%     '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+%     '2018-07-12_discrepancy_true_fn_set_lambda_delta_1-64'],...
 %     'results');
+
+%% Given desired observation, find true optimum of toy sim problem using dd
+clc ; clearvars -except dpath ; close all;
+
+% load true Pareto front
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get standardized version
+% First load some calib results, just to get the settings
+load([dpath,'Example\Ex_results\'...
+    '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+    'results');
+cntrl_mins = results.settings.input_cntrl_mins   ;
+cntrl_rngs = results.settings.input_calib_ranges ;
+calib_mins = results.settings.input_calib_mins   ;
+calib_rngs = results.settings.input_calib_ranges ;
+output_mns = results.settings.output_means       ;
+output_sds = results.settings.output_sds         ;
+
+% Set desired observation
+des_obs_os = [ 0 0 0 ] ; % on original scale
+des_obs    = (des_obs_os - mean(output_mns,2)')./mean(output_sds,2)';
+
+% Find closest point in Pareto front
+true_pf_obs_os = ctheta_output_nondom(:,4:6); % Get outputs of true pf, os
+true_pf_obs = (true_pf_obs_os - mean(output_mns,2)')./mean(output_sds,2)';
+[m,idx] = min(sum((true_pf_obs - des_obs).^2,2));
+optim = ctheta_output_nondom(idx,:);
+optim_calib = optim(2:3);
+
+% Take a look against a heatmap
+% calib_heatmap(des_obs_os);
+% hold on;
+% plot(optim_calib(1),optim_calib(2),'.g');
+
+%% Get farthest distance in parameter space from desired observation
+clc ; clearvars -except dpath ; close all ;
+
+% The highest point in the output space is [1 1 30]. So standardize that:
+high_obs_os = [1 1 30];
+% Load some results just to get the settings for standardizing
+load([dpath,'Example\Ex_results\'...
+    '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+    'results');
+meanobs = results.settings.output_means(:,2)';
+sdobs   = results.settings.output_sds(:,2)';
+high_obs = (high_obs_os - meanobs)./sdobs
+% Now get the distance from desired observation
+desired_obs_os = [ 0 0 0 ];
+desired_obs = (desired_obs_os - meanobs)./sdobs
+dist = sqrt(sum( (high_obs - desired_obs).^2 ) ) 
+
+% Now for a different desired observation
+desired_obs_os = [ 0.7130    0.7144   17.9220 ];
+desired_obs = (desired_obs_os - meanobs)./sdobs
+dist = sqrt(sum( (high_obs - desired_obs).^2 ) ) 
+
+%% Do "preliminary" CDO with true fn and discrep, to estimate Pareto front
+clc ; clearvars -except dpath ; close all ;
+
+% Load data
+load([dpath,'Example\Ex_results\'...
+'2018-05-28-raw_dat-3-12-12']);
+sim_x = raw_dat.sim_xt(:,1);
+sim_t = raw_dat.sim_xt(:,2:3);
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% Get settings
+des_obs = [0 0 0 ] ; %[ 0.7130 0.7144 17.9220 ] ; 
+settings = MCMC_settings(des_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e4,'ObsVar','Constant');
+
+% Change settings to make lambda_delta prior a little more vague
+settings.log_lambda_delta_prior = @(ld)log(exppdf(ld,1));
+
+results = MCMC_discrepancy_true_fn(settings);
+results.model_output.by_sample_true = ...
+    Ex_sim([2*ones(size(results.samples,1),1) results.samples_os]);
+
+save([dpath,'Example\Ex_results\'...
+    '2018-07-17_preliminary_cdo_truefn_discrep'],...
+    'results');
+
+%% Using previous MCMC samps, see how many are within 2sd of des obs, optim
+clc ; clearvars -except dpath ; close all ; 
+
+load([dpath,'Example\Ex_results\'...
+    '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+    'results');
+
+%%% Get distances of each sample draw from the desired observation
+burn_in = results.settings.burn_in + 2;
+samps = results.samples_os(burn_in:end,:) ; 
+outputs_os = results.model_output.by_sample_true(burn_in:end,:) ; 
+% Need outputs on standardized scale:
+outputs = (outputs_os - mean(results.settings.output_means'))./...
+    mean(results.settings.output_sds');
+des_obs = (results.settings.desired_obs - ...
+    mean(results.settings.output_means'))./...
+    mean(results.settings.output_sds');
+desdists = sqrt( sum ( ( outputs - des_obs ).^2, 2 ) ) ; 
+
+%%% Now find out how many are close to des obs
+desprop = sum ( desdists < 2 ) / size(desdists,1) 
+
+%%% Now find how many are close to optimum.
+% First get the optimum.
+[m,i] = min (desdists) ;
+optim_input = samps(i,:);
+optim_output = outputs(i,:);
+optdists = sqrt( sum( (outputs - optim_output).^2, 2) );
+optprop = sum( optdists < 1.96 ) / size(optdists,1)

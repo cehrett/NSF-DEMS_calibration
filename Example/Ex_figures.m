@@ -172,6 +172,7 @@ plot(nd_dd_at_cost(:,1),nd_dd_at_cost(:,2),'or');
 
 
 %% Figure describing the problem
+clc ; clearvars -except dpath ; close all; 
 % Take a look at surfaces of example function output
 theta1=linspace(0,3);
 theta2=linspace(0,6);
@@ -197,8 +198,8 @@ perfs = reshape(perf_n,[],length(theta1));
 costs = reshape(cost_n,[],length(theta1));
 
 ec = 'black' ;  % edge color
-ea = .25       ;  % edge alpha
-fa = .75       ;  % face alpha
+ea = .45       ;  % edge alpha
+fa = .85       ;  % face alpha
 
 f=figure();
 surf(theta2,theta1,oscls,'FaceColor','red','EdgeColor',ec,...
@@ -217,12 +218,13 @@ xlabel('\theta_2'); ylabel('\theta_1'); zlabel('Outcomes');
 
 h=gca;
 h.View = [13.1667 11.3333] ; % Sets the perspective
+set(h,'ztick',[]);
 
 title('Model outcomes on normalized scale');
 
-hh = legend('Deflection','Rotation','Cost','Orientation','horizontal',...
+hh = legend('y_1','y_2','y_3','Orientation','horizontal',...
     'Location','south');
-hh.Position = hh.Position + [ 0 -.1 0 0 ];
+hh.Position = hh.Position + [ 0 -.115 0 0 ];
 
 saveas(f,'FIG_toy_sim_model_outputs.png');
 
@@ -1578,8 +1580,223 @@ plot(xpred,disc_outs(:,1),'-b',...
 %% Heatmap of proximity to zero: discrep w/ true fn, lambda_d = 1, close DO
 clc ; clearvars -except dpath ; close all ;
 
+% Load MCMC samples
+load([dpath,'Example\Ex_results\'...
+    '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+    'results');
+% load([dpath,'Example\Ex_results\'...
+%     '2018-07-12_discrepancy_true_fn_set_lambda_delta_1-256'],...
+%     'results');
+
+% Load true samples;
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output'],...
+    'ctheta_output');
+load([dpath,'Example\Ex_results\'...
+    '2018-05-29_true_ctheta-output_nondom'],...
+    'ctheta_output_nondom');
+
+% Get true samples with output closest to 0 (Euclidean distance on
+% standardized scale
+% First put data on standardized scale
+meanout = mean(results.settings.output_means');
+sdout   = mean(results.settings.output_sds'  );
+cost_std = (ctheta_output(:,6) - meanout(3))/...
+    sdout(3);
+defl_std = (ctheta_output(:,4) - meanout(1))/...
+    sdout(1);
+rotn_std = (ctheta_output(:,5) - meanout(2))/...
+    sdout(2);
+
+dd_outputs_std = [defl_std rotn_std cost_std];
+
+% Get desired_obs on standardized scale
+des_obs_os = results.settings.desired_obs ;
+des_obs = (des_obs_os-meanout)./...
+    sdout;
+
+% Now get Euclidean norms of each standardized output
+dd_dists = sqrt ( sum ( (dd_outputs_std-des_obs).^2 , 2 ) ) ;
+
+% Now get MCMC sample output and put on standardized scale
+outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
+% Put on standardized scale:
+cost_std = (outs(:,3) - meanout(3))/...
+    sdout(3);
+defl_std = (outs(:,1) - meanout(1))/...
+    sdout(1);
+rotn_std = (outs(:,2) - meanout(2))/...
+    sdout(2);
+
+mcmc_outputs_std = [ defl_std rotn_std cost_std ] ;
+
+% Now get Euclidean norms of each standardized output
+mcmc_dists = sqrt ( sum ( (mcmc_outputs_std-des_obs).^2 , 2 ) ) ;
+ 
+% Take a look
+% figure();
+% scatter(linspace(1,length(mcmc_dists),length(dd_dists)),dd_dists);
+% hold on;
+% scatter(1:length(mcmc_dists),mcmc_dists);
+% 
+% % Now take a 3d look at all outputs versus the close direct data outputs
+cutoff = quantile(mcmc_dists,.95); % cutoff for close dd output
+close_dd_idx = dd_dists <= cutoff; % index of close dd outputs
+close_dd_outputs = ctheta_output(close_dd_idx,4:6) ; % close dd outputs
+% figure();
+% scatter3(outs(:,1),outs(:,2),outs(:,3),20); axis vis3d; hold on;
+% scatter3(...
+%     close_dd_outputs(:,1),close_dd_outputs(:,2),close_dd_outputs(:,3));
+
+% Now take a look at all calib settings at mcmc outputs vs close dd outputs
+samps = results.samples_os;
+close_dd_theta = ctheta_output(close_dd_idx,2:3);
+% figure(); scatterhist(samps(:,1),samps(:,2));
+% figure(); scatterhist(close_dd_theta(:,1),close_dd_theta(:,2));
+
+% Now get a scatterhist of mcmc theta draws with, behind it, all direct
+% data theta values colored by Euclidean distance of the standardized
+% output to the zero point.
+h=figure(); colormap(flipud(jet));
+sh=scatterhist(samps(:,1),samps(:,2),'Marker','.'); 
+hold on; xlim([0 3]); ylim([0 6]);
+scatter(ctheta_output(:,2),ctheta_output(:,3),2,dd_dists); hold on;
+colorbar('East');
+scatter(samps(:,1),samps(:,2),5,'.g','MarkerFaceAlpha',.5,...
+    'MarkerEdgeAlpha',.5);
+title({'Posterior \theta draws with marginal distributions' ...
+    'using discrepancy function'});
+xlabel('\theta_1'); ylabel('\theta_2') ;
+pos = sh(1).Position;
+sh(1).Position = pos + [0 0 0 -.025];
+saveas(h,'FIG_post_theta-disc-ld_1-true_fn-heatmap.png')
+
+%% Results of calibration using set discrep marginal precision for var vals
+clc ; clearvars -except dpath ; close all ;
+
+% Set true optimum: this is for desired observation [0 0 0] and for desired
+% observations derived from that one
+optim = [ 0.924924924924925   3.141141141141141 ] ;
+
+% Load the version in which the desired observation was set to 0 and the
+% marginal precision was set so that the desired observation was one
+% standard deviation away from the true pareto front
+load([dpath,'Example\Ex_results\'...
+    '2018-07-12_discrepancy_true_fn_set_lambda_delta_1-256'],...
+    'results');
+
+samps = results.samples_os(results.settings.burn_in:end,:);
+des_obs = results.settings.desired_obs;
+h1=calib_heatmap(des_obs,samps,0.9,0.9,10);
+xlabel('\theta_1'); ylabel('\theta_2');
+hold on;
+p=plot(optim(1),optim(2),'ok','MarkerSize',7,'MarkerFaceColor','m',...
+    'LineWidth',2);
+title(['Posterior \theta samples: desired obs. '...
+    '[0 0 0], \lambda_\delta = 256^-^1'])
+
+% Now do the same with the version in which the desired observation was
+% again set to 0 but this time with the marginal precision set so that the
+% desired observation is two standard deviations from the true pareto front
+load([dpath,'Example\Ex_results\'...
+    '2018-07-12_discrepancy_true_fn_set_lambda_delta_1-64'],...
+    'results');
+samps = results.samples_os(results.settings.burn_in:end,:);
+des_obs = results.settings.desired_obs;
+h2=calib_heatmap(des_obs,samps,0.9,0.9,10);
+xlabel('\theta_1'); ylabel('\theta_2');
+hold on;
+p=plot(optim(1),optim(2),'ok','MarkerSize',7,'MarkerFaceColor','m',...
+    'LineWidth',2);
+title(['Posterior \theta samples: desired obs. '...
+    '[0 0 0], \lambda_\delta = 64^-^1'])
+
+% Now do the version with desired observation set to be one normalized unit
+% away from the pareto front, and marginal var set accordingly
 load([dpath,'Example\Ex_results\'...
     '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
     'results');
 
-%TBC
+samps = results.samples_os(results.settings.burn_in:end,:);
+des_obs = results.settings.desired_obs;
+h3=calib_heatmap(des_obs,samps,0.9,0.9,10);
+xlabel('\theta_1'); ylabel('\theta_2');
+hold on;
+p=plot(optim(1),optim(2),'ok','MarkerSize',7,'MarkerFaceColor','m',...
+    'LineWidth',2);
+title(['Posterior \theta samples: desired obs. '...
+    '[0.71 0.71 17.92], \lambda_\delta = 1']);
+
+% % Now record it all
+% saveas(h1,'FIG_post_theta_heatmap_desobs0_lambdadelta256i.png');
+% saveas(h2,'FIG_post_theta_heatmap_desobs0_lambdadelta64i.png');
+% saveas(h3,'FIG_post_theta_heatmap_desobs0_lambdadelta1.png');
+
+%% Show the distance of desired observation from the Pareto front
+% And show updated, closer desired observation
+clc ; clearvars -except dpath ; close all ;
+
+% Get the samples used to estimate the PF
+load([dpath,'Example\Ex_results\'...
+    '2018-07-17_preliminary_cdo_truefn_discrep'],...
+    'results');
+des_obs = results.settings.desired_obs;
+spec_dist=1 ; % This will be the distance of the new des obs from the PF
+
+
+% Get estimated Pareto front
+% Use GP estimates rather than true function:
+[nondoms,ndidx] = nondominated(results.model_output.by_sample_true);
+
+% Put the model output estimates on the standardized scale
+nondoms_std = (nondoms - mean(results.settings.output_means'))./...
+    mean(results.settings.output_sds');
+
+% Put des_obs into standardized scale
+des_obs_std = (des_obs - mean(results.settings.output_means'))./...
+    mean(results.settings.output_sds');
+
+%%% Get distances from desired observation to Pareto front
+dists = sqrt(sum((des_obs_std - nondoms_std).^2,2)) ;
+[mindist,mindex] = min(dists);
+% Get closest point in PF to des obs (closest in std scale, pt in orig sc)
+pf_optim = nondoms(mindex,:);
+pf_optim_std = nondoms_std(mindex,:);
+
+% Take a look at the point we chose
+h=figure();
+sc=scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2),...
+    'SizeData',100,'LineWidth',1.125); hold on;
+line([0 pf_optim(3)],[0 pf_optim(1)],[0 pf_optim(2)],...
+    'Color','r','LineWidth',2);
+% dists_os=sqrt(sum((des_obs - nondoms).^2,2)) ;
+% [mindist_os,mindex_os]=min(dists_os);
+% line([0 nondoms(mindex_os,3)],[0 nondoms(mindex_os,1)],...
+%     [0 nondoms(mindex_os,2)],'Color','g');
+
+%%% Find a point that is set distance (eg 1) from pareto front in the
+%%% direction of the original desired observation
+%X%dirvec = pf_optim - des_obs; dirvec_normd = dirvec / norm(dirvec);
+dirvec = pf_optim_std - des_obs_std; 
+dirvec_normd = dirvec/norm(dirvec);
+%X%des_obs_new = pf_optim - spec_dist * dirvec_normd ; 
+des_obs_new = pf_optim_std - spec_dist * dirvec_normd ;
+des_obs_new_os = des_obs_new .* ...
+    mean(results.settings.output_sds') + ...
+    mean(results.settings.output_means')
+
+% Take a look at the new des obs
+%X%plot3(des_obs_new(3),des_obs_new(1),des_obs_new(2),'ro');
+p31=plot3(des_obs_new_os(3),des_obs_new_os(1),des_obs_new_os(2),'go',...
+    'MarkerSize',10,'MarkerEdgeColor','k','MarkerFaceColor','g',...
+    'LineWidth',2);
+% Put the old on there too as a dot
+p32=plot3(0,0,0,'ro',...
+    'MarkerSize',10,'MarkerEdgeColor','k','MarkerFaceColor','r',...
+    'LineWidth',2);
+view([71.0333 8.1333]) ; % Set the angle
+xlabel('Cost');
+ylabel('Deflection');
+zlabel('Rotation');
+
+saveas(h,'FIG_desired_obs_and_est_PF_0.png');

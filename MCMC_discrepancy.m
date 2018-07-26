@@ -288,15 +288,28 @@ for ii = 1:M
     
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
+        %% Monitor likelihoods 
+        fprintf(repmat('\b',1,msg));
+        fprintf('loglik_theta = %f\n',loglik_theta);
+        fprintf('loglik_theta_s = %f\n',loglik_theta_s);
+        fprintf('log_mh_correction = %f\n',...
+            log_mh_correction(theta_s,theta));
+        msg = fprintf('Completed: %g/%g\n',ii,M);
         %% Tune theta proposal variance
-        if accepted < 24 mult = max(mult*.5,mult*accepted/24)
+        if accepted < 24 
+            mult = max(mult*.5,mult*accepted/24);
+            fprintf(repmat('\b',1,msg));
+            fprintf('Proposal variances decreased\n');
+            fprintf('mult = %f\n',mult);
+            msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         if accepted > 24
             %Sigma = Sigma * mult;%1.25;
 %             mult = 1.25 * mult
             fprintf(repmat('\b',1,msg));
             fprintf('Proposal variances increased\n');
-            mult = min(mult*2,mult*accepted/24) 
+            mult = min(mult*2,mult*accepted/24); 
+            fprintf('mult = %f\n',mult);
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         Sigma = cov(logit(samples)) * mult 
@@ -304,23 +317,35 @@ for ii = 1:M
         
         %% Tune discrepancy proposal variance
         % First omega_delta
-        if accepted_od < 24 mult_od=max(mult_od*.5,mult_od*accepted_od/24)
+        if accepted_od < 24 
+            mult_od=max(mult_od*.5,mult_od*accepted_od/24);
+            fprintf(repmat('\b',1,msg));
+            fprintf('Omega delta proposal variances decreased\n');
+            fprintf('mult_od = %f\n',mult_od);
+            msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         if accepted_od > 24
             fprintf(repmat('\b',1,msg));
             fprintf('Omega delta proposal variances increased\n');
-            mult_od = min(mult_od*2,mult_od*accepted_od/24) 
+            mult_od = min(mult_od*2,mult_od*accepted_od/24);
+            fprintf('mult_od = %f\n',mult_od);
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         Sigma_od = cov(logit(delta_rec(:,1:(end-1)))) * mult_od
         msg = fprintf('Completed: %g/%g\n',ii,M);
         % Now lambda_delta
-        if accepted_ld < 24 mult_ld =max(mult_ld*.5,mult_ld*accepted_ld/24)
+        if accepted_ld < 24 
+            mult_ld =max(mult_ld*.5,mult_ld*accepted_ld/24);
+            fprintf(repmat('\b',1,msg));
+            fprintf('lambda delta proposal variance increased\n');
+            fprintf('mult_ld = %f\n',mult_ld);
+            msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         if accepted_ld > 24
             fprintf(repmat('\b',1,msg));
             fprintf('lambda delta proposal variance increased\n');
-            mult_ld = min(mult_ld*2,mult_ld*accepted_ld/24)
+            mult_ld = min(mult_ld*2,mult_ld*accepted_ld/24);
+            fprintf('mult_ld = %f\n',mult_ld);
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
         Sigma_ld = var(log(delta_rec(:,end))) * mult_ld;
