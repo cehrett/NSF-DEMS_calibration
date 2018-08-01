@@ -1800,3 +1800,18 @@ ylabel('Deflection');
 zlabel('Rotation');
 
 saveas(h,'FIG_desired_obs_and_est_PF_0.png');
+
+%% Make post predictive plotmatrix
+clc ; clearvars -except dpath ; close all ;
+
+%%% Load the results
+load([dpath,'Example\Ex_results\'...
+    '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+    'results');
+outs = ...
+    results.model_output.by_sample_true(results.settings.burn_in+2:end,:);
+h=figure();
+pm=plotmatrix(outs);
+title('Predictive posterior distribution scatter plot matrix');
+
+saveas(h,'FIG_pred_post_dist_plot_matrix.png');

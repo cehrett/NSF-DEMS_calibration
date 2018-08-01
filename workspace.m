@@ -26,7 +26,7 @@ sim_y = raw_dat(:,4:6);
 clear raw_dat;
 
 % Get settings
-desired_obs = [0 0 0 ] ; %[ 0.7130 0.7144 17.9220 ] ; 
+desired_obs = [ 0 0 0 ] ; %[ 0.7130 0.7144 17.9220 ] ; 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
     'Discrepancy',true,'M',2e4,'ObsVar','Constant');
 
@@ -64,21 +64,23 @@ results = MCMC_discrepancy(settings);
 %% Given a set of results, get predicted model outputs at each sample pt
 clc ; clearvars -except dpath ; close all ;
 
+% Specify path to results
+rpath = [dpath,'stored_data\2018-07-27_discrepancy_d-elbow_d-p2'];
+
 % Load results
-load([dpath,'stored_data\'...
-    '2018-07-25_discrepancy_d0'],...
-    'results');
+load(rpath)
 
 samps = results.samples;
 
 % Too big to do all in one go; so split the samples up
+samps0 = results.samples(1:results.settings.burn_in+1,:);
 samps1 = results.samples(results.settings.burn_in+2:8001,:);
 samps2 = results.samples(8002:12001,:);
 samps3 = results.samples(12002:16001,:);
 samps4 = results.samples(16002:end,:);
 % set burn_in to 1 since we already took it out
 settings = results.settings; settings.burn_in = 1;
-emout0 = em_out_many(samps(1:4001,:),settings,0);
+emout0 = em_out_many(samps0,settings,0);
 emout1 = em_out_many(samps1,settings,0);
 emout2 = em_out_many(samps2,settings,0);
 emout3 = em_out_many(samps3,settings,0);
@@ -97,9 +99,8 @@ model_output.sds_by_sample_est = [ emout0.output_sds ;
 results.model_output = model_output ; 
 
 % Save the results
-% save([dpath,'stored_data\'...
-%     '2018-07-25_discrepancy_d0'],...
-%     'results');
+save(rpath,...
+    'results');
 
 %% Given preliminary CDO, estimate PF and update desired observation
 clc ; clearvars -except dpath ; close all ;
@@ -125,7 +126,7 @@ des_obs = (orig_des_obs - omeans)./osds      ;
 PF_optim = PF(i,:)                           ;
 
 %%% Get new desired obs specified distance from PF in same dir as original
-spec_dist = 1                                ;
+spec_dist = .2                               ;
 dirvec_nonnormed = PF_optim - des_obs        ;
 dirvec = dirvec_nonnormed/norm(dirvec_nonnormed) ;
 des_obs_new = PF_optim - spec_dist * dirvec  ;
@@ -140,9 +141,9 @@ line([orig_des_obs(1) PF_os(i,1)], [orig_des_obs(2) PF_os(i,2)], ...
 scatter3(des_obs_new_os(1),des_obs_new_os(2),des_obs_new_os(3),'g');
 
 %%% Save new desired observation ;
-save([dpath,'stored_data\'...
-    '2018-07-26_elbow_des_obs'],...
-    'des_obs_new_os');
+% save([dpath,'stored_data\'...
+%     '2018-07-26_elbow_des_obs_d-p2'],...
+%     'des_obs_new_os');
 
 %% Use des_obs chosen in preliminary CDO to do calibration with discrep
 clc ; clearvars -except dpath ; close all ; 
@@ -155,16 +156,18 @@ sim_t = raw_dat(:,2:3);
 sim_y = raw_dat(:,4:6);
 clear raw_dat;
 load([dpath,'stored_data\'...
-    '2018-07-26_elbow_des_obs']);
+    '2018-07-26_elbow_des_obs_d-p2']);
 
 % Get settings
 desired_obs = des_obs_new_os; %[ 0.7130 0.7144 17.9220 ] ; 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
-    'Discrepancy',true,'M',2e4,'ObsVar','Constant');
+    'Discrepancy',true,'M',2e4,'ObsVar','Constant',...
+    'LambdaDeltaInit',1/(.2^2));
 
 results = MCMC_discrepancy(settings);
 
-save([dpath,'stored_data\'...
-    '2018-07-26_discrepancy_d-elbow'],...
-    'results');
+% save([dpath,'stored_data\'...
+%     '2018-07-27_discrepancy_d-elbow_d-p2'],...
+%     'results');
+
 
