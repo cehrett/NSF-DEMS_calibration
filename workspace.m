@@ -170,4 +170,153 @@ results = MCMC_discrepancy(settings);
 %     '2018-07-27_discrepancy_d-elbow_d-p2'],...
 %     'results');
 
+%% Get mean output under prior and under posterior
+clc ; clearvars -except dpath ; close all ;
 
+%%% Load the results
+load([dpath,'stored_data\'...
+    '2018-07-27_discrepancy_d-elbow_d-p2'],...
+    'results');
+
+%%% Get the mean under the prior
+mupr = mean(results.settings.output_means');
+
+%%% Get the mean under the posterior
+mupo = mean(results.model_output.by_sample_est(...
+    results.settings.burn_in+2:end,:));
+
+%%% Display
+mupr
+mupo
+
+%% Get desired observations for cost grid
+clc ; clearvars -except dpath ; close all ;
+
+%%% Specify the distance of the updated desired observations from the PF
+spec_dist = 0.2;
+
+%%% Load the results for the Pareto front estimate
+load([dpath,'stored_data\'...
+    '2018-07-25_discrepancy_d0'],...
+    'results');
+
+%%% Estimate the PF
+[PF_os, PFidx] = nondominated(results.model_output.by_sample_est) ; 
+
+%%% Put PF on standardized scale
+omeans = mean(results.settings.output_means');
+osds   = mean(results.settings.output_sds'  );
+PF_all     = (PF_os - omeans)./ osds             ;
+% Cut out the costs
+PF = PF_all;
+
+%%% Set des_obs and find closet point to des_obs
+cost_grid_pts = linspace(96,352,20);
+orig_des_obs = [ zeros(size(cost_grid_pts,2),2) cost_grid_pts' ] ; 
+des_obs = (orig_des_obs - omeans)./osds      ;
+PF_optim=zeros(size(des_obs));
+for ii = 1 : size(PF_optim,1)
+    [m,i] = min( ( PF(:,3) - des_obs(ii,3) ).^2 ) ;
+    PF_optim(ii,:) = PF(i,:)                           ;
+end
+PF_optim_os = PF_optim .* osds + omeans ; 
+%plot3(PF_optim_os(:,1),PF_optim_os(:,2),PF_optim_os(:,3),'.r',...
+%    'MarkerSize',20)
+
+%%% Now adjust the desired obs so they are close to PF
+dirvecs_nonnormed = PF_optim - des_obs ; 
+dirvec_norms = sqrt( sum( dirvecs_nonnormed.^2, 2) );
+dirvecs = dirvecs_nonnormed ./ dirvec_norms;
+des_obs_upd = PF_optim - spec_dist * dirvecs ;
+des_obs_upd_os = des_obs_upd .* osds + omeans;
+
+%%% Save new desired observation ;
+% save([dpath,'stored_data\'...
+%     '2018-08-03_cost_grid_des_obs'],...
+%     'des_obs_upd_os');
+
+%% Perform cost_grid calibration
+% 2018-08-03
+clc ; clearvars -except dpath ; close all ;
+
+%%% Load new desired observation ;
+load([dpath,'stored_data\'...
+    '2018-08-03_cost_grid_des_obs'],...
+    'des_obs_upd_os');
+
+%%% Load raw data
+load([dpath,'stored_data\'...
+    'raw_dat']);
+sim_x = raw_dat(:,1);
+sim_t = raw_dat(:,2:3);
+sim_y = raw_dat(:,4:6);
+clear raw_dat;
+
+%%% Set up for loop over cost grid
+m = size(des_obs_upd_os,1);
+% results = cell(m,1);
+
+%%% Loop over cost grid, performing CDO at each point
+for ii = fliplr(1 : 7)
+    %%% Announce what's going on
+    fprintf(['\n' repmat('#',1,30) '\n STEP %d of %d, Cost $%3.2f\n' ...
+        repmat('#',1,30) '\n\n'],ii,m,des_obs_upd_os(ii,3));
+    
+    %%% Get settings
+    des_obs = des_obs_upd_os(ii,:);
+    settings = MCMC_settings(des_obs,sim_x,sim_t,sim_y,...
+        'Discrepancy',true,'M',8e3,'ObsVar','Constant',...
+        'LambdaDeltaInit',1/(.2^2),'burn_in',2e3/8e3);
+    
+    %%% Perform calibration
+    result = MCMC_discrepancy_costgrid(settings);
+    
+    %%% Save results
+    results{ii} = result;
+    save([dpath,'stored_data\'...
+    '2018-08-03_cost_grid_discrepancy_results'],...
+    'results');
+
+end
+
+% load([dpath,'stored_data\'...
+%     '2018-08-03_cost_grid_discrepancy_results'],...
+%     'results');
+
+%% Get model output estimates for each point in cost_grid analysis
+clc ; clearvars -except dpath ; close all ;
+
+%%% Load the cost_grid results
+load([dpath,'stored_data\'...
+    '2018-08-03_cost_grid_discrepancy_results'],...
+    'results');
+m = size(results,1);
+
+%%% Loop through and get the model output estimates
+for ii = 1:m 
+    res = results{ii};
+    samps=res.samples;
+    settings=res.settings;
+    
+    %%% Split the samples up and get output for each subset
+    model_output.by_sample_est = [] ; 
+    model_output.by_sample_sds = [] ; 
+    for jj = 1:4
+        subsamps = samps((jj-1)*2000+2-1*(jj==1):jj*2000+1,:);
+        subemout = em_out_many(subsamps,settings,0);
+        model_output.by_sample_est = [model_output.by_sample_est ; ...
+            subemout.output_means ] ;
+        model_output.by_sample_sds = [model_output.by_sample_sds ; ...
+            subemout.output_sds   ] ;
+    end
+    
+    %%% Save the output estimates to the results
+    results{ii}.model_output = model_output;
+    
+end
+
+%%% Save the results
+% save([dpath,'stored_data\'...
+%     '2018-08-03_cost_grid_discrepancy_results'],...
+%     'results');
+        

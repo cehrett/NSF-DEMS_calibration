@@ -50,7 +50,7 @@ h=figure();
 sc=scatter3(eouts(:,1),eouts(:,2),eouts(:,3),'g','MarkerEdgeAlpha',.2);
 hold on;
 scatter3(PF_os(:,1),PF_os(:,2),PF_os(:,3),'b','MarkerFaceColor','b',...
-    'MarkerEdgeAlpha',.4,'MarkerFaceAlpha',.1)   ;                                ;
+    'MarkerEdgeAlpha',.4,'MarkerFaceAlpha',.1)   ;
 % scatter3(orig_des_obs(1),orig_des_obs(2),orig_des_obs(3))          ;
 % line([orig_des_obs(1) PF_os(i,1)], [orig_des_obs(2) PF_os(i,2)], ...
 %     [orig_des_obs(3) PF_os(i,3)])                                  ;
@@ -60,7 +60,7 @@ h.CurrentAxes.View = [-5.0000    5.2000];% [ 63 10] ;%[-8.4333 17.7333] ;
 title('Estimated Pareto front with desired observation');
 xlabel('Deflection');ylabel('Rotation');zlabel('Cost');
 set(h,'Color','w');
-export_fig 'FIG_est_PF_with_des_obs' -png -m3
+% export_fig 'FIG_est_PF_with_des_obs' -png -m3
 % saveas(h,'FIG_est_PF_with_des_obs.png');
 
 %%% Now load the resulting calibration
@@ -75,7 +75,7 @@ scatter3(outs(:,1),outs(:,2),outs(:,3),30,'.m',...
 title('Posterior predictive distribution');
 
 % saveas(hh,'FIG_post_pred_dist_with_model_range_and_des_obs.png');
-export_fig 'FIG_post_pred_dist_with_model_range_and_des_obs' -png -m3
+% export_fig 'FIG_post_pred_dist_with_model_range_and_des_obs' -png -m3
 
 %% Get posterior scatterhist from calibration
 clc ; clearvars -except dpath ; close all ;
@@ -141,7 +141,34 @@ load([dpath,'stored_data\'...
 samps = results.samples_os(results.settings.burn_in+2:end,:) ;
 
 %%% Get the marginal plots
-h1 = figure('rend','painters','pos',[10 10 310 210]) ; 
-histogram(samps(:,1)) ;
-% [f,xi]= ksdensity(samps(:,1),'Bandwidth',.005);
-% plot(xi,f);
+h1 = figure('rend','painters','pos',[10 10 610 210]) ; 
+subplot(1,2,1);
+histogram(samps(:,1), 'Normalization','pdf') ;
+xlim([0.2 0.6]);
+unifval = 1/.4;
+hold on;
+plot([0.2 0.6], [unifval unifval],'--r','LineWidth',2);
+title('Volume fraction');
+
+subplot(1,2,2);
+histogram(samps(:,2), 'Normalization','pdf') ;
+xlim([10 25]);
+unifval = 1/15;
+hold on;
+plot([10 25], [unifval unifval],'--r','LineWidth',2);
+title('Thickness (mm)');
+
+%%% Save
+set(h1,'Color','w');
+export_fig FIG_posterior_marginals_with_priors -png -m3;
+
+%% Get Pareto bands figure from cost_grid analysis using discrepancy
+clc ; clearvars -except dpath ; close all ; 
+
+%%% Load the cost_grid results
+load([dpath,'stored_data\'...
+    '2018-08-03_cost_grid_discrepancy_results'],...
+    'results');
+
+
+
