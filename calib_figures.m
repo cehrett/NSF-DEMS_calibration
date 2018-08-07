@@ -267,11 +267,11 @@ pcost = pchip(cost,post_cost_mean,x);
 % Get upper and lower 0.05 quantiles curves
 pcostuq = pchip(cost,post_cost_uq,x);
 pcostlq = pchip(cost,post_cost_lq,x);
-f=fill([ x , fliplr(x) ], [pcostuq, fliplr(pcostlq)],'k');
-set(f,'facealpha',.25);
+go_fill_unc=fill([ x , fliplr(x) ], [pcostuq, fliplr(pcostlq)],'k');
+set(go_fill_unc,'facealpha',.25);
 hold on;
-plot(...%cost,post_cost_mean,'or',...
-    x,pcost,'-r',...
+go_plot_mean=plot(x,pcost,'-r');
+plot(...%cost,post_cost_mean,'or',...%x,pcost,'-r',...
     x,pcostuq,'-k',...
     x,pcostlq,'-k');
 % Plot 2sd errbar
@@ -282,23 +282,23 @@ xlim([96,350]);
 ylim(ylim_cost);
 %plot(x,x,'-k','LineWidth',2);
 
-% Save the figure temporarily so we can mess with it later, because
-% suptitle seems to mess things up somehow for making changes after calling
-% it
-savefig(h,'tempfig');
-
-% Now add a main title and fix any infelicities
-suptitle(['Deflection vs. (known) target cost,',...
-    ' with ',num2str(cred_level),'% credible interval']); 
-p = get(xl1,'position');
-set(xl1,'position',p + [0 2.75 0]);
-p = get(xl2,'position');
-set(xl2,'position',p + [0 0.00125 0])
-% p = get(xl3,'position');
-% set(xl3,'position',p + [0 0.0002 0])
+% % Save the figure temporarily so we can mess with it later, because
+% % suptitle seems to mess things up somehow for making changes after calling
+% % it
+% savefig(h,'tempfig');
+% 
+% % Now add a main title and fix any infelicities
+% suptitle(['Deflection vs. (known) target cost,',...
+%     ' with ',num2str(cred_level),'% credible interval']); 
+% p = get(xl1,'position');
+% set(xl1,'position',p + [0 2.75 0]);
+% p = get(xl2,'position');
+% set(xl2,'position',p + [0 0.00125 0])
+% % p = get(xl3,'position');
+% % set(xl3,'position',p + [0 0.0002 0])
 figpos = get(h,'pos');
 
-saveas(h,'FIG_cost_grid_pareto.png');
+% saveas(h,'FIG_cost_grid_pareto.png');
 
 % Now add in code uncertainty. That is, the above assumes that the GP
 % emulator nails the FE code precisely. But of course the GP emulator has
@@ -307,7 +307,7 @@ saveas(h,'FIG_cost_grid_pareto.png');
 % appropriate multiple of the sd from each lower quantile and adding it to
 % each upper quantile.
 % First, open the figure prior to calling suptitle.
-h=openfig('tempfig');
+% h=openfig('tempfig');
 subplot(1,2,2);
 pdefluq_code_uncert = pchip(cost,post_defl_uq_cu,x);
 pdefllq_code_uncert = pchip(cost,post_defl_lq_cu,x);
@@ -335,19 +335,19 @@ ylim(ylim_defl);
 subplot(1,2,1);
 pcostuq_code_uncert = pchip(cost ,post_cost_uq_cu,x);
 pcostlq_code_uncert = pchip(cost ,post_cost_lq_cu,x);
-f=fill([ x , fliplr(x) ], [pcostuq_code_uncert,...
+go_fill_cunc_up=fill([ x , fliplr(x) ], [pcostuq_code_uncert,...
     fliplr(pcostuq)],'b');
-ff=fill([ x , fliplr(x) ], [pcostlq_code_uncert,...
+go_fill_cunc_dn=fill([ x , fliplr(x) ], [pcostlq_code_uncert,...
     fliplr(pcostlq)],'b');
-set(f,'facealpha',.25);
-set(ff,'facealpha',.25);
+set(go_fill_cunc_up,'facealpha',.25);
+set(go_fill_cunc_dn,'facealpha',.25);
 xl1=xlabel('Target cost');
 ylim(ylim_cost);
+go_plot_diag=plot(ylim_cost,ylim_cost,'--b','LineWidth',2);
 
 % Now add a main title and fix any infelicities
-suptitle(['Deflection vs. (known) target cost,',...
-    ' with ',num2str(cred_level),'% credible interval ',...
-    'including code uncertainty']); 
+suptitle(['Posterior estimate vs. target cost,',...
+    ' with ',num2str(cred_level),'% credible interval ']); 
 set(h,'pos',figpos); % Just so we can reuse the positioning code from above
 p = get(xl1,'position');
 set(xl1,'position',p + [0 2.75 0]);
@@ -355,5 +355,19 @@ p = get(xl2,'position');
 set(xl2,'position',p + [0 0.00125 0])
 % p = get(xl3,'position');
 % set(xl3,'position',p + [0 0.0002 0])
+
+% Now add a legend.
+leg_gos = [go_plot_mean go_fill_unc go_fill_cunc_up go_plot_diag];
+%leg_str = ['Posterior predictive mean'...
+%     '90\% credible interval w/o code uncertainty'...
+%     'Extension of 90\% credible interval for code uncertainty'...
+%     'Diagonal for reference'];
+lg=legend(leg_gos,'Posterior predictive mean',...
+    'C.I. w/o code uncertainty',...
+    sprintf('Expanded C.I. w/ code uncertainty'),...
+    'Diagonal for reference',...
+    'Location','northwest');
+lg.Position(1:2)=[.61;
+    
 
 saveas(h,'FIG_cost_grid_pareto_with_code_uncert.png');
