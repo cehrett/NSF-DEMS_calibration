@@ -16,7 +16,7 @@ sim_res     = sim_dat_output;
 xp          = pred_pts;
 num_cntrl   = length(omega);
 num_calib   = length(rho);
-nugsize     = 1e-10;
+nugsize     = 1e-4;
 
 % This will store the predicted response
 ypred = zeros(size(pred_pts,1),1);

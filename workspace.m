@@ -294,9 +294,14 @@ m = size(results,1);
 
 %%% Loop through and get the model output estimates
 for ii = 1:m 
+    
+    fprintf(['\n\n' ...
+        repmat('#',1,30) '\nSTEP %d\n' repmat('#',1,30) '\n\n'],ii);
+    
     res = results{ii};
     samps=res.samples;
     settings=res.settings;
+    settings.burn_in = 1 ;
     
     %%% Split the samples up and get output for each subset
     model_output.by_sample_est = [] ; 
@@ -312,11 +317,20 @@ for ii = 1:m
     
     %%% Save the output estimates to the results
     results{ii}.model_output = model_output;
+    results{ii}.post_mean_out = ...
+        mean(results{ii}.model_output.by_sample_est(2002:end,:));
     
 end
+
+%%% Check for negative variances
+minvars = [];
+for ii = 1 : m
+    minvars = [minvars ; min(min(results{ii}.model_output.by_sample_sds))];
+end
+min(minvars)
 
 %%% Save the results
 % save([dpath,'stored_data\'...
 %     '2018-08-03_cost_grid_discrepancy_results'],...
 %     'results');
-        
+
