@@ -21,10 +21,13 @@ clc ; clearvars -except dpath ; close all ;
 load([dpath,'stored_data\'...
     '2018-07-25_discrepancy_d0'],...
     'results');
-eouts = results.model_output.by_sample_est;
+n=700;
+burn_in = results.settings.burn_in;
+eouts = results.model_output.by_sample_est(burn_in:burn_in+n,:);
 
 %%% Estimate the PF
-[PF_os, PFidx] = nondominated(results.model_output.by_sample_est) ; 
+[PF_os, PFidx] = nondominated(eouts) ; 
+PFidx = PFidx + results.settings.burn_in; % get idx in original full set
 
 %%% Put PF on standardized scale
 omeans = mean(results.settings.output_means');
@@ -47,16 +50,18 @@ des_obs_new_os = des_obs_new .* osds + omeans;
 
 %%% Take a look
 h=figure();
-sc=scatter3(eouts(:,1),eouts(:,2),eouts(:,3),'g','MarkerEdgeAlpha',.2);
+sc=scatter3(eouts(:,1),eouts(:,2),eouts(:,3),'g','MarkerEdgeAlpha',1,...
+    'MarkerFaceAlpha',.2,'MarkerFaceColor','g');
 hold on;
 scatter3(PF_os(:,1),PF_os(:,2),PF_os(:,3),'b','MarkerFaceColor','b',...
-    'MarkerEdgeAlpha',.4,'MarkerFaceAlpha',.1)   ;
+    'MarkerEdgeAlpha',.8,'MarkerFaceAlpha',.2)   ;
 % scatter3(orig_des_obs(1),orig_des_obs(2),orig_des_obs(3))          ;
 % line([orig_des_obs(1) PF_os(i,1)], [orig_des_obs(2) PF_os(i,2)], ...
 %     [orig_des_obs(3) PF_os(i,3)])                                  ;
 scatter3(des_obs_new_os(1),des_obs_new_os(2),des_obs_new_os(3),'r',...
     'MarkerFaceColor','r');
-h.CurrentAxes.View = [-5.0000    5.2000];% [ 63 10] ;%[-8.4333 17.7333] ; 
+h.CurrentAxes.View = [-3.9333   10.5333] ; 
+% [-5.0000    5.2000];% [ 63 10] ;%[-8.4333 17.7333] ; 
 title('Estimated Pareto front with desired observation');
 xlabel('Deflection');ylabel('Rotation');zlabel('Cost');
 set(h,'Color','w');
@@ -230,12 +235,12 @@ pdefl = pchip(cost,post_defl_mean,x);
 pdefluq = pchip(cost,post_defl_uq,x);
 pdefllq = pchip(cost,post_defl_lq,x);
 f=fill([ x , fliplr(x) ], [pdefluq, fliplr(pdefllq)],'k');
-set(f,'facealpha',.25);
+set(f,'facealpha',.25,'EdgeAlpha',.25);
 hold on;
 plot(...%cost,post_defl_mean,'or',...
     x,pdefl,'-r',...
-    x,pdefluq,'-k',...
-    x,pdefllq,'-k');
+    x,pdefluq,':k',...
+    x,pdefllq,':k');
 xl2=xlabel('Target cost');
 ylabel('Deflection');
 xlim([96,350]);
@@ -268,12 +273,12 @@ pcost = pchip(cost,post_cost_mean,x);
 pcostuq = pchip(cost,post_cost_uq,x);
 pcostlq = pchip(cost,post_cost_lq,x);
 go_fill_unc=fill([ x , fliplr(x) ], [pcostuq, fliplr(pcostlq)],'k');
-set(go_fill_unc,'facealpha',.25);
+set(go_fill_unc,'facealpha',.25,'edgealpha',.25);
 hold on;
 go_plot_mean=plot(x,pcost,'-r');
 plot(...%cost,post_cost_mean,'or',...%x,pcost,'-r',...
-    x,pcostuq,'-k',...
-    x,pcostlq,'-k');
+    x,pcostuq,':k',...
+    x,pcostlq,':k');
 % Plot 2sd errbar
 % errorbar(cost_lambda,post_cost_mean,post_cost_sd,'ob'); 
 xl1=xlabel('Target cost');
@@ -315,8 +320,8 @@ f=fill([ x , fliplr(x) ], [pdefluq_code_uncert,...
     fliplr(pdefluq)],'b');
 ff=fill([ x , fliplr(x) ], [pdefllq_code_uncert,...
     fliplr(pdefllq)],'b');
-set(f,'facealpha',.25);
-set(ff,'facealpha',.25);
+set(f,'facealpha',.25,'EdgeAlpha',.25);
+set(ff,'facealpha',.25,'EdgeAlpha',.25);
 xl2=xlabel('Target cost');
 ylim(ylim_defl);
 
@@ -339,8 +344,8 @@ go_fill_cunc_up=fill([ x , fliplr(x) ], [pcostuq_code_uncert,...
     fliplr(pcostuq)],'b');
 go_fill_cunc_dn=fill([ x , fliplr(x) ], [pcostlq_code_uncert,...
     fliplr(pcostlq)],'b');
-set(go_fill_cunc_up,'facealpha',.25);
-set(go_fill_cunc_dn,'facealpha',.25);
+set(go_fill_cunc_up,'facealpha',.25,'EdgeAlpha',.25);
+set(go_fill_cunc_dn,'facealpha',.25,'EdgeAlpha',.25);
 xl1=xlabel('Target cost');
 ylim(ylim_cost);
 go_plot_diag=plot(ylim_cost,ylim_cost,'--b','LineWidth',2);
@@ -367,7 +372,9 @@ lg=legend(leg_gos,'Posterior predictive mean',...
     sprintf('Expanded C.I. w/ code uncertainty'),...
     'Diagonal for reference',...
     'Location','northwest');
-lg.Position(1:2)=[.61;
+lg.Position(1:2)=[.612 .6875];
     
-
-saveas(h,'FIG_cost_grid_pareto_with_code_uncert.png');
+%%% Save
+set(h,'Color','white');
+export_fig FIG_cost_grid_pareto_bands -png -m3 -painters
+%saveas(h,'FIG_cost_grid_pareto_with_code_uncert.png');

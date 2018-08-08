@@ -50,7 +50,9 @@ clear raw_dat;
 % Get settings
 desired_obs = [0 0 0 ] ; %[ 0.7130 0.7144 17.9220 ] ; 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
-    'Discrepancy',true,'M',2e4,'ObsVar','Constant');
+    'Discrepancy',true,'M',2e3,'ObsVar','Constant','burn_in',.5,...
+    'DiscMargPrecProp',@(x,s) exp(mvnrnd(log(x),s)),...
+    'DiscMargPrecLogMHCorr',@(sig_s,sig)log(prod(sig_s))-log(prod(sig)));
 
 % Change settings to make lambda_delta prior more vague
 settings.log_lambda_delta_prior = @(ld)log(exppdf(ld,5));
