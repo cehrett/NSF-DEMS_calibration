@@ -82,6 +82,18 @@ title('Posterior predictive distribution');
 % saveas(hh,'FIG_post_pred_dist_with_model_range_and_des_obs.png');
 % export_fig 'FIG_post_pred_dist_with_model_range_and_des_obs' -png -m3
 
+%%% Now color the closest alpha percent of the posterior dist to des obs
+alpha=0.5;
+souts = (outs - omeans)./osds;
+posdiffs = max(0, souts-des_obs_new);
+dists = sum( (posdiffs).^2, 2);
+close_idx = dists < quantile(dists,alpha);
+hhh = copyobj(h,0); hold on;
+scatter3(outs(close_idx,1),outs(close_idx,2),outs(close_idx,3),30,'.b',...
+    'MarkerFaceColor','b');
+scatter3(outs(~close_idx,1),outs(~close_idx,2),outs(~close_idx,3),30,'.m',...
+    'MarkerFaceColor','m');
+
 %% Get posterior scatterhist from calibration
 clc ; clearvars -except dpath ; close all ;
 
