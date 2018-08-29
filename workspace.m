@@ -67,7 +67,7 @@ results = MCMC_discrepancy(settings);
 clc ; clearvars -except dpath ; close all ;
 
 % Specify path to results
-rpath = [dpath,'stored_data\2018-07-27_discrepancy_d-elbow_d-p2'];
+rpath = [dpath,'stored_data\2018-08-28_discrepancy_d-elbow_d-p2_0errvar'];
 
 % Load results
 load(rpath)
@@ -337,3 +337,28 @@ min(minvars)
 %     'results');
 
 
+%% Perform calibration without observation error and see how it goes
+clc ; clearvars -except dpath ; close all ;
+
+%%% Load raw data and desired observation
+load([dpath,'stored_data\'...
+    'raw_dat']);
+sim_x = raw_dat(:,1);
+sim_t = raw_dat(:,2:3);
+sim_y = raw_dat(:,4:6);
+clear raw_dat;
+load([dpath,'stored_data\'...
+    '2018-07-26_elbow_des_obs_d-p2']);
+
+% Get settings
+desired_obs = des_obs_new_os; %[ 0.7130 0.7144 17.9220 ] ; 
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e4,'ObsVar','Constant',...
+    'ObsVarLvl',0,...
+    'LambdaDeltaInit',1/(.2^2));
+
+results = MCMC_discrepancy(settings);
+
+% load([dpath,'stored_data\'...
+%     '2018-08-28_discrepancy_d-elbow_d-p2_0errvar'],...
+%     'results');

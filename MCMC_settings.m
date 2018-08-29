@@ -11,6 +11,10 @@ function settings = MCMC_settings (desired_obs,sim_x,sim_t,sim_y,varargin)
 %                          for each of the outputs.
 %   'STOV'     - Uses set total observation variance. Default 10.
 %   'Constant' - Uses constant observation variance. Default 0.05.
+% 'ObsVarLvl':
+%   Scalar value which gives the variance of the (constant) observation
+%   error. Only used in conjunction with option ObsVar set to 'Constant'.
+%   Default: 0.05.
 % 'Cost_lambda':
 %   false      - (Default) does not place informative prior on vf, thk.
 %   true       - Places exp(-||(vf,thk)||^2) prior on vf, thk.
@@ -63,6 +67,7 @@ p.addParameter('DiscMargPrecProp',@(x,s)x,@(x)isa(x,'function_handle'));
 p.addParameter(...
     'DiscMargPrecLogMHCorr',@(x,y)0,@(x)isa(x,'function_handle'));
 p.addParameter('LambdaDeltaInit',1,@isscalar);
+p.addParameter('ObsVarLvl',0.05,@isscalar);
 p.parse(desired_obs,sim_x,sim_t,sim_y,varargin{:});
 % Collect inputs
 M                    = p.Results.M;
@@ -75,6 +80,7 @@ Discrepancy          = p.Results.Discrepancy;
 lambda_delta_init    = p.Results.LambdaDeltaInit;
 lambda_prop_density  = p.Results.DiscMargPrecProp;
 log_mh_correction_ld = p.Results.DiscMargPrecLogMHCorr;
+ObsVarLvl            = p.Results.ObsVarLvl;
 
 
 doplot          = p.Results.doplot;
@@ -158,7 +164,7 @@ switch ObsVar
         init_sigma2_divs = 0:1/num_out:1 ; % Initial proportion of total ov
         init_sigma2_divs = init_sigma2_divs(2:(end-1));
     case 'Constant'
-        sigma2 = 0.05 * ones(1,num_out); % Obs. var. of each output
+        sigma2 = ObsVarLvl * ones(1,num_out); % Obs. var. of each output
         log_sigma2_prior = @(x) 0; % No prior on obs var.
         log_sig_mh_correction = @(x,s) 0; % No MH correction needed
         sigma2_prop_density = @(x,s) x;

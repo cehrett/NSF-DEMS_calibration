@@ -226,7 +226,16 @@ hh = legend('y_1','y_2','y_3','Orientation','horizontal',...
     'Location','south');
 hh.Position = hh.Position + [ 0 -.115 0 0 ];
 
-saveas(f,'FIG_toy_sim_model_outputs.png');
+% %%% Code to turn it into the version used on SCSC poster
+% hh.Orientation = 'vertical';
+% hh.Location = 'east';
+% f.Position = [360.3333  197.6667  452.0000  314.6667];
+% set(f,'Color',[251/255 244/255 245/255]);
+% set(h,'Color',[251/255 244/255 245/255]);
+% set(hh,'Color',[251/255 244/255 245/255]);
+
+%saveas(f,'FIG_toy_sim_model_outputs.png');
+%export_fig FIG_toy_sim_model_outputs -png -m3 -painters 
 
 %% 3d figure of nondominated direct data plus nondom full calib MCMC
 % Both outputs and inputs. In that order.

@@ -94,6 +94,11 @@ scatter3(outs(close_idx,1),outs(close_idx,2),outs(close_idx,3),30,'.b',...
 scatter3(outs(~close_idx,1),outs(~close_idx,2),outs(~close_idx,3),30,'.m',...
     'MarkerFaceColor','m');
 
+%%% Add code to turn the first figure in this section into a version for
+%%% the SCSC poster
+h.Position = [360.3333  197.6667  452.0000  259.3333];
+set(h,'Color',[251/255 244/255 245/255]);
+
 %% Get posterior scatterhist from calibration
 clc ; clearvars -except dpath ; close all ;
 
@@ -388,5 +393,5 @@ lg.Position(1:2)=[.612 .6875];
     
 %%% Save
 set(h,'Color','white');
-export_fig FIG_cost_grid_pareto_bands -png -m3 -painters
+%export_fig FIG_cost_grid_pareto_bands -png -m3 -painters
 %saveas(h,'FIG_cost_grid_pareto_with_code_uncert.png');
