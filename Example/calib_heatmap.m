@@ -1,5 +1,7 @@
 function h = calib_heatmap (des_obs_os,post_theta,mfa,mea,ms)
 % Generate a heatmap of proximity to desired observation using direct data
+% mfa,mea,ms are optional inputs: respectively, markerfacealpha,
+% markeredgealpha, and markersize.
 
 direc = pwd; if direc(1)=='C' 
     dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
@@ -42,8 +44,8 @@ load([dpath,'Example\Ex_results\'...
     '2018-05-29_true_ctheta-output_nondom'],...
     'ctheta_output_nondom');
 
-% Get true samples with output closest to 0 (Euclidean distance on
-% standardized scale
+%% Get true samples with output closest to 0 (Euclidean distance on
+%% standardized scale
 % First put data on standardized scale
 meanout = mean(results.settings.output_means');
 sdout   = mean(results.settings.output_sds'  );
@@ -62,6 +64,10 @@ des_obs = (des_obs_os-meanout)./...
 
 % Now get Euclidean norms of each standardized output
 dd_dists = sqrt ( sum ( (dd_outputs_std-des_obs).^2 , 2 ) ) ;
+
+% Get true optimum
+[m,i]=min(dd_dists);
+optim = ctheta_output(i,2:3);
 
 % Now get MCMC sample output and put on standardized scale
 outs = results.model_output.by_sample_true(results.settings.burn_in:end,:);
@@ -115,4 +121,9 @@ if ~isequal(post_theta,0) % ie if posterior draws were supplied
     scatter(samps(:,1),samps(:,2),ms,'.g','MarkerFaceAlpha',mfa,...
     'MarkerEdgeAlpha',mea);
 end
+
+%% Now put the true optimum on there
+p=plot(optim(1),optim(2),'ok','MarkerSize',7,'MarkerFaceColor','m',...
+    'LineWidth',2);
+
 end

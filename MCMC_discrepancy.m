@@ -42,7 +42,7 @@ lambda                  = settings.lambda;
 omega_delta             = settings.omega_delta_init;
 lambda_delta            = settings.lambda_delta_init;
 sigma2_prop_density     = settings.proposal.sigma2_prop_density ;
-Sigma_sig               = settings.proposal.Sigma_sig ; %pv for sigma2
+Sigma_sig               = settings.proposal.Sigma_sig;%pv for sigma2
 omega_prop_density      = settings.proposal.omega_prop_density;
 lambda_prop_density     = settings.proposal.lambda_prop_density;
 prop_density            = settings.proposal.density ; %prop for theta
@@ -66,6 +66,7 @@ which_outputs           = settings.which_outputs;
 
 %% Set plot label values
 labs = [ '\omega_1' ; '\omega_2' ; '\omega_3' ; '\lambda ' ] ; 
+output_labs = { 'Deflection' ; 'Rotation' ; 'Cost' };
 for ii = 1:length(which_outputs)
     if which_outputs(ii) == 0
         labs(ii,:)=[]; 
@@ -95,6 +96,9 @@ sim_t = sim_xt(:,num_cntrl+1:end) ;
 % of it remains unchanged, so that we need calculate that only this once.
 % Massive computation savings over getting Sigma_z from scratch each time:
 Sigma_eta_xx = gp_cov(omega,sim_x,sim_x,rho,sim_t,sim_t,lambda,false);
+% Get computationally nice versions of it and its inverse for post preds:
+Sxx=Sigma_eta_xx + eye(size(Sigma_eta_xx)) * nugsize(Sigma_eta_xx);
+iSxx = inv(Sxx);
 % Now make sigma2 into a covariance matrix:
 sigma2_long = repelem(sigma2,num_obs);
 Sigma_y = diag(sigma2_long);
@@ -115,6 +119,11 @@ out_of_range_sig   = zeros(1,num_out)             ;
 mult               = 10                           ; % multiplier, prop dens
 mult_od            = 10                           ; % mult for pd of om_del
 mult_ld            = 10                           ; % mult for pd of lam_dl
+by_sample_est      = []                           ; % Collect post. preds
+sds_by_sample_est  = []                           ; % Collect post sds pred
+
+model_output.by_sample_est = by_sample_est        ; 
+model_output.sds_by_sample_est = sds_by_sample_est;
 
 %% Get initial log likelihood
 % Set new observation input matrix:
@@ -133,6 +142,7 @@ Sigma_z = [ Sigma_eta_yy + Sigma_y + Sigma_delta     Sigma_eta_yx   ; ...
             Sigma_eta_xy                             Sigma_eta_xx ] ;
 % Add a nugget to Sigma_z for computational stability
 Sigma_z = Sigma_z + eye(size(Sigma_z)) * nugsize(Sigma_z);
+Sigma_z_rcond_rec = rcond(Sigma_z);
 % Get log likelihood of theta
 L_D = logmvnpdf(z',0,Sigma_z);
 loglik_theta = L_D + log_theta_prior(theta,Cost_lambda);
@@ -143,7 +153,7 @@ loglik_od = L_D + log_omega_delta_prior(omega_delta);
 % Get log likelihood of lambda_delta
 loglik_ld = L_D + log_lambda_delta_prior(lambda_delta);
 
-figure() % For observing MCMC
+figure('rend','painters','pos',[-1.6667    3.6667  660.0000  637.3333]);
 %% Begin MCMC routine
 for ii = 1:M
     
@@ -285,6 +295,8 @@ for ii = 1:M
 %     omega_delta_rec(ii+1,:) = omega_delta;
 %     lambda_delta_rec(ii+1,:) = lambda_delta;
     delta_rec(ii+1,:) = [omega_delta lambda_delta];
+    Sigma_z_rcond_rec(ii+1) = rcond(Sigma_z);
+    
     
     %% Tune adaptive proposal variance 
     if mod(ii,100) == 0 && ii <= burn_in 
@@ -353,8 +365,18 @@ for ii = 1:M
         
     end
     
+    %% Output to console and get posterior predictions
     if mod(ii,100) == 0
-        % Print info and newline
+        %%% Get posterior predictions
+        samps = samples(ii-99:ii,:);
+        emout = ...
+            em_out_many(samps,settings,0,1,Sxx,iSxx,false);
+        model_output.by_sample_est = ...
+            [model_output.by_sample_est ; emout.output_means];
+        model_output.sds_by_sample_est = ...
+            [model_output.sds_by_sample_est ; emout.output_sds];
+        
+        %% Print info and newline
         lag = min(50,size(samples,1)-startplot);
         vf_acf = acf(samples(startplot:ii+1,1),lag); 
         vf_acf = vf_acf(lag);
@@ -382,24 +404,29 @@ for ii = 1:M
     if mod(ii,10) == 0 && doplot == true
         fprintf(repmat('\b',1,msg));
         msg = fprintf('Completed: %g/%g\n',ii,M);
-        subplot(2,4,1);
+        subplot(3,4,1);
         plot(samples(startplot:end,1),'ko');
         title('Volume fraction');
-        subplot(2,4,2);
+        subplot(3,4,2);
         plot(samples(startplot:end,2),'ko');
         title('Thickness');
         for jj = 1:sum(size(delta_rec,2))
-            subplot(2,4,jj+2);
+            subplot(3,4,jj+2);
             plot(delta_rec(startplot:end,jj),'ko');
             title(['\delta: ' labs(jj,:)]);
         end
-        subplot(2,4,(sum(size(delta_rec,2))+3):8);
+        subplot(3,4,(sum(size(delta_rec,2))+3):8);
         plot(logit(samples(startplot:end,1)),...
             logit(samples(startplot:end,2)),'ko');
         hold on
         rr = mvnrnd(mean(logit(samples(startplot:end,:))),Sigma,250);
         plot(rr(:,1),rr(:,2),'r.');
         hold off
+        for jj = 1:size(model_output.by_sample_est,2)
+            subplot(3,4,8+jj)
+            plot(model_output.by_sample_est(startplot:end,jj),'ko');
+            title(output_labs(jj,:));
+        end
         drawnow
     end
     
@@ -420,6 +447,8 @@ results = struct('samples',samples,...
     'desired_obs',settings.desired_obs,...
     'post_mean_theta',mean(samples(settings.burn_in:end,:)),...
     'post_mean_delta_params',mean(delta_rec(settings.burn_in:end,:)),...
+    'Sigma_z_rcond',Sigma_z_rcond_rec,...
+    'model_output',model_output,...
     'settings',settings);
 
 end

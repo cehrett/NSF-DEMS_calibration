@@ -1,4 +1,5 @@
-function emout = em_out_many(samples,settings,n)
+function emout = em_out_many(samples,settings,...
+    n,burn_in,Sigma_xx,inv_Sigma_xx,verbose)
 % This function takes as input the results of an MCMC routine and returns
 % the output of the emulator at the locations drawn in the MCMC.
 % This function is a modified version of em_out. em_out is designed to find
@@ -6,10 +7,12 @@ function emout = em_out_many(samples,settings,n)
 % is designed to give the model output at many or all draws from the MCMC.
 % The parameter n gives the desired number of samples at which to find the
 % output. n instances will be taken from samples. To use all (post-burn in)
-% samples, set n=0.
+% samples, set n=0. Sigma_xx is the covariance of the simulator input
+% points, and should be included for computational convenience if known,
+% along with its inverse. If not known, set these values to 0.
 
 % Unpack variables for convenience
-burn_in = settings.burn_in;
+%burn_in = settings.burn_in;
 tdat.input = settings.sim_xt;
 tdat.output= settings.eta;
 tdat.output_sds = settings.output_sds;
@@ -44,7 +47,7 @@ num_out = sum(which_outputs);
 % Get prediction locations
 pred_locs = [obs_x repelem(samples,length(dum_vars),1) ];
 em = emulator(tdat.input,tdat.output,pred_locs,omega,rho,lambda,...
-    0,0,true);
+    Sigma_xx,inv_Sigma_xx,verbose);
 
 
 

@@ -75,7 +75,7 @@ load([dpath,'stored_data\'...
 samps = results.samples_os(results.settings.burn_in+2:end,:) ;
 outs =results.model_output.by_sample_est(results.settings.burn_in+2:end,:);
 hh = copyobj(h,0); hold on;
-scatter3(outs(:,1),outs(:,2),outs(:,3),30,'.m',...
+sc1=scatter3(outs(:,1),outs(:,2),outs(:,3),30,'.m',...
     'MarkerFaceColor','m');
 title('Posterior predictive distribution');
 
@@ -94,10 +94,10 @@ scatter3(outs(close_idx,1),outs(close_idx,2),outs(close_idx,3),30,'.b',...
 scatter3(outs(~close_idx,1),outs(~close_idx,2),outs(~close_idx,3),30,'.m',...
     'MarkerFaceColor','m');
 
-%%% Add code to turn the first figure in this section into a version for
-%%% the SCSC poster
-h.Position = [360.3333  197.6667  452.0000  259.3333];
-set(h,'Color',[251/255 244/255 245/255]);
+% %%% Add code to turn the first figure in this section into a version for
+% %%% the SCSC poster
+% h.Position = [360.3333  197.6667  452.0000  259.3333];
+% set(h,'Color',[251/255 244/255 245/255]);
 
 %% Get posterior scatterhist from calibration
 clc ; clearvars -except dpath ; close all ;
@@ -163,7 +163,7 @@ load([dpath,'stored_data\'...
 samps = results.samples_os(results.settings.burn_in+2:end,:) ;
 
 %%% Get the marginal plots
-h1 = figure('rend','painters','pos',[10 10 610 210]) ; 
+h1 = figure('rend','painters','pos',[10 10 610 160]) ; 
 subplot(1,2,1);
 histogram(samps(:,1), 'Normalization','pdf') ;
 xlim([0.2 0.6]);
@@ -181,7 +181,7 @@ plot([10 25], [unifval unifval],'--r','LineWidth',2);
 title('Thickness (mm)');
 
 %%% Save
-set(h1,'Color','w');
+set(h1,'Color','none');
 export_fig FIG_posterior_marginals_with_priors -png -m3;
 
 %% Get Pareto bands figure from cost_grid analysis using discrepancy
@@ -390,8 +390,80 @@ lg=legend(leg_gos,'Posterior predictive mean',...
     'Diagonal for reference',...
     'Location','northwest');
 lg.Position(1:2)=[.612 .6875];
+
+%%% Change to version for SCSC poster
+h.Position = [ 20 20 510 320];
+lg.String = {['Post. pred. mean'],...
+    ['C.I. w/o code' newline 'uncertainty'],...
+    ['Expanded C.I. w/' newline 'code uncertainty'],...
+    'Diagonal for ref.'};
+lg.Position = [0.635    0.597    0.2595    0.2089];
+set(h,'Color','none');
+export_fig FIG_cost_grid_pareto_bands -png -m3 -painters
+
     
 %%% Save
-set(h,'Color','white');
+% set(h,'Color','white');
 %export_fig FIG_cost_grid_pareto_bands -png -m3 -painters
 %saveas(h,'FIG_cost_grid_pareto_with_code_uncert.png');
+
+%% Compare prior predictive distribution to posterior predictive distributn
+clc ; clearvars -except dpath ; close all ;
+
+%%% Load prior predictive results
+load([dpath,'stored_data\'...
+    '2018-09-03_prior_pred_distrib'],...
+    'prior_pred_dist');
+prsamps = prior_pred_dist.prior_pred_pts;
+clear prior_pred_dist;
+
+%%% Load calib results
+load([dpath,'stored_data\'...
+    '2018-07-27_discrepancy_d-elbow_d-p2'],...
+    'results');
+posamps = results.model_output.by_sample_est;
+des_obs = results.settings.desired_obs;
+clear results; 
+
+%%% Make figure using histograms
+f=figure('pos',[10 10  580.0000  246.6667]);
+% Deflection
+subplot(1,3,1);
+histogram(posamps(:,1),'Normalization','pdf','Edgecolor','none'); 
+hold on;
+histogram(prsamps(:,1),'Normalization','pdf','Edgecolor','none');
+text(0.05,.9,...
+    'Deflection','VerticalAlignment','bottom','Units','normalized');
+text(1.715,102,'Rotation','VerticalAlignment','bottom');
+xlim([0.6 0.85]);
+ylim([0 110]);
+line([des_obs(1) des_obs(1)],ylim,'Color','black','Linestyle','--',...
+    'linewidth',2);
+% Rotation
+subplot(1,3,2);
+histogram(posamps(:,2),'Normalization','pdf','Edgecolor','none'); 
+hold on;
+histogram(prsamps(:,2),'Normalization','pdf','Edgecolor','none');
+text(0.05,.9,...
+    'Rotation','VerticalAlignment','bottom','Units','normalized');
+xlim([0.075,0.105])
+ylim([0 700]);
+line([des_obs(2) des_obs(2)],ylim,'Color','black','Linestyle','--',...
+    'linewidth',2);
+% Cost
+subplot(1,3,3);
+histogram(posamps(:,3),'Normalization','pdf','Edgecolor','none'); 
+hold on;
+histogram(prsamps(:,3),'Normalization','pdf','Edgecolor','none');
+text(0.05,.9,...
+    'Cost','VerticalAlignment','bottom','Units','normalized');
+ylim([0 .0700]);
+line([des_obs(3) des_obs(3)],ylim,'Color','black','Linestyle','--',...
+    'linewidth',2);
+% Add suptitle
+st=suptitle('Prior (red) and posterior (blue) predictive distributions');
+st.Position=[0.5 -.1 0];
+
+%%% Save
+set(f, 'Color','none');
+export_fig FIG_prior_vs_posterior_dist -png -m3 -painters

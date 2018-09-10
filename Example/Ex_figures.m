@@ -1741,6 +1741,15 @@ title(['Posterior \theta samples: desired obs. '...
 % saveas(h2,'FIG_post_theta_heatmap_desobs0_lambdadelta64i.png');
 % saveas(h3,'FIG_post_theta_heatmap_desobs0_lambdadelta1.png');
 
+%%% Turn last one into version for SCSC poster:
+title(['Posterior \theta samples']);
+% h3.Children(1).Position = h3.Children(1).Position + [0 0.11 0 -0.08];
+% h3.Children(2).Position = h3.Children(2).Position + [0.14 0 -0.1 0];
+set(h3,'Color','none');
+posc = h3.Children(4).Position;
+h3.Children(4).Position = posc + [-0.09 -0.07 0.09 0.07];
+export_fig FIG_post_theta_heatmap_desobs0_lambdadelta1 -png -m3 -painters;
+
 %% Show the distance of desired observation from the Pareto front
 % And show updated, closer desired observation
 clc ; clearvars -except dpath ; close all ;

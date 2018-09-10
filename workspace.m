@@ -72,33 +72,22 @@ rpath = [dpath,'stored_data\2018-08-28_discrepancy_d-elbow_d-p2_0errvar'];
 % Load results
 load(rpath)
 
-samps = results.samples;
-
 % Too big to do all in one go; so split the samples up
-samps0 = results.samples(1:results.settings.burn_in+1,:);
-samps1 = results.samples(results.settings.burn_in+2:8001,:);
-samps2 = results.samples(8002:12001,:);
-samps3 = results.samples(12002:16001,:);
-samps4 = results.samples(16002:end,:);
-% set burn_in to 1 since we already took it out
-settings = results.settings; settings.burn_in = 1;
-emout0 = em_out_many(samps0,settings,0);
-emout1 = em_out_many(samps1,settings,0);
-emout2 = em_out_many(samps2,settings,0);
-emout3 = em_out_many(samps3,settings,0);
-emout4 = em_out_many(samps4,settings,0);
-
-model_output.by_sample_est = [ emout0.output_means ; 
-    emout1.output_means ; 
-    emout2.output_means ; 
-    emout3.output_means ; 
-    emout4.output_means ] ;
-model_output.sds_by_sample_est = [ emout0.output_sds ; 
-    emout1.output_sds ; 
-    emout2.output_sds ; 
-    emout3.output_sds ; 
-    emout4.output_sds ] ;
-results.model_output = model_output ; 
+perit=2000; % num of samples to take per iteration of the loop
+extra=1; % used for indexing the samples
+settings = results.settings; settings.burn_in = 1; %remove burn-in
+model_output.by_sample_est = []; % create arrays to store results
+model_output.sds_by_sample_est = [];
+for ii = 1:round(size(results.samples,1)/perit)
+    samps = results.samples((ii-1)*perit+extra:ii*perit+1,:);
+    emout = em_out_many(samps,settings,0);
+    model_output.by_sample_est = ...
+        [model_output.by_sample_est ; emout.output_means ];
+    model_output.sds_by_sample_est = ...
+        [model_output.sds_by_sample_est ; emout.output_sds ];
+    extra=2; % This should be 2 for all except the first round
+end
+results.model_output = model_output;
 
 % Save the results
 save(rpath,...
@@ -163,14 +152,14 @@ load([dpath,'stored_data\'...
 % Get settings
 desired_obs = des_obs_new_os; %[ 0.7130 0.7144 17.9220 ] ; 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
-    'Discrepancy',true,'M',2e4,'ObsVar','Constant',...
+    'Discrepancy',true,'M',2e3,'Burn_in',.5,'ObsVar','Constant',...
     'LambdaDeltaInit',1/(.2^2));
 
 results = MCMC_discrepancy(settings);
 
-% save([dpath,'stored_data\'...
-%     '2018-07-27_discrepancy_d-elbow_d-p2'],...
-%     'results');
+load([dpath,'stored_data\'...
+    '2018-08-31_discrepancy_d-elbow_d-p2'],...
+    'results');
 
 %% Get mean output under prior and under posterior
 clc ; clearvars -except dpath ; close all ;
@@ -353,12 +342,157 @@ load([dpath,'stored_data\'...
 % Get settings
 desired_obs = des_obs_new_os; %[ 0.7130 0.7144 17.9220 ] ; 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
-    'Discrepancy',true,'M',2e4,'ObsVar','Constant',...
+    'Discrepancy',true,'M',1e3,'ObsVar','Constant',...
     'ObsVarLvl',0,...
     'LambdaDeltaInit',1/(.2^2));
 
 results = MCMC_discrepancy(settings);
 
 % load([dpath,'stored_data\'...
-%     '2018-08-28_discrepancy_d-elbow_d-p2_0errvar'],...
+%     '2018-08-30_discrepancy_d-elbow_d-p2_0errvar'],...
 %     'results');
+
+%% Compare the results with and without observation error
+clc ; clearvars -except dpath ; close all ;
+
+%%% load the results
+load([dpath,'stored_data\'...
+    '2018-08-30_discrepancy_d-elbow_d-p2'],...
+    'results');
+r0=results;
+load([dpath,'stored_data\'...
+    '2018-08-31_discrepancy_d-elbow_d-p2_0errvar_hugenug'],...
+    'results');
+r1=results;
+clear results;
+
+%%% Let's see about the conditioning of Sigma_z
+rcond0 = ...
+    [min(r0.Sigma_z_rcond) mean(r0.Sigma_z_rcond) max(r0.Sigma_z_rcond)];
+rcond1 = ...
+    [min(r1.Sigma_z_rcond) mean(r1.Sigma_z_rcond) max(r1.Sigma_z_rcond)];
+disp(rcond0);
+disp(rcond1);
+
+%%% Let's see the posterior predictive means
+ppmean0 = mean(r0.model_output.by_sample_est);
+ppmean1 = mean(r1.model_output.by_sample_est);
+disp(ppmean0);
+disp(ppmean1);
+
+%%% Take a look at posterior distributions of theta
+samps = [ r0.samples_os(r0.settings.burn_in+2:end,:) ; 
+    r1.samples_os(r1.settings.burn_in+2:end,:) ] ;
+sampgroups = cell(...
+    size(r0.samples_os(r0.settings.burn_in+2:end,:),1) + ...
+    size(r1.samples_os(r1.settings.burn_in+2:end,:),1),1) ; 
+sampgroups(1:size(r0.samples_os(r0.settings.burn_in+2:end,:),1)) = ...
+    {'Nugget = 0.005'};
+sampgroups(size(r0.samples_os(r0.settings.burn_in+2:end,:),1)+1:end) = ...
+    {'Nugget = 0.5'};
+scatterhist(samps(:,1),samps(:,2),'Group',sampgroups,'Kernel','on');
+
+
+%%% Now, look at the posterior predictive distributions
+%%%% Load the preliminary CDO
+load([dpath,'stored_data\'...
+    '2018-07-25_discrepancy_d0'],...
+    'results');
+n=700;
+burn_in = results.settings.burn_in;
+eouts = results.model_output.by_sample_est(burn_in:burn_in+n,:);
+%%%% Estimate the PF
+[PF_os, PFidx] = nondominated(eouts) ; 
+des_obs_new_os = r0.settings.desired_obs;
+%%%% Take a look
+h=figure();
+sc=scatter3(eouts(:,1),eouts(:,2),eouts(:,3),'g','MarkerEdgeAlpha',1,...
+    'MarkerFaceAlpha',.2,'MarkerFaceColor','g');
+hold on;
+scatter3(PF_os(:,1),PF_os(:,2),PF_os(:,3),'b','MarkerFaceColor','b',...
+    'MarkerEdgeAlpha',.8,'MarkerFaceAlpha',.2)   ;
+% scatter3(orig_des_obs(1),orig_des_obs(2),orig_des_obs(3))          ;
+% line([orig_des_obs(1) PF_os(i,1)], [orig_des_obs(2) PF_os(i,2)], ...
+%     [orig_des_obs(3) PF_os(i,3)])                                  ;
+scatter3(des_obs_new_os(1),des_obs_new_os(2),des_obs_new_os(3),'r',...
+    'MarkerFaceColor','r');
+h.CurrentAxes.View = [-3.9333   10.5333] ; 
+% [-5.0000    5.2000];% [ 63 10] ;%[-8.4333 17.7333] ; 
+title('Estimated Pareto front with desired observation');
+xlabel('Deflection');ylabel('Rotation');zlabel('Cost');
+%%%% Add the posterior predictive distributions
+routs0=r0.model_output.by_sample_est(r0.settings.burn_in+2:end,:);
+routs1=r1.model_output.by_sample_est(r1.settings.burn_in+2:end,:);
+scatter3(routs0(:,1),routs0(:,2),routs0(:,3),30,'.b',...
+    'MarkerFaceColor','b');
+scatter3(routs1(:,1),routs1(:,2),routs1(:,3),30,'.m',...
+    'MarkerFaceColor','m');
+
+%% Try calibration with 0 observation error but larger nugsize
+clc ; clearvars -except dpath ; close all ; 
+
+%%% Load raw data and desired observation
+load([dpath,'stored_data\'...
+    'raw_dat']);
+sim_x = raw_dat(:,1);
+sim_t = raw_dat(:,2:3);
+sim_y = raw_dat(:,4:6);
+clear raw_dat;
+load([dpath,'stored_data\'...
+    '2018-07-26_elbow_des_obs_d-p2']);
+
+% Get settings
+desired_obs = des_obs_new_os; %[ 0.7130 0.7144 17.9220 ] ; 
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e3,'Burn_in',.5,'ObsVar','Constant',...
+    'ObsVarLvl',0,...
+    'LambdaDeltaInit',1/(.2^2));
+settings.nugsize = @(Covmat)5e-1;
+
+results = MCMC_discrepancy(settings);
+
+% load([dpath,'stored_data\'...
+%     '2018-08-31_discrepancy_d-elbow_d-p2_0errvar_hugenug'],...
+%     'results');
+
+%% Get prior predictive distribution
+clc ; clearvars -except dpath ; close all ;
+
+%%% Get sample of calib params under the prior (uniform)
+M=2e4;
+theta_vals = rand(M,2);
+% Don't need to transform to real scale, because the emulator works on
+% normalized scale
+
+%%% Get settings for convenience, because emulator uses them
+% Load raw data
+load([dpath,'stored_data\'...
+    'raw_dat']);
+sim_x = raw_dat(:,1);
+sim_t = raw_dat(:,2:3);
+sim_y = raw_dat(:,4:6);
+clear raw_dat;
+% Get settings
+desired_obs = [0 0 0 ];
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y);
+settings.burn_in = 1; % Since we want preds at all points
+
+%%% Perform the emulation in loops, because it's too many samps for one go
+n=10;
+prior_pred_pts = []; prior_pred_sds = []; % Collect results
+for ii = 1:n
+    fprintf('\n Step %g/%g:\n',ii,n);
+    samps = theta_vals((ii-1)*(M/n)+1:ii*(M/n),:);
+    emout = em_out_many(samps,settings,0,1,0,0,true);
+    prior_pred_pts = [prior_pred_pts ; emout.output_means ] ;
+    prior_pred_sds = [prior_pred_sds ; emout.output_sds   ] ;
+end
+
+% Pack up
+prior_pred_dist.prior_pred_pts = prior_pred_pts;
+prior_pred_dist.prior_pred_sds = prior_pred_sds;
+
+load([dpath,'stored_data\'...
+    '2018-09-03_prior_pred_distrib'],...
+    'prior_pred_dist');
+
