@@ -42,13 +42,17 @@ lambda                  = settings.lambda;
 omega_delta             = settings.omega_delta_init;
 lambda_delta            = settings.lambda_delta_init;
 sigma2_prop_density     = settings.proposal.sigma2_prop_density ;
-Sigma_sig               = settings.proposal.Sigma_sig ; %pv for sigma2
+Sigma_sig               = settings.proposal.Sigma_sig ; % proposal variance
+                                                        % for sigma2
 omega_prop_density      = settings.proposal.omega_prop_density;
 lambda_prop_density     = settings.proposal.lambda_prop_density;
-prop_density            = settings.proposal.density ; %prop for theta
-Sigma                   = settings.proposal.Sigma;    %pv for theta
-Sigma_od                = settings.proposal.Sigma_od; %pv for omega_delta
-Sigma_ld                = settings.proposal.Sigma_ld; %pv for lambda_delta
+prop_density            = settings.proposal.density;  % proposal for theta
+Sigma                   = settings.proposal.Sigma;    % proposal variance
+                                                      % for theta
+Sigma_od                = settings.proposal.Sigma_od; % proposal variance
+                                                      % for omega_delta
+Sigma_ld                = settings.proposal.Sigma_ld; % proposal variance 
+                                                      % for lambda_delta
 log_mh_correction_od    = settings.proposal.log_mh_correction_od;
 log_mh_correction_ld    = settings.proposal.log_mh_correction_ld;
 nugsize                 = settings.nugsize; 
@@ -63,9 +67,6 @@ y_means                 = settings.output_means';
 y_sds                   = settings.output_sds';
 theta_ranges            = settings.input_calib_ranges;
 theta_mins              = settings.input_calib_mins;
-%X%sigma2_divs            = settings.init_sigma2_divs;
-%X%sigma2_weights         =[sigma2_divs(1) sigma2_divs(2)-sigma2_divs(1)...
-%X%    1-sigma2_divs(2) ] ;
 
 
 %% Set plot label values
@@ -87,30 +88,32 @@ end
 cutoff = 40;
 
 %% Get some values and transformations to use later
-num_cntrl = size(obs_x,2) ;
-num_calib = length(init_theta) ;
-n = size(obs_x,1);
-num_obs = n/num_out; % Gets number of multivariate observations.
-m = size(eta,1);
-z = [y] ; 
+num_cntrl   = size(obs_x,2) ;
+num_calib   = length(init_theta) ;
+n           = size(obs_x,1);
+num_obs     = n/num_out; % Gets number of multivariate observations.
+m           = size(eta,1);
+z           = [y] ; 
 % Now make sigma2 into a covariance matrix:
 sigma2_long = repelem(sigma2,num_obs);
-Sigma_y = diag(sigma2_long);
+Sigma_y     = diag(sigma2_long);
 
 %% Initialize some variables for later use
 out_of_range_rec = zeros(size(init_theta))    ; 
 reject_rec       = 0                          ;
 startplot        = 10                         ;
 accepted         = 0                          ;
-accepted_sig     = 0                          ; % sigma2 accepted
-accepted_od      = 0                          ; % omega_delta accepted
-accepted_ld      = 0                          ; % lambda_delta accepted
+accepted_sig     = 0                          ; % # sigma2 accepted
+accepted_od      = 0                          ; % # omega_delta accepted
+accepted_ld      = 0                          ; % # lambda_delta accepted
 theta            = init_theta                 ;
 msg              = 0                          ;
 samples          = init_theta                 ;
 delta_rec        = [omega_delta lambda_delta] ;
 out_of_range_sig = zeros(1,num_out)           ;
-mult             = 5                          ; % multiplier, prop dens
+% The following multipliers are used for the adaptive covariances of the
+% proposal density functions.
+mult             = 5                          ; % multiplier for prop dens
 mult_od          = 5                          ; % mult for pd of om_del
 mult_ld          = 5                          ; % mult for pd of lam_dl
 

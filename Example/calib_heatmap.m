@@ -123,7 +123,7 @@ if ~isequal(post_theta,0) % ie if posterior draws were supplied
 end
 
 %% Now put the true optimum on there
-p=plot(optim(1),optim(2),'ok','MarkerSize',7,'MarkerFaceColor','m',...
-    'LineWidth',2);
+% p=plot(optim(1),optim(2),'ok','MarkerSize',7,'MarkerFaceColor','m',...
+%     'LineWidth',2);
 
 end

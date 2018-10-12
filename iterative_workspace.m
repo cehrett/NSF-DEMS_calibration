@@ -16,7 +16,7 @@ addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
 addpath([dpath,'Example\Ex_results']);
 
-%% Perform 2-step calibration on toy sim example
+%% Perform 3-step calibration on toy sim example
 clc ; clearvars -except dpath ; close all ;
 
 % Load data
@@ -72,7 +72,68 @@ results.model_output.by_sample_true = ...
 all_results{3}=results;
 
 % save results
-% save([dpath,'Example\Ex_results\'...
-%     '2018-09-10_iterative_calibration'],...
-%     'all_results');
+save([dpath,'Example\Ex_results\'...
+    '2018-09-12_iterative_calibration'],...
+    'all_results');
 
+%% Perform 3-step calibration on wind turbine application
+clc ; clearvars -except dpath ; close all ;
+
+% set desired observation:
+desired_obs = [ 0.6592 0.0774 98.7759 ]; % This is bottom of model ranges
+
+%%% Load raw data and desired observation
+load([dpath,'stored_data\'...
+    'raw_dat']);
+sim_x = raw_dat(:,1);
+sim_t = raw_dat(:,2:3);
+sim_y = raw_dat(:,4:6);
+clear raw_dat;
+load([dpath,'stored_data\'...
+    '2018-07-26_elbow_des_obs_d-p2']);
+
+% Set up containers
+all_results=cell(3,1);
+
+% Get settings
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e4,'Burn_in',.5,'ObsVar','Constant',...
+    'LambdaDeltaInit',1/(5.781^2));
+% The distance here comes from an estimate of the pareto front and the
+% resulting estimated distance from the selected desired_obs.
+
+%%% Perform round 1 calibration
+results = MCMC_discrepancy(settings);
+
+all_results{1} = results; 
+
+% Get new desired observation and lambda_delta
+[new_des_obs new_lambda_delta] = update_des_obs(results,desired_obs);
+
+% Get round 2 settings
+settings = MCMC_settings(new_des_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e4,'ObsVar','Constant',...
+    'LambdaDeltaInit',new_lambda_delta);
+
+%%% Round 2 calibration
+results = MCMC_discrepancy(settings);
+
+all_results{2} = results;
+
+% Get new desired observation and lambda_delta
+[new_des_obs new_lambda_delta] = update_des_obs(results,desired_obs);
+
+% Get round 3 settings
+settings = MCMC_settings(new_des_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',true,'M',2e4,'ObsVar','Constant',...
+    'LambdaDeltaInit',new_lambda_delta);
+
+%%% Round 3 calibration
+results = MCMC_discrepancy(settings);
+
+all_results{3} = results;
+
+% save results
+% load([dpath,'stored_data\'...
+%     '2018-09-12_iterative_calibration'],...
+%     'all_results');

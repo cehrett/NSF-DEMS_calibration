@@ -746,7 +746,6 @@ plot3(des_obs_new_os(3),des_obs_new_os(1),des_obs_new_os(2),'go');
 % Also use intelligently chosen desired observation that is the specified
 % distance from the estimated pareto front. That des obs is found elsewhere
 clc ; clearvars -except dpath ; close all; 
-
 % Load data
 load([dpath,'Example\Ex_results\'...
 '2018-05-28-raw_dat-3-12-12']);
@@ -769,7 +768,6 @@ settings.proposal.log_mh_correction_ld = @(ld_s,ld) 0 ;
 results = MCMC_discrepancy_true_fn(settings);
 results.model_output.by_sample_true = ...
     Ex_sim([2*ones(size(results.samples,1),1) results.samples_os]);
-
 
 % save([dpath,'Example\Ex_results\'...
 %     '2018-07-12_discrepancy_true_fn_set_lambda_delta_1-64'],...
