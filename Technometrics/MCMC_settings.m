@@ -6,85 +6,113 @@ function settings = MCMC_settings (desired_obs,num_cntrl_wod,num_cal,...
 % 
 % Parameter/Value pairs:
 % 'M':
-%   Number of samples to draw in the MCMC, includes burn-in. Default: 1e4.
+%   Number of samples to draw in the MCMC, includes burn-in. Default: 2e4.
+%
 % 'burn_in':
 %   Proportion of samples to treat as burn-in. Default: 1/5.
+%
 % 'ObsVar':
-%   'RefPrior' - (Default) Puts independent 1/sigma^2 prior on each obs var
-%                          for each of the outputs.
+%   'RefPrior' - Puts independent 1/sigma^2 prior on each obs var
+%                for each of the outputs.
 %   'STOV'     - Uses set total observation variance. Default 10.
-%   'Constant' - Uses constant observation variance. Default 0.05.
+%   'Constant' - (Default) Uses constant observation var. Default 0.05.
+%
 % 'ObsVarLvl':
 %   Scalar value which gives the variance of the (constant) observation
 %   error. Only used in conjunction with option ObsVar set to 'Constant'.
 %   Default: 0.05.
+%
 % 'Cost_lambda':
 %   false      - (Default) does not place informative prior on vf, thk.
 %   true       - Places exp(-||(vf,thk)||^2) prior on vf, thk.
+%
 % 'which_outputs':
 %   Row vector of 0/1 values indicating which of the outputs are to be
 %   used. Default is to use all inputs.
+%
 % 'Rho_lam_optimum':
-%   Row vector: [omega rho lambda]. Default is:
+%   Hyperparameters of gaussian process emulator (if used). Row vector: 
+%   [omega rho lambda]. Default is:
 %               [   0.280981573480363   0.999189406633873...
 %               0.600440750045477  0.719652153362981   0.102809702497319...
 %               0.000837772517865 ]. If set to 0, then ML estimation via
-%   gradient descent is used to find appropriate values.
+%   fmincon is used to find appropriate values.
+%
 % 'Discrepancy':
-%   false      - (Default) No discrepancy function is used.
-%   true       - Discrepancy function is used.
+%   false      - No discrepancy function is used.
+%   true       - (Default) Discrepancy function is used.
+%
 % 'DiscMargPrecProp':
 %   Function of two inputs which serves as the proposal density for the
 %   marginal precision on the discrepancy function. Default: identity
-%   function on input 1. Also popular: @(x,s) exp(mvnrnd(log(x),s)).
+%   function on input 1. (This corresponds to a degenerate prior constant 
+%   at the initial value of the marginal precision. Also popular: 
+%   @(x,s) exp(mvnrnd(log(x),s)).
+%
 % 'DiscMargPrecLogMHCorr':
 %   Function of two inputs which serves as the log Metropolis-Hastings
 %   correction factor for calculating the acceptance ratio in MCMC.
 %   Default: constant zero function. If using the proposal function given
 %   by @(x,s) exp(mvnrnd(log(x),s)), then use:
 %   @(sig_s,sig)log(prod(sig_s))-log(prod(sig))
+%
 % 'LambdaDeltaInit':
 %   Initial value for lambda_delta, the marginal precision for the
 %   discrepancy function. Default: 1. Also popular: gamrnd(1,1).
+%
 % 'sim_x':
 %   Control inputs for computer model observations, in case a GP emulator
 %   of the computer model is to be built on the basis of those
 %   observations.
+%
 % 'sim_t':
 %   Calibration inputs for computer model observations, in case a GP
 %   emulator of the computer model is to be built on the basis of those
 %   observations.
+%
 % 'sim_y':
 %   Computer model outputs at locations specified by sim_x and sim_t, in
 %   case a GP emulator of the computer model is to be built on the basis of
 %   these observations.
+%
 % 'input_cntrl_mins':
 %   Minima of control inputs, used for normalizing inputs. If computer
 %   model observations are provided for building a GP, then this value is
 %   estimated from those observations (this is the default).
+%
 % 'input_calib_mins':
 %   Minima of calibration inputs, used for normalizing inputs. If computer
 %   model observations are provided for building a GP, then this value is
 %   estimated from those observations (this is the default).
+%
 % 'input_cntrl_ranges':
 %   Ranges of control inputs, used for normalizing inputs. If computer
 %   model observations are provided for building a GP, then this value is
 %   estimated from those observations (this is the default).
+%
 % 'input_calib_mins':
 %   Ranges of calibration inputs, used for normalizing inputs. If computer
 %   model observations are provided for building a GP, then this value is
 %   estimated from those observations (this is the default).
+%
 % 'output_means':
 %   Means of model outputs, used for standardizing outputs. If computer
 %   model observations are provided for building a GP, then this value is
 %   estimated from those observations (this is the default).
+%
 % 'output_sds':
 %   Stardard devs of outputs, used for standardizing outputs. If computer
 %   model observations are provided for building a GP, then this value is
 %   estimated from those observations (this is the default).
+%
 % 'doplot':
 %   true       - (Default) Update scatterplot every ten draws.
 %   false      - No plots during MCMC.
+%
+% 'cntrl_input':
+%   Vector or matrix of control input settings, on the normalized scale, 
+%   at which desired observation is to be "observed". Default: [0 .5 1].
+%
 
 %% Parse inputs
 p = inputParser;
@@ -92,30 +120,31 @@ p.addRequired('desired_obs',@ismatrix);
 p.addRequired('num_cntrl_wod',@isscalar);
 p.addRequired('num_cal',@isscalar);
 p.addRequired('num_out',@isscalar);
-p.addParameter('sim_x',[nan],@ismatrix);
-p.addParameter('sim_t',[nan],@ismatrix);
-p.addParameter('sim_y',[nan],@ismatrix);
-p.addParameter('M',1e4,@isscalar);
+p.addParameter('sim_x',nan,@ismatrix);
+p.addParameter('sim_t',nan,@ismatrix);
+p.addParameter('sim_y',nan,@ismatrix);
+p.addParameter('M',2e4,@isscalar);
 p.addParameter('burn_in',1/5,@(x) x>0 && x<1);
-p.addParameter('ObsVar','RefPrior',@isstr);
+p.addParameter('ObsVar','Constant',@isstr);
 p.addParameter('Cost_lambda',0,@isscalar);
 p.addParameter('which_outputs',ones(size(desired_obs)),@ismatrix);
 p.addParameter('Rho_lam_optimum',...
         [0 999],... 
         @ismatrix);
-p.addParameter('Discrepancy',false,@islogical);
+p.addParameter('Discrepancy',true,@islogical);
 p.addParameter('doplot',true,@islogical);
 p.addParameter('DiscMargPrecProp',@(x,s)x,@(x)isa(x,'function_handle'));
 p.addParameter(...
     'DiscMargPrecLogMHCorr',@(x,y)0,@(x)isa(x,'function_handle'));
 p.addParameter('LambdaDeltaInit',1,@isscalar);
 p.addParameter('ObsVarLvl',0.05,@isscalar);
-p.addParameter('input_cntrl_mins',[nan],@ismatrix);
-p.addParameter('input_calib_mins',[nan],@ismatrix);
-p.addParameter('input_cntrl_ranges',[nan],@ismatrix);
-p.addParameter('input_calib_ranges',[nan],@ismatrix);
-p.addParameter('output_means',[nan],@ismatrix);
-p.addParameter('output_sds',[nan],@ismatrix);
+p.addParameter('input_cntrl_mins',nan,@ismatrix);
+p.addParameter('input_calib_mins',nan,@ismatrix);
+p.addParameter('input_cntrl_ranges',nan,@ismatrix);
+p.addParameter('input_calib_ranges',nan,@ismatrix);
+p.addParameter('output_means',nan,@ismatrix);
+p.addParameter('output_sds',nan,@ismatrix);
+p.addParameter('cntrl_input',[0 0.5 1],@ismatrix);
 p.parse(desired_obs,num_cntrl_wod,num_cal,num_out,varargin{:});
 
 %% Collect inputs
@@ -134,9 +163,12 @@ doplot               = p.Results.doplot;
 input_cntrl_mins     = p.Results.input_cntrl_mins;
 input_cntrl_ranges   = p.Results.input_cntrl_ranges;
 input_calib_mins     = p.Results.input_calib_mins;
-input_cntrl_ranges   = p.Results.input_calib_ranges;
+input_calib_ranges   = p.Results.input_calib_ranges;
 output_means         = p.Results.output_means;
 output_sds           = p.Results.output_sds;
+sim_x                = p.Results.sim_x;
+sim_t                = p.Results.sim_t;
+sim_y                = p.Results.sim_y;
 
 %% Set Rho_lam_optimum and output reminder
 % Note that Rho_lam_optimum gives the hyperparameters for the GP emulator,
@@ -303,21 +335,39 @@ if ~all(isnan(raw_dat(:)))
     % Assuming uniform prior for theta: find LB,UB and rescale them
     LB = (LB - sim_calib_input_mins)./sim_calib_input_ranges ;
     UB = (UB - sim_calib_input_mins)./sim_calib_input_ranges ;    
+    
+    % Prepare field observations, control settings, and variance for MCMC
+    % First, must standardize them to the same scale as the simulation
+    % observations.
+    y = (desired_obs - sim_output_means) ./ sim_output_sds ;
+    % Now, pair these standardized observations with appropriate control
+    % settings. Notice we are here assuming only one field observation,
+    % constant across control settings (other than dummy variable).
+    obs_x = unique(tdat.input(:,1:num_cntrl),'rows','stable');
+    y = repelem(y,size(obs_x,1)/length(y))' ;
+    % Get values needed to normalize inputs and standardize outputs:
+    output_means = tdat.output_means;
+    output_sds = tdat.output_sds ;
+    input_cntrl_mins = min(sim_x);
+    input_calib_mins = min(sim_t);
+    input_cntrl_ranges = range(sim_x);
+    input_calib_ranges = range(sim_t);
+else
+    sim_xt = [sim_x sim_t] ; 
+    eta = sim_y ; 
+    obs_x = linspace(0,1,3) ; % desired observation will be "observed" at
+                              % the edges and center of the cntrl input dmn
+    dum_mat = [ eye(num_out - 1) ; zeros(1, num_out -1 ) ] ; % dummy vars
+    if num_out > 1
+        dum_mat = repelem(dum_mat,length(obs_x),1);
+        obs_x = [dum_mat repmat(obs_x',num_out,1)];
+    end
+    y = (desired_obs(:) - output_means) ./ output_sds ;
+    y = repelem(y(:),3,1);
 end
 
 %% Get initial theta val
 init_theta = rand(1,num_cal) 
-
-%% Prepare field observations, control settings, and variance for MCMC
-% First, we must standardize them to be on the same scale as the simulation
-% observations.
-y = (desired_obs - sim_output_means) ./ sim_output_sds ;
-% Now, pair these standardized observations with appropriate control
-% settings. Notice that we are here assuming only one field observation,
-% which is constant across control settings (other than dummy variable).
-obs_x = unique(tdat.input(:,1:num_cntrl),'rows','stable');
-y = repelem(y,size(obs_x,1)/length(y))' ;
-
 
 %% Set uniform prior for theta
 out_of_range = @(theta) theta < LB | theta > UB ; 
@@ -349,16 +399,16 @@ settings = struct(...
     'nugsize',nugsize,...
     'log_sig_mh_correction',log_sig_mh_correction,...
     'log_mh_correction',log_mh_correction,...
-    'input_cntrl_mins',min(sim_x),...
-    'input_calib_mins',min(sim_t),...
-    'input_cntrl_ranges',range(sim_x),...
-    'input_calib_ranges',range(sim_t),...
-    'output_sds',tdat.output_sds,...
-    'output_means',tdat.output_means,...
+    'input_cntrl_mins',input_cntrl_mins,...
+    'input_calib_mins',input_calib_mins,...
+    'input_cntrl_ranges',input_cntrl_ranges,...
+    'input_calib_ranges',input_calib_ranges,...
+    'output_sds',output_sds,...
+    'output_means',output_means,...
     'log_theta_prior',log_theta_prior,...
     'Cost_lambda',Cost_lambda,...
     'which_outputs',which_outputs,...
     'desired_obs',desired_obs,...
-    'doplot',true);
+    'doplot',doplot);
 
 end

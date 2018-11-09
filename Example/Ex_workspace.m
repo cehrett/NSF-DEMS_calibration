@@ -684,7 +684,7 @@ clc ; clearvars -except dpath ; close all ;
 des_obs = [ 0 0 0 ];
 
 % Set desired distance from Pareto front for new des obs found below
-spec_dist = 1;
+spec_dist = .5;
 
 %%% Get points estimating the PF
 % Use results from set total observation variance method:
