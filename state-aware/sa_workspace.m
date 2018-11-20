@@ -98,7 +98,7 @@ clc ; clearvars -except dpath ; close all ;
 
 % Load relevant calibration results
 results_path = [dpath,'state-aware\state-aware_results\'...
-    '2018-11-08_non-sa_true_fn_ld1_x23'] ;
+    '2018-11-08_sa_true_fn_ld1_t1calib_x23'] ;
 load(results_path,'results');
 
 % Extract relevant inputs
@@ -192,7 +192,7 @@ desired_obs = results.settings.desired_obs;
 
 % Load state-aware calibration results, t1 as state-aware
 load([dpath,'state-aware\state-aware_results\'...
-    '2018-12-08_sa_true_fn_ld1_t1calib_x23'],...
+    '2018-11-08_sa_true_fn_ld1_t1calib_x23'],...
     'results');
 results_sat1 = results;
 clear results;
@@ -418,7 +418,7 @@ clc ; clearvars -except dpath ; close all ;
 desired_obs = [ 0.7587    0.6479   19.1066 ] ; % ~ dist 1 from est PF
 output_mean = [ 0.9291    0.7182   21.0030 ] ;
 output_sd   = [ 0.0550    0.0913    3.2004 ] ; 
-lambda_delta = 1; % Est distance of desired_obs from Pareto front
+lambda_delta = 1; % 1/(Est distance of desired_obs from Pareto front)^2
 cntrl_input = linspace(0,1,8); % Control input is on normalized scale
 
 % Get settings
@@ -438,6 +438,7 @@ mean(results.lambda_theta(results.settings.burn_in+1:end))
 mean(exp(-exp(results.nu_delta(results.settings.burn_in+1:end,:))))
 
 % Save results
-save([dpath,'state-aware\state-aware_results\'...
-    '2018-11-08_sa_true_fn_ld1_t1calib_x23'],...
-    'results');
+% save([dpath,'state-aware\state-aware_results\'...
+%     '2018-11-08_sa_true_fn_ld1_t1calib_x23'],...
+%     'results');
+

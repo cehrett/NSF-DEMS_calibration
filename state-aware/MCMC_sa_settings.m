@@ -110,10 +110,10 @@ p.addParameter('nugget',0.05,@isscalar);
 p.addParameter('mu_theta',0.5,@ismatrix);
 p.addParameter('dim_theta1',1,@isscalar);
 p.addParameter('dim_theta2',1,@isscalar);
-p.addParameter('lambda_theta_hypers',[0.1 0.1],@isscalar);
+p.addParameter('lambda_theta_hypers',[0.1 0.1],@ismatrix);
 p.addParameter('Sigma_xi',1,@ismatrix);
 p.addParameter('Sigma_nu_theta',1,@ismatrix);
-p.addParameter('Sigma_nu_delta',eye(3),@ismatrix);
+p.addParameter('Sigma_nu_delta',1,@ismatrix);
 p.addParameter('nu_theta_prior_param',0.4,@isscalar);
 p.addParameter('nu_delta_prior_param',40,@isscalar);
 p.addParameter('eta',@Ex_sim_compwise);
@@ -154,6 +154,7 @@ which_sa             = p.Results.which_sa;
 
 % Infer useful values
 num_out = length(desired_obs) ; 
+dim_cntrl = size(cntrl_input,1);
 
 % Create xx, the control inputs including dummy variables
 xx = repmat(cntrl_input(:),num_out,1);
@@ -166,6 +167,11 @@ end
 % If default Sigma_xi used, make its dim match that of xi
 if Sigma_xi == 1
     Sigma_xi = eye(dim_theta2);
+end
+
+% If default Sigma_nu_delta used, make its dim correct
+if Sigma_nu_delta == 1
+    Sigma_nu_delta = eye(dim_cntrl + num_out - 1);
 end
 
 % Pack up and leave

@@ -55,10 +55,6 @@ nu_theta_draws(1,:)     = log(-log(rho_theta_init));
 lambda_theta_draws(1,:) = gamrnd(25,1/25) ;
 rho_delta_init          = betarnd(1,c_delta,size(xx,2),1) ; 
 nu_delta_draws(1,:)     = log(-log(rho_delta_init));
-% % DEBUG
-%     disp('HEY');
-%     nu_delta_draws(1,1:2) = 5 ; % DEBUG
-    % DEBUG
 
 %% Get initial covariance matrices
 % Although gp_cov accepts lambda as an input, here we give it lambda=1, so
@@ -152,7 +148,7 @@ for ii = 2:M
                   input_calib_min,input_calib_range,...
                   output_mean,output_sd,which_sa)',...
                 Sigma + R_delta / lambda_delta);
-            logL_SA_s = logmvnpdf( link_fn(theta1_draws(ii-1,:)),...
+            logL_SA_s = logmvnpdf( link_fn(theta1_s'),...
                 mu_theta,...
                 R_nu / lambda_theta_draws(ii-1));
             logL_theta1_s = logL_eta_s + logL_SA_s; %log-L of theta1_s
@@ -204,31 +200,33 @@ for ii = 2:M
             (b_theta + theta1_mmu(:)' *inv(R_nu)* theta1_mmu(:) / 2)^(-1));
         
     end % end of if statement: if dim_theta1 > 0
-        
-    %% Draw xi
-    % Sample from proposal density:
-    xi_s = mvnrnd(xi_draws(ii-1,:),mult_xi * Sigma_xi) ; 
     
-    % Now find whether to accept or reject xi_s
-    logL_xi = logL_eta + logL_prior_xi; % log-likelihood of xi
-    
-    logL_eta_s = logmvnpdf( y',...
-        eta(xx,theta1_draws(ii,:),exp(-exp(xi_s)),...
-          input_cntrl_min,input_cntrl_range,...
-          input_calib_min,input_calib_range,...
-          output_mean,output_sd,which_sa)',...
-        Sigma + R_delta / lambda_delta) ;
-    logL_prior_xi_s = sum(xi_s) - sum(exp(xi_s));
-    logL_xi_s = logL_eta_s + logL_prior_xi_s; % log-likelihood of xi_s
-    
-    log_alpha = logL_xi_s - logL_xi ; % log acceptance probability
-    if log(rand) < log_alpha % if proposal is accepted
-        accepted_xi = accepted_xi + 1 ;
-        xi_draws(ii,:) = xi_s ; 
-        logL_eta = logL_eta_s ;
-        logL_prior_xi = logL_prior_xi_s ;
-    else
-        xi_draws(ii,:) = xi_draws(ii-1,:);
+    if dim_theta2 > 0
+        %% Draw xi
+        % Sample from proposal density:
+        xi_s = mvnrnd(xi_draws(ii-1,:),mult_xi * Sigma_xi) ; 
+
+        % Now find whether to accept or reject xi_s
+        logL_xi = logL_eta + logL_prior_xi; % log-likelihood of xi
+
+        logL_eta_s = logmvnpdf( y',...
+            eta(xx,theta1_draws(ii,:),exp(-exp(xi_s)),...
+              input_cntrl_min,input_cntrl_range,...
+              input_calib_min,input_calib_range,...
+              output_mean,output_sd,which_sa)',...
+            Sigma + R_delta / lambda_delta) ;
+        logL_prior_xi_s = sum(xi_s) - sum(exp(xi_s));
+        logL_xi_s = logL_eta_s + logL_prior_xi_s; % log-likelihood of xi_s
+
+        log_alpha = logL_xi_s - logL_xi ; % log acceptance probability
+        if log(rand) < log_alpha % if proposal is accepted
+            accepted_xi = accepted_xi + 1 ;
+            xi_draws(ii,:) = xi_s ; 
+            logL_eta = logL_eta_s ;
+            logL_prior_xi = logL_prior_xi_s ;
+        else
+            xi_draws(ii,:) = xi_draws(ii-1,:);
+        end
     end
     
     %% Draw nu_delta
