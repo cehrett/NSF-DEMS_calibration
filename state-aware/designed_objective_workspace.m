@@ -61,7 +61,9 @@ settings = MCMC_sa_settings(desired_obs,lambda_delta,cntrl_input,...
     'output_mean',output_mean,'output_sd',output_sd,...
     'nu_theta_prior_param',100,...
     'nu_delta_prior_param',100,...
-    'lambda_theta_hypers',[1, 1]);
+    'lambda_theta_hypers',[1, 1],...
+    'M',4e4,...
+    'burn_in',1/4);
 
 % Perform calibration
 results = MCMC_state_aware_discrep_true_fn ( settings ) ;
@@ -76,3 +78,20 @@ plot(linspace(2,3,8),res,'bo-'); hold on ; plot(linspace(2,3,8),truth) ;
 % save([dpath,'state-aware\state-aware_results\'...
 %     '2018-11-16_sa_univariate_system'],...
 %     'results');
+
+%% Examine marginal posteriors of theta1 at grid of control settings
+burn_in = results.settings.burn_in;
+cal_rng = results.settings.input_calib_range;
+cal_min = results.settings.input_calib_min;
+
+samps = results.theta1(burn_in:end,:) * cal_rng + cal_min;
+meantheta = mean(samps);
+truetheta = 4/3 * (linspace(2,3,8)-1);
+for ii=1:size(samps,2)
+    subplot(2,4,ii);
+    ksdensity(samps(:,ii));
+    xlim([0.5,4]);ylim([0,1.5]);
+    hold on;
+    plot([meantheta(ii) meantheta(ii)],get(gca,'YLim'));
+    plot([truetheta(ii) truetheta(ii)],get(gca,'YLim'));
+end
