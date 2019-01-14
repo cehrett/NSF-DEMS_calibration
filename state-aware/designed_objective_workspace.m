@@ -76,7 +76,7 @@ plot(linspace(2,3,8),res,'bo-'); hold on ; plot(linspace(2,3,8),truth) ;
 
 % Save results
 % save([dpath,'state-aware\state-aware_results\'...
-%     '2018-11-16_sa_univariate_system'],...
+%     '2018-11-29_sa_univariate_system'],...
 %     'results');
 
 %% Examine marginal posteriors of theta1 at grid of control settings
@@ -90,7 +90,7 @@ truetheta = 4/3 * (linspace(2,3,8)-1);
 for ii=1:size(samps,2)
     subplot(2,4,ii);
     ksdensity(samps(:,ii));
-    xlim([0.5,4]);ylim([0,1.5]);
+    xlim([0.5,4]);ylim([0,1.75]);
     hold on;
     plot([meantheta(ii) meantheta(ii)],get(gca,'YLim'));
     plot([truetheta(ii) truetheta(ii)],get(gca,'YLim'));

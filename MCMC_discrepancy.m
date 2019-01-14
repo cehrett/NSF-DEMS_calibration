@@ -104,7 +104,7 @@ sigma2_long = repelem(sigma2,num_obs);
 Sigma_y = diag(sigma2_long);
 
 %% Initialize some variables for later use
-out_of_range_rec   = zeros(size(init_theta)); 
+out_of_range_rec   = zeros(size(init_theta))      ; 
 reject_rec         = 0                            ;
 startplot          = 10                           ;
 accepted           = 0                            ;

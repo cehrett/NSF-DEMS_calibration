@@ -38,7 +38,10 @@ obs_x = repmat(dum_vars,size(samples,1),1);
 % current version of the code, they are simply set to be equal to the
 % midpoint of the range of each such variable. If these control variables
 % are fairly important, then this will be a bad idea, since it will ignore
-% the variability in this/these control variable/s. 
+% the variability in this/these control variable/s. In that case,
+% em_out_many should be run with multiple different values filled in for
+% 0.5 below. The results can then be examined individually, or averaged, as
+% relates to the goals of analysis.
 obs_x = [ obs_x 0.5 * ones(size(obs_x,1),num_cntrl_wod) ];
 
 % How many outputs are we working with
@@ -48,7 +51,6 @@ num_out = sum(which_outputs);
 pred_locs = [obs_x repelem(samples,length(dum_vars),1) ];
 em = emulator(tdat.input,tdat.output,pred_locs,omega,rho,lambda,...
     Sigma_xx,inv_Sigma_xx,verbose);
-
 
 
 

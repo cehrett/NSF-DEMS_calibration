@@ -78,27 +78,6 @@ cov_gp = Sigma_xpxp - Sigma_xpx * inv_Sig_xx * Sigma_xxp;
 em.Sigma_xx = Sigma_xx;
 em.mu       = mu;
 em.cov_gp   = cov_gp;
-% em.rc       = rc;
 em.xp       = xp;
-% em.sim_des  = sim_des;
-% em.sim_res  = sim_res;
-% em.orig_dat = dat;
-
-%%% Commenting the below out because it is now done elsewhere
-% stds.temp_sim_min    = temp_sim_min;
-% stds.temp_sim_range  = temp_sim_range;
-% stds.VF_sim_min      = VF_sim_min;
-% stds.VF_sim_range    = VF_sim_range;
-% stds.thick_sim_min   = thick_sim_min;
-% stds.thick_sim_range = thick_sim_range;
-% 
-% stds.defl_sim_mean = defl_sim_mean;
-% stds.defl_sim_sd   = defl_sim_sd;
-% stds.rot_sim_mean  = rot_sim_mean;
-% stds.rot_sim_sd    = rot_sim_sd;
-% stds.cost_sim_mean = cost_sim_mean;
-% stds.cost_sim_sd   = cost_sim_sd;
-% 
-% em.stds = stds;
 
 end
