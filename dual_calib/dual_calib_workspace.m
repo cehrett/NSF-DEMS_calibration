@@ -70,9 +70,10 @@ obs_x = X(:,1);
 obs_t2 = X(:,2);
 % Make a col vector based on true theta1
 obs_t1 = (ones(size(obs_x,1),1) * theta1 - t1min)./t1range;
-% Get "real" observations without noise
+% Get "real" observations without noise but with discrepancy
 obs_y_noiseless = dual_calib_example_fn(...
-    obs_x,xmin,xrange,obs_t1,t1min,t1range,obs_t2,t2min,t2range,0,1);
+    obs_x,xmin,xrange,obs_t1,t1min,t1range,obs_t2,t2min,t2range,0,1,true);
+
 % Now noise it up
 sigma = sqrt(0.05); % This is noise s.d. of STANDARDIZED observations
 std_true = std(sim_y);
@@ -85,3 +86,30 @@ des_y = zeros(size(des_x,1),1);
 
 
 % Now package everything up and save it
+% clear X std_true sigma obs_y_noiseless dpath
+% save(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+%     'state-aware\state-aware_results\'...
+%     '2019-01-15_dual_calib_raw_data']);
+
+
+%% Get MLEs for covariance parameters for discrepancy GP
+clc ; clearvars -except dpath ; close all ; 
+
+% Load the raw data
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'state-aware\state-aware_results\'...
+    '2019-01-15_dual_calib_raw_data']);
+
+
+
+%% Perform dual calibration
+clc ; clearvars -except dpath ; close all ;
+
+% Load the raw data
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'state-aware\state-aware_results\'...
+    '2019-01-15_dual_calib_raw_data']);
+
+% Get settings
+settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+    obs_x,obs_t2,obs_y,des_x,des_y,

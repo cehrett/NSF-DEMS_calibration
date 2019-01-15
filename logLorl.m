@@ -20,7 +20,7 @@ for ii = 1 : length(lambda)
 
     % Get observation covariance 
     if n>0
-        error(['Current version of the code does not support field'...
+        error(['Current version of the code does not support '...
             'inclusion of field observations; instead, obs_x=[] required'])
         % Observation covariance should be specified
     else
