@@ -7,15 +7,15 @@ function results = MCMC_dual_calib(settings)
 %% Unpack settings
 M                             = settings.M;
 burn_in                       = settings.burn_in;
-sim_x                         = settings.sim_x_01;
-sim_t1                        = settings.sim_t1_01;
-sim_t2                        = settings.sim_t2_01;
-sim_y                         = settings.sim_y_std;
-obs_x                         = settings.obs_x_01;
-obs_t2                        = settings.obs_t2_01;
-obs_y                         = settings.obs_y_std;
-des_x                         = settings.des_obs_x_01;
-des_y                         = settings.des_obs_y_std;
+sim_x                         = settings.sim_x;
+sim_t1                        = settings.sim_t1;
+sim_t2                        = settings.sim_t2;
+sim_y                         = settings.sim_y;
+obs_x                         = settings.obs_x;
+obs_t2                        = settings.obs_t2;
+obs_y                         = settings.obs_y;
+des_x                         = settings.des_x;
+des_y                         = settings.des_y;
 min_x                         = settings.min_x;
 range_x                       = settings.range_x;
 min_t1                        = settings.min_t1;
@@ -71,10 +71,9 @@ col_lambda = 0;
 
 
 %% Set mean functions for GPs
-% Currently, constant mean zero is used for all GPs. However, that is
-% implemented here in function form so that it can be changed easily in the
-% future if desired.
-mean_sim = @(a,b,c) zeros(size(a,1)); % Emulator mean
+% Currently, constant mean zero is used for both discrepancy  GPs. 
+% However, they are implemented here in function form so that they can be 
+% changed easily in the future if desired.
 mean_obs = @(a,b) zeros(size(a,1)); % Observation discrepancy mean
 mean_des = @(a) zeros(size(a,1)); 
 

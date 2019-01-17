@@ -11,15 +11,37 @@ function settings = MCMC_dual_calib_settings(...
 %   Number of samples to draw in the MCMC, includes burn-in. Default: 1e4.
 % 'burn_in':
 %   Proportion of samples to treat as burn-in. Default: 1/5.
+% 'min_x':
+%   Vector giving the minimum value of each element of the control input.
+%   By default, this is taken to be the minimum of the simulator
+%   input provided as sim_x and the observation input obs_x.
+% 'range_x':
+%   Vector giving the ranges of each element of the control input.
+%   By default, this is taken to be the range of the simulator input
+%   provided as sim_x and the observation input obs_x.
+% 'min_t1':
+%   Vector giving the minimum value of each element of theta1 parameter.
+%   By default, this is taken to be the minimum of the simulator
+%   input provided as sim_t1.
+% 'range_t1':
+%   Vector giving the range of each element of theta1 parameter.
+%   By default, this is taken to be the range of the simulator
+%   input provided as sim_t1.
+% 'min_t2':
+%   Vector giving the minimum value of each element of theta2 parameter.
+%   By default, this is taken to be the minimum of the simulator
+%   input provided as sim_t2 and the observation input obs_t2.
+% 'range_t2':
+%   Vector giving the range of each element of theta2 parameter.
+%   By default, this is taken to be the range of the simulator
+%   input provided as sim_t2 and the observation input obs_t2.
 % 'ObsVar':
 %   Scalar value which gives the variance of the iid true observation
 %   error. Default: 0.05.
 % 'EmulatorCovHypers':
 %   Vector of hyperparameters for the power product exponential covariance
 %   function of the GP emulator. Default:
-%               [   0.280981573480363   0.999189406633873...
-%               0.600440750045477  0.719652153362981   0.102809702497319...
-%               0.000837772517865 ]. 
+%               [ 0.5 0.5 0.5 Inf ]. 
 %   If set to 0, then ML estimation via gradient descent is used to find 
 %   appropriate values.
 % 'DiscrepancyCovHypers':
@@ -29,9 +51,7 @@ function settings = MCMC_dual_calib_settings(...
 %   the rho values (rho_i = exp(-1/(2*L_i^2) where L_i is the lengthscale
 %   of the covariance in the ith dimension of inputs) followed by lambda,
 %   the marginal precision. Default:
-%               [   0.280981573480363   0.999189406633873...
-%               0.600440750045477  0.719652153362981   0.102809702497319...
-%               0.000837772517865 ]. 
+%               [ 0.5 0.5 Inf ]. 
 %   If set to 0, then ML estimation via gradient descent is used to find 
 %   appropriate values.
 % 'doplot':
@@ -52,16 +72,29 @@ p.addRequired('des_x',@ismatrix);
 p.addRequired('des_y',@ismatrix);
 p.addParameter('M',1e4,@isscalar);
 p.addParameter('burn_in',1/5,@(x) x>0 && x<1);
+p.addParameter('min_x','Default',@isnumeric);
+p.addParameter('range_x','Default',@isnumeric);
+p.addParameter('min_t1','Default',@isnumeric);
+p.addParameter('range_t1','Default',@isnumeric);
+p.addParameter('min_t2','Default',@isnumeric);
+p.addParameter('range_t2','Default',@isnumeric);
 p.addParameter('ObsVar',0.05,@isscalar);
-p.addParameter('EmulatorCovHypers',0,@ismatrix);
-p.addParameter('DiscrepancyCovHypers',0,@ismatrix);
+p.addParameter('EmulatorCovHypers',[0.5 0.5 0.5 Inf],@ismatrix);
+p.addParameter('DiscrepancyCovHypers',[0.5 0.5 Inf],@ismatrix);
 p.addParameter('doplot',true,@islogical);
-p.parse(desired_obs,sim_x,sim_t,sim_y,varargin{:});
+p.parse(sim_x,sim_t1,sim_t2,sim_y,obs_x,obs_t2,obs_y,des_x,des_y,...
+    varargin{:});
 
 
 %% Collect inputs
 M = p.Results.M;
 burn_in = floor(p.Results.burn_in*M);
+min_x = p.Results.min_x;
+range_x = p.Results.range_x;
+min_t1 = p.Results.min_t1;
+range_t1 = p.Results.range_t1;
+min_t2 = p.Results.min_t2;
+range_t2 = p.Results.range_t2;
 ObsVar = p.Results.ObsVar;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
 DiscrepancyCovHypers = p.Results.DiscrepancyCovHypers;
@@ -75,19 +108,19 @@ logit_inv = @(x) exp(x) ./ (1+exp(x));
 
 %% Normalize inputs
 x = [sim_x ; obs_x] ;
-min_x = min(x) ; 
-range_x = range(x) ;
+if min_x == 'Default', min_x = min(x) ; end
+if range_x == 'Default', range_x = range(x) ; end
 sim_x_01 = (sim_x - min_x) ./ range_x ; 
 obs_x_01 = (obs_x - min_x) ./ range_x ;
 des_x_01 = (des_x - min_x) ./ range_x ;
 
-min_t1 = min(sim_t1) ; 
-range_t1 = range(sim_t1) ;
+if min_t1 == 'Default', min_t1 = min(sim_t1) ; end
+if range_t1 == 'Default', range_t1 = range(sim_t1) ; end
 sim_t1_01 = (sim_t1 - min_t1) ./ range_t1 ;
 
 t2 = [sim_t2 ; obs_t2 ] ;
-min_t2 = min(t2) ; 
-range_t2 = range(t2) ; 
+if min_t2 == 'Default', min_t2 = min(t2) ; end
+if range_t2 == 'Default', range_t2 = range(t2) ; end
 sim_t2_01 = (sim_t2 - min_t2) ./ range_t2 ; 
 obs_t2_01 = (obs_t2 - min_t2) ./ range_t2 ;
 
@@ -99,6 +132,17 @@ std_y = std(y) ;
 sim_y_std = (sim_y - mean_y) ./ std_y ; 
 obs_y_std = (obs_y - mean_y) ./ std_y ;
 des_y_std = (des_y - mean_y) ./ std_y ; 
+
+
+%% Set emulator mean
+% This is currently set so that an emulator is, strictly speaking, not
+% used. That is, the emulator mean function is set to just be the objective
+% function itself, with the expectation that this will be paired with a 0
+% covariance function.
+mean_sim = @(a,b,c) dual_calib_example_fn(...
+    a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
+    mean_y,std_y);
+%mean_sim = @(a,b,c) zeros(size(a,1)); % Emulator mean
 
 
 %% Make true observation error covariance matrix
@@ -130,6 +174,11 @@ Sigma_theta1 = eye(size(theta1_init,1));
 Sigma_theta2 = eye(size(theta2_init,1));
 
 
+%% Set rho and lambda prior distributions
+log_des_discrep_rho_prior  = @(r) sum(log( betapdf(r,1,0.6) ));
+log_des_discrep_lambda_prior = @(ld) log( gampdf(ld,5,5) );
+
+
 %% Set rho and lambda proposal distributions
 % We'll draw logit-transformed rho and lambda from normals centered at the
 % log-transformed previous draw.
@@ -143,7 +192,7 @@ rho_prop_log_mh_correction = ...
 lambda_prop_log_mh_correction = ...
     @(lam_s,lam) sum(log(lam_s)-log(lam));
 % Set initial values and initial covariance matrices for proposals
-rho_init = rand(size(sim_x,2),1);
+rho_init = rand(size(des_x,2),1);
 lambda_init = gamrnd(1,1);
 Sigma_rho = eye(size(rho_init,1));
 Sigma_lambda = 1;
@@ -160,8 +209,8 @@ settings = struct(...
     'obs_x',obs_x_01,...
     'obs_t2',obs_t2_01,...
     'obs_y',obs_y_std,...
-    'des_obs_x',des_x_01,...
-    'des_obs_y',des_y_std,...
+    'des_x',des_x_01,...
+    'des_y',des_y_std,...
     'min_x',min_x,...
     'range_x',range_x,...
     'min_t1',min_t1,...
@@ -171,12 +220,17 @@ settings = struct(...
     'mean_y',mean_y,...
     'std_y',std_y,...
     'obs_cov_mat',obs_cov_mat,...
+    'mean_sim',mean_sim,...
     'emulator_rho',EmulatorCovHypers(1:end-1),...
     'emulator_lambda',EmulatorCovHypers(end),...
     'obs_discrep_rho',DiscrepancyCovHypers(1:end-1),...
     'obs_discrep_lambda',DiscrepancyCovHypers(end),...
-    'des_discrep_rho_init',rho_delta_init,...
-    'des_discrep_lambda_init',lambda_delta_init,...
+    'rho_proposal',rho_proposal,...
+    'lambda_proposal',lambda_proposal,...
+    'rho_prop_log_mh_correction',rho_prop_log_mh_correction,...
+    'lambda_prop_log_mh_correction',lambda_prop_log_mh_correction,...
+    'des_discrep_rho_init',rho_init,...
+    'des_discrep_lambda_init',lambda_init,...
     'rho_prop_cov',Sigma_rho,...
     'lambda_prop_cov',Sigma_lambda,...
     'des_discrep_log_rho_prior',log_des_discrep_rho_prior,...

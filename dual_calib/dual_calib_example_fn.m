@@ -4,8 +4,10 @@ function output = dual_calib_example_fn(...
 % optimum given by theta1 = 4/3 * (xx-1).
 % discrep is a boolean which, when true, adds a discrepancy to the output.
 
-if nargin == 11
-    discrep = false;
+switch nargin
+    case 11, discrep = false;
+    case 12, discrep = boolean(discrep);
+    otherwise, error('Incorrect number of inputs');
 end
 
 % Return inputs to original scale:
@@ -22,7 +24,7 @@ else
 end
 
 % Define objective function
-f = @(x,t1,t2) x.*(t2.^(t1-1) .* exp(-0.75 * t2) + 1) .^ (-1) ;
+f = @(x,t1,t2) mult.*(t2.^(t1-1) .* exp(-0.75 * t2) + 1) .^ (-1) ;
 
 % Get output on original scale
 output_os = f(x(:),t1(:),t2(:)) ; 
