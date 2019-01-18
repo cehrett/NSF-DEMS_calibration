@@ -27,6 +27,10 @@ function settings = MCMC_dual_calib_settings(...
 %   Vector giving the range of each element of theta1 parameter.
 %   By default, this is taken to be the range of the simulator
 %   input provided as sim_t1.
+% 'dim_t1':
+%   Dimensionality of theta1 calibration parameter. By default, this is
+%   inferred from sim_t1; or, if an emulator is not used and sim_t1 is not
+%   supplied, it is assumed to be 1.
 % 'min_t2':
 %   Vector giving the minimum value of each element of theta2 parameter.
 %   By default, this is taken to be the minimum of the simulator
@@ -76,6 +80,7 @@ p.addParameter('min_x','Default',@isnumeric);
 p.addParameter('range_x','Default',@isnumeric);
 p.addParameter('min_t1','Default',@isnumeric);
 p.addParameter('range_t1','Default',@isnumeric);
+p.addParameter('dim_t1',size(sim_t1,2),@isscalar);
 p.addParameter('min_t2','Default',@isnumeric);
 p.addParameter('range_t2','Default',@isnumeric);
 p.addParameter('ObsVar',0.05,@isscalar);
@@ -93,6 +98,7 @@ min_x = p.Results.min_x;
 range_x = p.Results.range_x;
 min_t1 = p.Results.min_t1;
 range_t1 = p.Results.range_t1;
+dim_t1 = p.Results.dim_t1; if isequal(sim_t1,[]), dim_t1=1; end
 min_t2 = p.Results.min_t2;
 range_t2 = p.Results.range_t2;
 ObsVar = p.Results.ObsVar;
@@ -168,27 +174,27 @@ theta1_prop_log_mh_correction = ...
 theta2_prop_log_mh_correction = ...
     @(t_s,t) sum(log(t_s)+log(1-t_s)-log(t)-log(1-t));
 % Set initial values and initial covariance matrices for proposals
-theta1_init = rand(size(sim_t1,2),1);
-theta2_init = rand(size(sim_t2,2),1);
+theta1_init = rand(dim_t1,1);
+theta2_init = rand(dim_t1,1);
 Sigma_theta1 = eye(size(theta1_init,1));
 Sigma_theta2 = eye(size(theta2_init,1));
 
 
 %% Set rho and lambda prior distributions
 log_des_discrep_rho_prior  = @(r) sum(log( betapdf(r,1,0.6) ));
-log_des_discrep_lambda_prior = @(ld) log( gampdf(ld,5,5) );
+log_des_discrep_lambda_prior = @(ld) log( gampdf(ld,10,.01) );
 
 
 %% Set rho and lambda proposal distributions
 % We'll draw logit-transformed rho and lambda from normals centered at the
 % log-transformed previous draw.
-rho_proposal = @(r,S) exp(mvnrnd(log(r),S)); 
+rho_proposal = @(r,S) logit_inv(mvnrnd(logit(r),S)); 
 lambda_proposal = @(lam,S) exp(mvnrnd(log(lam),S)); 
 % Since this proposal is not symmetric, we need to use full
 % Metropolis-Hastings rather than just Metropolis. So here is the log MH
 % correction for the lack of symmetry.
 rho_prop_log_mh_correction = ...
-    @(r_s,r) sum(log(r_s)-log(r));
+    @(r_s,r) sum(log(r_s)+log(1-r_s)-log(r)-log(1-r));
 lambda_prop_log_mh_correction = ...
     @(lam_s,lam) sum(log(lam_s)-log(lam));
 % Set initial values and initial covariance matrices for proposals

@@ -1,7 +1,7 @@
 function output = dual_calib_example_fn(...
     x,xmin,xrange,t1,t1min,t1range,t2,t2min,t2range,ymean,ysd,discrep)
 % This function is a univariate objective function with state-aware true
-% optimum given by theta1 = 4/3 * (xx-1).
+% optimum given by theta2 = 4/3 * (theta1-1).
 % discrep is a boolean which, when true, adds a discrepancy to the output.
 
 switch nargin

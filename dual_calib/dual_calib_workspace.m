@@ -40,7 +40,7 @@ xidx=100;
 xx=reshape(X(:,xidx,:),100,100);
 tt1=reshape(T1(:,xidx,:),100,100);
 tt2=reshape(T2(:,xidx,:),100,100);
-surf(tt1 * t1range + t1min,tt2+t2range+t2min,reshape(Y(:,xidx,:),100,100));
+surf(tt1 * t1range + t1min,tt2*t2range+t2min,reshape(Y(:,xidx,:),100,100));
 
 %% Gather data to use for emulator and for "real" observations
 clc ; clearvars -except dpath ; close all ;
@@ -116,4 +116,8 @@ sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
 
 % Get settings
 settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
-    obs_x,obs_t2,obs_y,des_x,des_y);
+    obs_x,obs_t2,obs_y,des_x,des_y,'min_x',.5,'range_x',.5,...
+    'min_t1',1.5,'range_t1',3,'min_t2',0,'range_t2',5);
+
+% Perform calibration
+results = MCMC_dual_calib(settings);
