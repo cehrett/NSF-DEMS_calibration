@@ -117,7 +117,7 @@ sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
 % Get settings
 settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     obs_x,obs_t2,obs_y,des_x,des_y,'min_x',.5,'range_x',.5,...
-    'min_t1',1.5,'range_t1',3,'min_t2',0,'range_t2',5);
+    'min_t1',1.5,'range_t1',3,'min_t2',0,'range_t2',5,'burn_in',.5);
 
 % Perform calibration
 results = MCMC_dual_calib(settings);

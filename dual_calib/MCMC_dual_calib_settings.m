@@ -182,7 +182,7 @@ Sigma_theta2 = eye(size(theta2_init,1));
 
 %% Set rho and lambda prior distributions
 log_des_discrep_rho_prior  = @(r) sum(log( betapdf(r,1,0.6) ));
-log_des_discrep_lambda_prior = @(ld) log( gampdf(ld,10,.01) );
+log_des_discrep_lambda_prior = @(ld) log( gampdf(ld,5,5) );
 
 
 %% Set rho and lambda proposal distributions
