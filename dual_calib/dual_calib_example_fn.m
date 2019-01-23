@@ -5,15 +5,21 @@ function output = dual_calib_example_fn(...
 % discrep is a boolean which, when true, adds a discrepancy to the output.
 
 switch nargin
-    case 11, discrep = false;
-    case 12, discrep = boolean(discrep);
+    case 3, rescale_inputs = false; discrep = false;
+        t1 = xmin; t2 = xrange; ymean = 0; ysd = 1;
+    case 4, rescale_inputs = false; discrep = boolean(t1);
+        t1 = xmin; t2 = xrange; ymean = 0; ysd = 1;
+    case 11, rescale_inputs = true; discrep = false;
+    case 12, rescale_inputs = true; discrep = boolean(discrep);
     otherwise, error('Incorrect number of inputs');
 end
 
 % Return inputs to original scale:
-x = x * xrange + xmin    ; 
-t1 = t1 * t1range + t1min ;
-t2 = t2 * t2range + t2min ;
+if rescale_inputs
+    x = x * xrange + xmin    ; 
+    t1 = t1 * t1range + t1min ;
+    t2 = t2 * t2range + t2min ;
+end
 
 if discrep % Here's where we define the discrepancy
     disc_fn = @(xx,tt) ...

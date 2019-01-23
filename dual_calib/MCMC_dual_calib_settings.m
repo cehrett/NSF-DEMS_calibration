@@ -39,6 +39,13 @@ function settings = MCMC_dual_calib_settings(...
 %   Vector giving the range of each element of theta2 parameter.
 %   By default, this is taken to be the range of the simulator
 %   input provided as sim_t2 and the observation input obs_t2.
+% 'mean_y':
+%   Scalar giving the mean value of the output y. By default, this is taken
+%   to be the mean of the simulator and observational data sim_y and obs_y.
+% 'std_y':
+%   Scalar giving the standard deviation of the output y. By default, this
+%   is taken to be the standard deviation of the simulator and
+%   observational data sim_y and obs_y.
 % 'ObsVar':
 %   Scalar value which gives the variance of the iid true observation
 %   error. Default: 0.05.
@@ -83,6 +90,8 @@ p.addParameter('range_t1','Default',@isnumeric);
 p.addParameter('dim_t1',size(sim_t1,2),@isscalar);
 p.addParameter('min_t2','Default',@isnumeric);
 p.addParameter('range_t2','Default',@isnumeric);
+p.addParameter('mean_y','Default',@isscalar);
+p.addParameter('std_y','Default',@isscalar);
 p.addParameter('ObsVar',0.05,@isscalar);
 p.addParameter('EmulatorCovHypers',[0.5 0.5 0.5 Inf],@ismatrix);
 p.addParameter('DiscrepancyCovHypers',[0.5 0.5 Inf],@ismatrix);
@@ -101,6 +110,8 @@ range_t1 = p.Results.range_t1;
 dim_t1 = p.Results.dim_t1; if isequal(sim_t1,[]), dim_t1=1; end
 min_t2 = p.Results.min_t2;
 range_t2 = p.Results.range_t2;
+mean_y = p.Results.mean_y;
+std_y = p.Results.std_y;
 ObsVar = p.Results.ObsVar;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
 DiscrepancyCovHypers = p.Results.DiscrepancyCovHypers;
@@ -133,8 +144,8 @@ obs_t2_01 = (obs_t2 - min_t2) ./ range_t2 ;
 
 %% Standardize outputs
 y = [sim_y ; obs_y] ; 
-mean_y = mean(y) ; 
-std_y = std(y) ; 
+if mean_y == 'Default', mean_y = mean(y) ; end
+if std_y == 'Default', std_y = std(y) ; end
 sim_y_std = (sim_y - mean_y) ./ std_y ; 
 obs_y_std = (obs_y - mean_y) ./ std_y ;
 des_y_std = (des_y - mean_y) ./ std_y ; 
@@ -148,6 +159,7 @@ des_y_std = (des_y - mean_y) ./ std_y ;
 mean_sim = @(a,b,c) dual_calib_example_fn(...
     a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
     mean_y,std_y);
+% If a zero mean is preferred, comment out the above and uncomment this:
 %mean_sim = @(a,b,c) zeros(size(a,1)); % Emulator mean
 
 
