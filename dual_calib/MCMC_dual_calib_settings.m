@@ -65,6 +65,10 @@ function settings = MCMC_dual_calib_settings(...
 %               [ 0.5 0.5 Inf ]. 
 %   If set to 0, then ML estimation via gradient descent is used to find 
 %   appropriate values.
+% 'modular':
+%   Boolean value which tells whether or not to use modularized version of
+%   the model, to protect the traditional calibration from being influenced
+%   by the desired observations. Default: false.
 % 'doplot':
 %   true       - (Default) Update scatterplot every ten draws.
 %   false      - No plots during MCMC.
@@ -95,6 +99,7 @@ p.addParameter('std_y','Default',@isscalar);
 p.addParameter('ObsVar',0.05,@isscalar);
 p.addParameter('EmulatorCovHypers',[0.5 0.5 0.5 Inf],@ismatrix);
 p.addParameter('DiscrepancyCovHypers',[0.5 0.5 Inf],@ismatrix);
+p.addParameter('modular',false,@islogical);
 p.addParameter('doplot',true,@islogical);
 p.parse(sim_x,sim_t1,sim_t2,sim_y,obs_x,obs_t2,obs_y,des_x,des_y,...
     varargin{:});
@@ -115,6 +120,7 @@ std_y = p.Results.std_y;
 ObsVar = p.Results.ObsVar;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
 DiscrepancyCovHypers = p.Results.DiscrepancyCovHypers;
+modular = p.Results.modular;
 doplot = p.Results.doplot;
 
 
@@ -263,6 +269,7 @@ settings = struct(...
     'theta2_prop_cov',Sigma_theta2,...
     'log_theta1_prior',log_theta1_prior,...
     'log_theta2_prior',log_theta2_prior,...
+    'modular',modular,...
     'doplot',doplot);
 
 end
