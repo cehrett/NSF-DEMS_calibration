@@ -52,9 +52,8 @@ function settings = MCMC_dual_calib_settings(...
 % 'EmulatorCovHypers':
 %   Vector of hyperparameters for the power product exponential covariance
 %   function of the GP emulator. Default:
-%               [ 0.5 0.5 0.5 Inf ]. 
-%   If set to 0, then ML estimation via gradient descent is used to find 
-%   appropriate values.
+%               [0.992943679103582   0.785517245465518   ...
+%                0.077856518100309   0.083606519464691 ]. 
 % 'DiscrepancyCovHypers':
 %   Vector of hyperparameters for the power product exponential covariance
 %   function of the GP discrepancy function (for the discrepancy between
@@ -63,8 +62,6 @@ function settings = MCMC_dual_calib_settings(...
 %   of the covariance in the ith dimension of inputs) followed by lambda,
 %   the marginal precision. Default:
 %               [ 0.5 0.5 Inf ]. 
-%   If set to 0, then ML estimation via gradient descent is used to find 
-%   appropriate values.
 % 'modular':
 %   Boolean value which tells whether or not to use modularized version of
 %   the model, to protect the traditional calibration from being influenced
@@ -97,7 +94,9 @@ p.addParameter('range_t2','Default',@isnumeric);
 p.addParameter('mean_y','Default',@isscalar);
 p.addParameter('std_y','Default',@isscalar);
 p.addParameter('ObsVar',0.05,@isscalar);
-p.addParameter('EmulatorCovHypers',[0.5 0.5 0.5 Inf],@ismatrix);
+p.addParameter('EmulatorCovHypers',...
+    [0.992943679103582 0.785517245465518 ...
+    0.077856518100309 0.083606519464691],@ismatrix);
 p.addParameter('DiscrepancyCovHypers',[0.5 0.5 Inf],@ismatrix);
 p.addParameter('modular',false,@islogical);
 p.addParameter('doplot',true,@islogical);

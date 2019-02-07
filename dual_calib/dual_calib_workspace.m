@@ -96,7 +96,7 @@ end
 clear direc; 
 
 
-%% Get MLEs for covariance parameters for discrepancy GP
+%% Get MLEs for covariance parameters for emulator GP
 clc ; clearvars -except dpath ; close all ; 
 
 % Load the raw data
@@ -104,7 +104,29 @@ load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
     'dual_calib\dual_calib_stored_data\'...
     '2019-01-15_dual_calib_raw_data']);
 
-% unfinished
+% Normalize the simulation inputs, standardize the outputs
+x = (sim_x - xmin) ./ xrange ;
+t1 = (sim_t1 - t1min) ./ t1range;
+t2 = (sim_t2 - t2min) ./ t2range;
+y = (sim_y - mean_y) ./ std_y;
+
+% Define function for minimization
+f = @(rl) ...
+    -logmvnpdf(y',0,...
+    gp_cov([rl(1) rl(2) rl(3)],[x t1 t2],[x t1 t2],rl(4),false) + ...
+    1e-4*eye(size(x,1)));
+
+% Perform minimization
+A = [];
+b = [];
+Aeq = [];
+beq = [];
+lb = [0 0 0 0];
+ub = [1 1 1 Inf];
+x0 = [.5 .5 .5 1];
+[inp,fval,exitflag,output] = fmincon(f,x0,A,b,Aeq,beq,lb,ub);
+
+% Result: rho values 0.9929, 0.7844, 0.0779; lambda value 0.0836.
 
 
 %% Perform dual calibration
@@ -113,7 +135,7 @@ clc ; clearvars -except dpath ; close all ;
 
 % Load the raw data
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
-    'state-aware\state-aware_results\'...
+    'dual_calib\dual_calib_stored_data\'...
     '2019-01-15_dual_calib_raw_data']);
 % Since we are not using emulator, empty out simulator observations
 sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
