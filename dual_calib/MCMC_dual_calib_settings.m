@@ -157,15 +157,15 @@ des_y_std = (des_y - mean_y) ./ std_y ;
 
 
 %% Set emulator mean
-% This is currently set so that an emulator is, strictly speaking, not
+% Uncomment below to set so that an emulator is, strictly speaking, not
 % used. That is, the emulator mean function is set to just be the objective
 % function itself, with the expectation that this will be paired with a 0
 % covariance function.
-mean_sim = @(a,b,c) dual_calib_example_fn(...
-    a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
-    mean_y,std_y);
+% mean_sim = @(a,b,c) dual_calib_example_fn(...
+%     a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
+%     mean_y,std_y);
 % If a zero mean is preferred, comment out the above and uncomment this:
-%mean_sim = @(a,b,c) zeros(size(a,1)); % Emulator mean
+mean_sim = @(a,b,c) zeros(size(a)); % Emulator mean
 
 
 %% Make true observation error covariance matrix

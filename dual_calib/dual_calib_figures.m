@@ -97,7 +97,7 @@ clc ; clearvars -except dpath ; close all ;
 % Load results
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
     'dual_calib\dual_calib_stored_data\'...
-    '2019-01-25_dual_calib_nosim_nodiscr']);
+    '2019-02-08_dual_calib_nodiscr']);
 burn_in = results.settings.burn_in;
 min_t1 = results.settings.min_t1; range_t1 = results.settings.range_t1;
 min_t2 = results.settings.min_t2; range_t2 = results.settings.range_t2;
@@ -120,7 +120,7 @@ title('Prior and posterior distributions of \theta_1');
 xlabel('\theta_1');
 % Save it:
 set(f1,'color','white');
-% saveas(f1,'FIG_dual_calib_post_theta1.png');
+% saveas(f1,'FIG_dual_calib_post_theta1-2.png');
 
 % Second, get prior and posterior theta2
 f2 = figure('pos',[420 10 400 300]);
@@ -144,7 +144,7 @@ title('Prior and posterior distributions of \theta_2');
 xlabel('\theta_2');
 % Save it as is:
 set(f2,'color','white');
-% saveas(f2,'FIG_dual_calib_post_theta2.png');
+% saveas(f2,'FIG_dual_calib_post_theta2-2.png');
 
 % Now add to the most recent plot:
 % Add the shape of the objective function at true value of theta1

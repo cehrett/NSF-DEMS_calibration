@@ -129,7 +129,7 @@ x0 = [.5 .5 .5 1];
 % Result: rho values 0.9929, 0.7844, 0.0779; lambda value 0.0836.
 
 
-%% Perform dual calibration
+%% Perform dual calibration without emulator or discrepancy
 % Here calibration will be performed without emulator or (true) discrepancy
 clc ; clearvars -except dpath ; close all ;
 
@@ -153,3 +153,26 @@ results = MCMC_dual_calib(settings);
 % save(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
 %     'dual_calib\dual_calib_stored_data\'...
 %     '2019-01-25_dual_calib_nosim_nodiscr']);
+
+%% Perform dual calibration with emulator and without discrepancy
+% Here calibration will be performed with emulator but without discrepancy
+clc ; clearvars -except dpath ; close all ;
+
+% Load the raw data
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'dual_calib\dual_calib_stored_data\'...
+    '2019-01-15_dual_calib_raw_data']);
+
+% Get settings
+settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+    obs_x,obs_t2,obs_y,des_x,des_y,'min_x',.5,'range_x',.5,...
+    'min_t1',1.5,'range_t1',3,'min_t2',0,'range_t2',5,...
+    'mean_y',mean_y,'std_y',std_y,'burn_in',.5);
+
+% Perform calibration
+results = MCMC_dual_calib(settings);
+
+% Save
+% save(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+%     'dual_calib\dual_calib_stored_data\'...
+%     '2019-02-08_dual_calib_nodiscr']);
