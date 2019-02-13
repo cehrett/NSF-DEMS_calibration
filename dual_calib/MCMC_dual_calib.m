@@ -15,30 +15,28 @@ obs_t2                        = settings.obs_t2;
 obs_y                         = settings.obs_y;
 des_x                         = settings.des_x;
 des_y                         = settings.des_y;
-min_x                         = settings.min_x;
-range_x                       = settings.range_x;
 min_t1                        = settings.min_t1;
 range_t1                      = settings.range_t1;
 min_t2                        = settings.min_t2;
 range_t2                      = settings.range_t2;
-mean_y                        = settings.mean_y;
-std_y                         = settings.std_y;
 obs_cov_mat                   = settings.obs_cov_mat;
 mean_sim                      = settings.mean_sim;
 emulator_rho                  = settings.emulator_rho;
 emulator_lambda               = settings.emulator_lambda;
-obs_discrep_rho               = settings.obs_discrep_rho;
-obs_discrep_lambda            = settings.obs_discrep_lambda;
-rho                           = settings.des_discrep_rho_init;
-lambda                        = settings.des_discrep_lambda_init;
+obs_rho                       = settings.obs_rho_init;
+obs_lambda                    = settings.obs_lambda_init;
+des_rho                       = settings.des_rho_init;
+des_lambda                    = settings.des_lambda_init;
 rho_proposal                  = settings.rho_proposal;
 lambda_proposal               = settings.lambda_proposal;
 rho_prop_log_mh_correction    = settings.rho_prop_log_mh_correction;
 lambda_prop_log_mh_correction = settings.lambda_prop_log_mh_correction;
-Sigma_rho                     = settings.rho_prop_cov;
-Sigma_lambda                  = settings.lambda_prop_cov;
-log_rho_prior_fn              = settings.des_discrep_log_rho_prior;
-log_lambda_prior_fn           = settings.des_discrep_log_lambda_prior;
+obs_Sigma_rho                 = settings.obs_rho_prop_cov;
+obs_Sigma_lambda              = settings.obs_lambda_prop_cov;
+des_Sigma_rho                 = settings.des_rho_prop_cov;
+des_Sigma_lambda              = settings.des_lambda_prop_cov;
+log_rho_prior_fn              = settings.log_rho_prior;
+log_lambda_prior_fn           = settings.log_lambda_prior;
 theta1                        = settings.theta1_init;
 theta2                        = settings.theta2_init;
 theta1_proposal               = settings.theta1_proposal;
@@ -50,6 +48,7 @@ Sigma_theta2                  = settings.theta2_prop_cov;
 log_theta1_prior_fn           = settings.log_theta1_prior;
 log_theta2_prior_fn           = settings.log_theta2_prior;
 doplot                        = settings.doplot;
+obs_discrep                   = settings.obs_discrep;
 modular                       = settings.modular;
 
 %% Set some useful variables
@@ -66,10 +65,12 @@ upd = 100 ; % Tune adaptive covariances (and update plots) every upd loops
 % The next four variables will be used when the values being sampled are
 % not univariate, so that the plots cycle through which element of each
 % vector is displayed.
-col_theta1 = 0;
-col_theta2 = 0;
-col_rho    = 0;
-col_lambda = 0;
+col_theta1     = 0;
+col_theta2     = 0;
+col_obs_rho    = 0;
+col_obs_lambda = 0;
+col_des_rho    = 0;
+col_des_lambda = 0;
 logit = @(a) log(a./(1-a)) ; 
 
 
@@ -88,32 +89,35 @@ mean_des = @(a) zeros(size(a,1),1);
 Sigma_emulator_simsim = ...
     gp_cov(emulator_rho,[sim_x sim_t1 sim_t2],[sim_x sim_t1 sim_t2],...
     emulator_lambda,false);
-% Get computationally nice versions of it and its inverse for posterior
-% predictions:
-Sess = Sigma_emulator_simsim + ...
-    eye(size(Sigma_emulator_simsim)) * nugsize(Sigma_emulator_simsim);
-iSess = inv(Sess);
 
 
 %% Initialize some variables for later use
 startplot          = 1                            ;
 accepted_theta1    = 0                            ; % accepted theta1
 accepted_theta2    = 0                            ; % accepted theta2
-accepted_rho       = 0                            ; % accepted rho
-accepted_lambda    = 0                            ; % accepted lambda
+accepted_des_rho   = 0                            ; % accepted des_rho
+accepted_des_lambda= 0                            ; % accepted des_lambda
+accepted_obs_rho   = 0                            ; % accepted obs_rho
+accepted_obs_lambda= 0                            ; % accepted obs_lambda
 msg                = 0                            ; % For console output
 theta1_rec         = zeros(M,numel(theta1))       ;
 theta2_rec         = zeros(M,numel(theta2))       ;
 theta1_rec(1,:)    = theta1                       ;
 theta2_rec(1,:)    = theta2                       ;
-rho_rec            = zeros(M,numel(rho))          ;
-rho_rec(1,:)       = rho                          ;
-lambda_rec         = zeros(M,numel(lambda))       ;
-lambda_rec(1,:)    = lambda                       ;
+des_rho_rec        = zeros(M,numel(des_rho))      ;
+des_rho_rec(1,:)   = des_rho                      ;
+des_lambda_rec     = zeros(M,numel(des_lambda))   ;
+des_lambda_rec(1,:)= des_lambda                   ;
+obs_rho_rec        = zeros(M,numel(obs_rho))      ;
+obs_rho_rec(1,:)   = obs_rho                      ;
+obs_lambda_rec     = zeros(M,numel(obs_lambda))   ;
+obs_lambda_rec(1,:)= obs_lambda                   ;
 mult_theta1        = 10                           ; % mult. for proposal
 mult_theta2        = 10                           ; 
-mult_rho           = 10                           ; 
-mult_lambda        = 10                           ; 
+mult_obs_rho       = 10                           ; 
+mult_obs_lambda    = 10                           ; 
+mult_des_rho       = 10                           ; 
+mult_des_lambda    = 10                           ; 
 
 
 %% Get initial log likelihoods
@@ -152,18 +156,18 @@ Sigma_emulator_desdes = ...
             repmat(theta2,size(des_x,1),1)],...
         emulator_lambda,false);
 Sigma_obs_dscr_obsobs = ...
-    gp_cov(obs_discrep_rho,[obs_x obs_t2],[obs_x obs_t2],...
-        obs_discrep_lambda,false);
+    gp_cov(obs_rho,[obs_x obs_t2],[obs_x obs_t2],...
+        obs_lambda,false);
 Sigma_obs_dscr_obsdes = ...
-    gp_cov(obs_discrep_rho,[obs_x obs_t2],...
+    gp_cov(obs_rho,[obs_x obs_t2],...
         [des_x repmat(theta2,size(des_x,1))],...
-        obs_discrep_lambda,false);
+        obs_lambda,false);
 Sigma_obs_dscr_desdes = ...
-    gp_cov(obs_discrep_rho,[des_x repmat(theta2,size(des_x,1))],...
+    gp_cov(obs_rho,[des_x repmat(theta2,size(des_x,1))],...
         [des_x repmat(theta2,size(des_x,1))],...
-        obs_discrep_lambda,false);
+        obs_lambda,false);
 Sigma_des_dscr_desdes = ...
-    gp_cov(rho,des_x,des_x,lambda,false);
+    gp_cov(des_rho,des_x,des_x,des_lambda,false);
 % Now to combine everything into two big covariance matrices:
 Sigma_R = [... % The covariance of R
     Sigma_emulator_simsim Sigma_emulator_simobs ; 
@@ -178,7 +182,6 @@ Sigma_D = [... % The covariance of D
         Sigma_emulator_obsdes' + Sigma_obs_dscr_obsdes' ...
         Sigma_emulator_desdes+Sigma_obs_dscr_desdes+Sigma_des_dscr_desdes];
 % Add nugget for computational tractability:
-Sigma_R = Sigma_R + eye(size(Sigma_R)) * nugsize(Sigma_R) ;
 Sigma_D = Sigma_D + eye(size(Sigma_D)) * nugsize(Sigma_D) ;
 % Now to get the log likelihoods
 mu_R = [mean_sim(sim_x,sim_t1,sim_t2) ; ...
@@ -189,12 +192,13 @@ mu_D = [mu_R ;
         repmat(theta2,size(des_x,1),1)) + ...
         mean_obs(des_x,repmat(theta2,size(des_x,1),1)) + ...
         mean_des(des_x)]; % Mean of D
-log_cond_dens_R = logmvnpdf(R',mu_R',Sigma_R);
 log_cond_dens_D = logmvnpdf(D',mu_D',Sigma_D);
 log_theta1_prior = log_theta1_prior_fn(theta1);
 log_theta2_prior = log_theta2_prior_fn(theta2);
-log_rho_prior = log_rho_prior_fn(rho);
-log_lambda_prior = log_lambda_prior_fn(lambda);
+log_des_rho_prior = log_rho_prior_fn(des_rho);
+log_des_lambda_prior = log_lambda_prior_fn(des_lambda);
+log_obs_rho_prior = log_rho_prior_fn(obs_rho);
+log_obs_lambda_prior = log_lambda_prior_fn(obs_lambda);
 
 %%%%%%%%%%%%%%%
 %% MCMC loop %%
@@ -210,9 +214,20 @@ for ii = 2:M
     % likelihood using the new draw theta1_s, using the updated mean and
     % covariance of the GPs. Only certain parts of the big covariance
     % matrix Sigma need to be updated -- those that depend on theta1.
+    % We get mu_R and Sigma_R, and mu_D and Sigma_D. mu_R and Sigma_R are
+    % restricted to the non-fake data -- the simulation runs and the real
+    % observations. These are used for the modularized approach. Whether or
+    % not the modularized approach is used, we also need mu_D and Sigma_D,
+    % which are unrestricted in that they include all data, even the fake
+    % observations. 
     mu_R_s = [mean_sim(sim_x,sim_t1,sim_t2) ; ...
         mean_sim(obs_x,repmat(theta1_s,size(obs_x,1),1),obs_t2) + ...
             mean_obs(obs_x,obs_t2)]; % Mean of R
+    mu_D_s = [mu_R_s;
+        mean_sim(des_x,repmat(theta1_s,size(des_x,1),1),...
+            repmat(theta2,size(des_x,1),1)) + ...
+            mean_obs(des_x,repmat(theta2,size(des_x,1),1)) + ...
+            mean_des(des_x)]; % Mean of D
     Sigma_emulator_simobs_s = gp_cov(emulator_rho,[sim_x sim_t1 sim_t2],...
         [obs_x repmat(theta1_s,size(obs_x,1),1) obs_t2],emulator_lambda,...
         false);
@@ -241,12 +256,6 @@ for ii = 2:M
             Sigma_emulator_obsobs_s + Sigma_obs_dscr_obsobs + ...
                 obs_cov_mat
     ];
-    % Get also the log likelihood using D, for the other var draws
-    mu_D_s = [mu_R_s;
-        mean_sim(des_x,repmat(theta1_s,size(des_x,1),1),...
-            repmat(theta2,size(des_x,1),1)) + ...
-            mean_obs(des_x,repmat(theta2,size(des_x,1),1)) + ...
-            mean_des(des_x)]; % Mean of D
     Sigma_D_s = [...
         Sigma_R_s [Sigma_emulator_simdes_s ; ...
             Sigma_emulator_obsdes_s + Sigma_obs_dscr_obsdes];
@@ -295,8 +304,6 @@ for ii = 2:M
         Sigma_emulator_obsobs = Sigma_emulator_obsobs_s;
         Sigma_emulator_obsdes = Sigma_emulator_obsdes_s;
         Sigma_emulator_desdes = Sigma_emulator_desdes_s;
-        Sigma_D = Sigma_D_s;
-        log_cond_dens_R = log_cond_dens_R_s;
         log_cond_dens_D = log_cond_dens_D_s;
         log_theta1_prior = log_theta1_prior_s;
         accepted_theta1 = accepted_theta1 + 1;
@@ -333,13 +340,13 @@ for ii = 2:M
         [des_x repmat(theta1,size(des_x,1),1) ...
             repmat(theta2_s,size(des_x,1),1)],...
         emulator_lambda,false);
-    Sigma_obs_dscr_obsdes_s = gp_cov(obs_discrep_rho,...
+    Sigma_obs_dscr_obsdes_s = gp_cov(obs_rho,...
         [obs_x obs_t2],[des_x repmat(theta2_s,size(des_x,1),1)],...
-        obs_discrep_lambda,false);
-    Sigma_obs_dscr_desdes_s = gp_cov(obs_discrep_rho,...
+        obs_lambda,false);
+    Sigma_obs_dscr_desdes_s = gp_cov(obs_rho,...
         [des_x repmat(theta2_s,size(des_x,1),1)],...
         [des_x repmat(theta2_s,size(des_x,1),1)],...
-        obs_discrep_lambda,false);
+        obs_lambda,false);
     Sigma_D_s = [...
         Sigma_emulator_simsim Sigma_emulator_simobs ...
             Sigma_emulator_simdes_s ;
@@ -373,21 +380,176 @@ for ii = 2:M
         Sigma_emulator_desdes = Sigma_emulator_desdes_s;
         Sigma_obs_dscr_obsdes = Sigma_obs_dscr_obsdes_s;
         Sigma_obs_dscr_desdes = Sigma_obs_dscr_desdes_s;
-        Sigma_D = Sigma_D_s;
         log_theta2_prior = log_theta2_prior_s;
         log_cond_dens_D = log_cond_dens_D_s;
         accepted_theta2 = accepted_theta2 + 1;
     end
     
-    %% Draw new rho
-    rho_s = rho_proposal(rho,Sigma_rho);
+    %% Draw new obs_rho (if discrepancy used)
+    if obs_discrep
+    obs_rho_s = rho_proposal(obs_rho,obs_Sigma_rho);
     
     % Get acceptance ratio alpha
     % To do this, we'll first find the updated log factors of the
-    % likelihood using the new draw rho_s, using the updated covariance of
-    % the GPs. Only part of the big covariance
-    % matrix Sigma need to be updated -- the part that depends on rho.
-    Sigma_des_dscr_desdes_s = gp_cov(rho_s,des_x,des_x,lambda,false);
+    % likelihood using the new draw obs_rho_s, using the updated covariance
+    % of the GPs. Only part of the big covariance
+    % matrix Sigma need to be updated -- the part that depends on obs_rho.
+    % We get Sigma_R and Sigma_D. Sigma_R is
+    % restricted to the non-fake data -- the simulation runs and the real
+    % observations. This is used for the modularized approach. Whether or
+    % not the modularized approach is used, we also need Sigma_D,
+    % which is unrestricted in that it includes all data, even the fake
+    % observations. 
+    Sigma_obs_dscr_obsobs_s = ...
+        gp_cov(obs_rho_s,[obs_x obs_t2],[obs_x obs_t2],...
+            obs_lambda,false);
+    Sigma_obs_dscr_obsdes_s = ...
+        gp_cov(obs_rho_s,[obs_x obs_t2],...
+            [des_x repmat(theta2,size(des_x,1))],...
+            obs_lambda,false);
+    Sigma_obs_dscr_desdes_s = ...
+        gp_cov(obs_rho_s,[des_x repmat(theta2,size(des_x,1))],...
+            [des_x repmat(theta2,size(des_x,1))],...
+            obs_lambda,false);
+    Sigma_R_s = [...
+        Sigma_emulator_simsim Sigma_emulator_simobs ;
+        Sigma_emulator_simobs' ...
+            Sigma_emulator_obsobs + Sigma_obs_dscr_obsobs_s + ...
+                obs_cov_mat
+    ];
+    Sigma_D_s = [...
+        Sigma_R_s [Sigma_emulator_simdes ; ...
+            Sigma_emulator_obsdes + Sigma_obs_dscr_obsdes_s];
+        Sigma_emulator_simdes' ...
+            Sigma_emulator_obsdes' + Sigma_obs_dscr_obsdes_s' ...
+            Sigma_emulator_desdes + Sigma_obs_dscr_desdes_s + ...
+                Sigma_des_dscr_desdes...
+    ];
+    % Add nugget for computational tractability
+    Sigma_R_s = Sigma_R_s + eye(size(Sigma_R_s)) * nugsize(Sigma_R_s) ;
+    Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
+    % Now we can get the log factors of the likelihood for the new draw
+    log_cond_dens_R_s = logmvnpdf(R',mu_R',Sigma_R_s);
+    log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
+    log_obs_rho_prior_s = log_rho_prior_fn(obs_rho_s);
+    % Get the log likelihoods for new and old draw either modularized or no
+    if modular
+        log_lik_obs_rho_s = log_cond_dens_R_s + log_obs_rho_prior_s; 
+        % We also need to get the likelihood for the old draw, since under
+        % a modular approach it is not updated in the other draws
+        Sigma_R = [...
+        Sigma_emulator_simsim Sigma_emulator_simobs ;
+        Sigma_emulator_simobs' ...
+            Sigma_emulator_obsobs + Sigma_obs_dscr_obsobs + ...
+                obs_cov_mat
+        ];
+        Sigma_R = Sigma_R + eye(size(Sigma_R)) * nugsize(Sigma_R) ;
+        log_cond_dens_R = logmvnpdf(R',mu_R',Sigma_R);
+        log_lik_obs_rho = log_cond_dens_R + log_obs_rho_prior;
+    else
+        log_lik_obs_rho_s = log_cond_dens_D_s + log_obs_rho_prior_s; 
+        log_lik_obs_rho = log_cond_dens_D + log_obs_rho_prior;
+    end
+    % Now we can get the acceptance ratio
+    log_alpha = log_lik_obs_rho_s - log_lik_obs_rho + ...
+        rho_prop_log_mh_correction(obs_rho_s,obs_rho);
+    
+    % Now accept theta1_s with probability min(alpha,1)
+    if log(rand) < log_alpha
+        obs_rho = obs_rho_s;
+        Sigma_obs_dscr_obsobs = Sigma_obs_dscr_obsobs_s;
+        Sigma_obs_dscr_obsdes = Sigma_obs_dscr_obsdes_s;
+        Sigma_obs_dscr_desdes = Sigma_obs_dscr_desdes_s;
+        log_cond_dens_D = log_cond_dens_D_s;
+        log_obs_rho_prior = log_obs_rho_prior_s;
+        accepted_obs_rho = accepted_obs_rho + 1;
+    end
+    end 
+    
+    %% Draw new obs_lambda (if discrepancy used)
+    if obs_discrep
+    obs_lambda_s = lambda_proposal(obs_lambda,obs_Sigma_lambda);
+    
+    % Get acceptance ratio alpha
+    % To do this, we'll first find the updated log factors of the
+    % likelihood using the new draw lambda_s, using the updated covariance 
+    % of the GPs. Only part of the big covariance
+    % matrix Sigma need be updated -- the part that depends on obs_lambda.
+    Sigma_obs_dscr_obsobs_s = ...
+        gp_cov(obs_rho,[obs_x obs_t2],[obs_x obs_t2],...
+            obs_lambda_s,false);
+    Sigma_obs_dscr_obsdes_s = ...
+        gp_cov(obs_rho,[obs_x obs_t2],...
+            [des_x repmat(theta2,size(des_x,1))],...
+            obs_lambda_s,false);
+    Sigma_obs_dscr_desdes_s = ...
+        gp_cov(obs_rho,[des_x repmat(theta2,size(des_x,1))],...
+            [des_x repmat(theta2,size(des_x,1))],...
+            obs_lambda_s,false);
+    Sigma_R_s = [...
+        Sigma_emulator_simsim Sigma_emulator_simobs ;
+        Sigma_emulator_simobs' ...
+            Sigma_emulator_obsobs + Sigma_obs_dscr_obsobs_s + ...
+                obs_cov_mat
+    ];
+    Sigma_D_s = [...
+        Sigma_R_s [Sigma_emulator_simdes ; ...
+            Sigma_emulator_obsdes + Sigma_obs_dscr_obsdes_s];
+        Sigma_emulator_simdes' ...
+            Sigma_emulator_obsdes' + Sigma_obs_dscr_obsdes_s' ...
+            Sigma_emulator_desdes + Sigma_obs_dscr_desdes_s + ...
+                Sigma_des_dscr_desdes...
+    ];
+    % Add nugget for computational tractability
+    Sigma_R_s = Sigma_R_s + eye(size(Sigma_R_s)) * nugsize(Sigma_R_s) ;
+    Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
+    % Now we can get the log factors of the likelihood for the new draw
+    log_cond_dens_R_s = logmvnpdf(R',mu_R',Sigma_R_s);
+    log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
+    log_obs_lambda_prior_s = log_lambda_prior_fn(obs_lambda_s);
+    % Get the log likelihoods for new and old draw either modularized or no
+    if modular
+        log_lik_obs_lambda_s = log_cond_dens_R_s + log_obs_lambda_prior_s; 
+        % We also need to get the likelihood for the old draw, since under
+        % a modular approach it is not updated in the other draws
+        Sigma_R = [...
+        Sigma_emulator_simsim Sigma_emulator_simobs ;
+        Sigma_emulator_simobs' ...
+            Sigma_emulator_obsobs + Sigma_obs_dscr_obsobs + ...
+                obs_cov_mat
+        ];
+        Sigma_R = Sigma_R + eye(size(Sigma_R)) * nugsize(Sigma_R) ;
+        log_cond_dens_R = logmvnpdf(R',mu_R',Sigma_R);
+        log_lik_obs_lambda = log_cond_dens_R + log_obs_lambda_prior;
+    else
+        log_lik_obs_lambda_s = log_cond_dens_D_s + log_obs_lambda_prior_s; 
+        log_lik_obs_lambda = log_cond_dens_D + log_obs_lambda_prior;
+    end
+    % Now we can get the acceptance ratio
+    log_alpha = log_lik_obs_lambda_s - log_lik_obs_lambda + ...
+        lambda_prop_log_mh_correction(obs_lambda_s,obs_lambda);
+    
+    % Now accept theta1_s with probability min(alpha,1)
+    if log(rand) < log_alpha
+        obs_lambda = obs_lambda_s;
+        Sigma_obs_dscr_obsobs = Sigma_obs_dscr_obsobs_s;
+        Sigma_obs_dscr_obsdes = Sigma_obs_dscr_obsdes_s;
+        Sigma_obs_dscr_desdes = Sigma_obs_dscr_desdes_s;
+        log_obs_lambda_prior = log_obs_lambda_prior_s;
+        log_cond_dens_D = log_cond_dens_D_s;
+        accepted_obs_lambda = accepted_obs_lambda + 1;
+    end
+    end
+    
+    %% Draw new des_rho
+    des_rho_s = rho_proposal(des_rho,des_Sigma_rho);
+    
+    % Get acceptance ratio alpha
+    % To do this, we'll first find the updated log factors of the
+    % likelihood using the new draw des_rho_s, using the updated covariance
+    % of the GPs. Only part of the big covariance
+    % matrix Sigma need to be updated -- the part that depends on des_rho.
+    Sigma_des_dscr_desdes_s=gp_cov(des_rho_s,des_x,des_x,des_lambda,false);
     Sigma_D_s = [...
         Sigma_emulator_simsim Sigma_emulator_simobs ...
             Sigma_emulator_simdes ;
@@ -404,33 +566,32 @@ for ii = 2:M
     Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
     % Now we can get the log factors of the likelihood for the new draw
     log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-    log_rho_prior_s = log_rho_prior_fn(rho_s);
-    log_lik_rho_s = log_cond_dens_D_s + log_rho_prior_s; 
+    log_des_rho_prior_s = log_rho_prior_fn(des_rho_s);
+    log_lik_des_rho_s = log_cond_dens_D_s + log_des_rho_prior_s; 
     % And we get the likelihood for the old draw
-    log_lik_rho = log_cond_dens_D + log_rho_prior;
+    log_lik_des_rho = log_cond_dens_D + log_des_rho_prior;
     % Now we can get the acceptance ratio
-    log_alpha = log_lik_rho_s - log_lik_rho + ...
-        rho_prop_log_mh_correction(rho_s,rho);
+    log_alpha = log_lik_des_rho_s - log_lik_des_rho + ...
+        rho_prop_log_mh_correction(des_rho_s,des_rho);
     
     % Now accept theta1_s with probability min(alpha,1)
     if log(rand) < log_alpha
-        rho = rho_s;
+        des_rho = des_rho_s;
         Sigma_des_dscr_desdes = Sigma_des_dscr_desdes_s;
-        Sigma_D = Sigma_D_s;
         log_cond_dens_D = log_cond_dens_D_s;
-        log_rho_prior = log_rho_prior_s;
-        accepted_rho = accepted_rho + 1;
+        log_des_rho_prior = log_des_rho_prior_s;
+        accepted_des_rho = accepted_des_rho + 1;
     end
     
-    %% Draw new lambda
-    lambda_s = lambda_proposal(lambda,Sigma_lambda);
+    %% Draw new des_lambda
+    des_lambda_s = lambda_proposal(des_lambda,des_Sigma_lambda);
     
     % Get acceptance ratio alpha
     % To do this, we'll first find the updated log factors of the
     % likelihood using the new draw lambda_s, using the updated covariance 
     % of the GPs. Only part of the big covariance
     % matrix Sigma need to be updated -- the part that depends on lambda.
-    Sigma_des_dscr_desdes_s = gp_cov(rho,des_x,des_x,lambda_s,false);
+    Sigma_des_dscr_desdes_s=gp_cov(des_rho,des_x,des_x,des_lambda_s,false);
     Sigma_D_s = [...
         Sigma_emulator_simsim Sigma_emulator_simobs ...
             Sigma_emulator_simdes ;
@@ -447,29 +608,30 @@ for ii = 2:M
     Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
     % Now we can get the log factors of the likelihood for the new draw
     log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-    log_lambda_prior_s = log_lambda_prior_fn(lambda_s);
-    log_lik_lambda_s = log_cond_dens_D_s + log_lambda_prior_s; 
+    log_des_lambda_prior_s = log_lambda_prior_fn(des_lambda_s);
+    log_lik_des_lambda_s = log_cond_dens_D_s + log_des_lambda_prior_s; 
     % And we get the likelihood for the old draw
-    log_lik_lambda = log_cond_dens_D + log_lambda_prior;
+    log_lik_des_lambda = log_cond_dens_D + log_des_lambda_prior;
     % Now we can get the acceptance ratio
-    log_alpha = log_lik_lambda_s - log_lik_lambda + ...
-        lambda_prop_log_mh_correction(lambda_s,lambda);
+    log_alpha = log_lik_des_lambda_s - log_lik_des_lambda + ...
+        lambda_prop_log_mh_correction(des_lambda_s,des_lambda);
     
     % Now accept theta1_s with probability min(alpha,1)
     if log(rand) < log_alpha
-        lambda = lambda_s;
+        des_lambda = des_lambda_s;
         Sigma_des_dscr_desdes = Sigma_des_dscr_desdes_s;
-        Sigma_D = Sigma_D_s;
-        log_lambda_prior = log_lambda_prior_s;
+        log_des_lambda_prior = log_des_lambda_prior_s;
         log_cond_dens_D = log_cond_dens_D_s;
-        accepted_lambda = accepted_lambda + 1;
+        accepted_des_lambda = accepted_des_lambda + 1;
     end
     
     %% Record draws
-    theta1_rec(ii,:) = theta1;
-    theta2_rec(ii,:) = theta2;
-    rho_rec(ii,:)    = rho;
-    lambda_rec(ii,:) = lambda;
+    theta1_rec(ii,:)     = theta1;
+    theta2_rec(ii,:)     = theta2;
+    obs_rho_rec(ii,:)    = obs_rho;
+    obs_lambda_rec(ii,:) = obs_lambda;
+    des_rho_rec(ii,:)    = des_rho;
+    des_lambda_rec(ii,:) = des_lambda;
     
     %% Adjust adaptive proposal covariances
     % We adjust the proposal covariances every upd draws.
@@ -493,22 +655,43 @@ for ii = 2:M
         accepted_theta2 = 0 ;
         Sigma_theta2 = mult_theta2 * cov(logit(theta2_rec(1:ii,:)));
         
-        % Adjust proposal covariance for rho
-        mult_mult = max(.5,min(2,accepted_rho/100/opt_acc_rate));
-        mult_rho = mult_mult * mult_rho;
-        fprintf('rho proposal variance set to %g of previous\n',...
+        % Adjust proposal covariance for obs_rho (if discrepancy used)
+        if obs_discrep
+        mult_mult = max(.5,min(2,accepted_obs_rho/100/opt_acc_rate));
+        mult_obs_rho = mult_mult * mult_obs_rho;
+        fprintf('obs_rho proposal variance set to %g of previous\n',...
             mult_mult);
-        accepted_rho = 0 ;
-        Sigma_rho = mult_rho * cov(log(rho_rec(1:ii,:)));
+        accepted_obs_rho = 0 ;
+        obs_Sigma_rho = mult_obs_rho * cov(log(obs_rho_rec(1:ii,:)));
+        end
 
-        % Adjust proposal covariance for lambda
-        mult_mult = max(.5,min(2,accepted_lambda/100/opt_acc_rate));
-        mult_lambda = mult_mult * mult_lambda;
-        fprintf('lambda proposal variance set to %g of previous\n\n',...
+        % Adjust proposal covariance for obs_lambda (if discrepancy used)
+        if obs_discrep
+        mult_mult = max(.5,min(2,accepted_obs_lambda/100/opt_acc_rate));
+        mult_obs_lambda = mult_mult * mult_obs_lambda;
+        fprintf('obs_lambda proposal variance set to %g of previous\n',...
             mult_mult);
-        accepted_lambda = 0 ;
-        Sigma_lambda = mult_lambda * cov(log(lambda_rec(1:ii,:)));
+        accepted_obs_lambda = 0 ;
+        obs_Sigma_lambda =mult_obs_lambda*cov(log(obs_lambda_rec(1:ii,:)));
+        end
         
+        % Adjust proposal covariance for des_rho
+        mult_mult = max(.5,min(2,accepted_des_rho/100/opt_acc_rate));
+        mult_des_rho = mult_mult * mult_des_rho;
+        fprintf('des_rho proposal variance set to %g of previous\n',...
+            mult_mult);
+        accepted_des_rho = 0 ;
+        des_Sigma_rho = mult_des_rho * cov(log(des_rho_rec(1:ii,:)));
+
+        % Adjust proposal covariance for des_lambda
+        mult_mult = max(.5,min(2,accepted_des_lambda/100/opt_acc_rate));
+        mult_des_lambda = mult_mult * mult_des_lambda;
+        fprintf('des_lambda proposal variance set to %g of previous\n',...
+            mult_mult);
+        accepted_des_lambda = 0 ;
+        des_Sigma_lambda =mult_des_lambda*cov(log(des_lambda_rec(1:ii,:)));
+        
+        fprintf('\n');
         msg = fprintf('Completed: %g/%g  ',ii,M);
         
     end
@@ -521,20 +704,26 @@ for ii = 2:M
         
         % If values sampled are not univariate, then cycle through cols for
         % display:
-        col_theta1 = 1 + mod(col_theta1,size(theta1_rec,2));
-        col_theta2 = 1 + mod(col_theta2,size(theta2_rec,2));
-        col_rho    = 1 + mod(col_rho,size(rho_rec,2));
-        col_lambda = 1 + mod(col_lambda,size(lambda_rec,2));
+        col_theta1     = 1 + mod(col_theta1,size(theta1_rec,2));
+        col_theta2     = 1 + mod(col_theta2,size(theta2_rec,2));
+        col_obs_rho    = 1 + mod(col_obs_rho,size(obs_rho_rec,2));
+        col_obs_lambda = 1 + mod(col_obs_lambda,size(obs_lambda_rec,2));
+        col_des_rho    = 1 + mod(col_des_rho,size(des_rho_rec,2));
+        col_des_lambda = 1 + mod(col_des_lambda,size(des_lambda_rec,2));
         
         % Plot
-        subplot(2,2,1);
+        subplot(2,3,1);
         plot(theta1_rec(startplot:ii,col_theta1),'ko');
-        subplot(2,2,2);
+        subplot(2,3,2);
         plot(theta2_rec(startplot:ii,col_theta2),'ko');
-        subplot(2,2,3);
-        plot(rho_rec(startplot:ii,col_rho),'ko');
-        subplot(2,2,4);
-        plot(lambda_rec(startplot:ii,col_lambda),'ko');
+        subplot(2,3,3);
+        plot(obs_rho_rec(startplot:ii,col_obs_rho),'ko');
+        subplot(2,3,4);
+        plot(obs_lambda_rec(startplot:ii,col_obs_lambda),'ko');
+        subplot(2,3,5);
+        plot(des_rho_rec(startplot:ii,col_des_rho),'ko');
+        subplot(2,3,6);
+        plot(des_lambda_rec(startplot:ii,col_des_lambda),'ko');
         
         drawnow;
     end
@@ -550,8 +739,10 @@ theta1_os = theta1_rec .* range_t1 + min_t1;
 theta2_os = theta2_rec .* range_t2 + min_t2;
 results = struct('theta1',theta1_os,...
     'theta2',theta2_os,...
-    'rho',rho_rec,...
-    'lambda',lambda_rec,...
+    'obs_rho',obs_rho_rec,...
+    'obs_lambda',obs_lambda_rec,...
+    'des_rho',des_rho_rec,...
+    'des_lambda',des_lambda_rec,...
     'settings',settings);
 
 end
