@@ -8,7 +8,8 @@ switch nargin
     case 3, rescale_inputs = false; discrep = false;
         t1 = xmin; t2 = xrange; ymean = 0; ysd = 1;
     case 4, rescale_inputs = false; discrep = boolean(t1);
-        t1 = xmin; t2 = xrange; ymean = 0; ysd = 1;
+        t1 = xmin; t2 = xrange; ymean = 0; ysd = 1; 
+        xmin = min(x); xrange=range(x);
     case 11, rescale_inputs = true; discrep = false;
     case 12, rescale_inputs = true; discrep = boolean(discrep);
     otherwise, error('Incorrect number of inputs');
@@ -22,9 +23,8 @@ if rescale_inputs
 end
 
 if discrep % Here's where we define the discrepancy
-    disc_fn = @(xx,tt) ...
-        xx + (xx - (xmin+xrange/2)).^2 .* tt/2 - tt/2 *xrange^2/4;
-    mult = disc_fn(x,t2) ; 
+    disc_fn =@(xx) xx - 1.5*(xx-xmin).*(xx-(xmin+xrange));
+    mult = disc_fn(x) ; 
 else
     mult = x;
 end
