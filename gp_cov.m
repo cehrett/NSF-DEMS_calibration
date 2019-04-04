@@ -3,7 +3,7 @@
 function R = gp_cov(rho,input,input_s,lambda,verbose)
 
 % If either input is empty, then output an empty cov matrix
-if isequal(input,[]) || isequal(input_s,[])
+if min(size(input))==0 || min(size(input_s))==0
     R = [] ; 
     return ;
 end

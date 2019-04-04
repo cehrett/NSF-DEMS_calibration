@@ -49,6 +49,13 @@ function settings = MCMC_dual_calib_settings(...
 % 'ObsVar':
 %   Scalar value which gives the variance of the iid true observation
 %   error. Default: 0.05.
+% 'emulator':
+%   Determines whether an emulator is used. If not, the emulator mean 
+%   function is set to just be the objective function itself, and pairs 
+%   this with a 0 covariance fn (by setting marginal precision to Inf).
+% 'EmulatorMean':
+%   Mean function of the emulator. Default: constant 0 (if an emulator is
+%   used), example objective function (if emulator==false).
 % 'EmulatorCovHypers':
 %   Vector of hyperparameters for the power product exponential covariance
 %   function of the GP emulator. Default:
@@ -57,6 +64,12 @@ function settings = MCMC_dual_calib_settings(...
 % 'obs_discrep':
 %   Boolean value which tells whether or not to include a discrepancy term
 %   for the real observations. Default: true.
+% 'des_discrep':
+%   Boolean value which tells whether or not to include a discrepancy term
+%   for the desired observations. Default: true.
+% 'obs_discrep_mean':
+%   Function of x and theta2 which gives the prior mean on the observation
+%   discrepancy function. Default: constant 0.
 % 'modular':
 %   Boolean value which tells whether or not to use modularized version of
 %   the model, to protect the traditional calibration from being influenced
@@ -89,10 +102,14 @@ p.addParameter('range_t2','Default',@isnumeric);
 p.addParameter('mean_y','Default',@isscalar);
 p.addParameter('std_y','Default',@isscalar);
 p.addParameter('ObsVar',0.05,@isscalar);
+p.addParameter('emulator',true,@islogical);
+p.addParameter('EmulatorMean','Default',@(h)isa(h,'function_handle'));
 p.addParameter('EmulatorCovHypers',...
     [0.992943679103582 0.785517245465518 ...
     0.077856518100309 0.083606519464691],@ismatrix);
 p.addParameter('obs_discrep',true,@islogical);
+p.addParameter('des_discrep',true,@islogical);
+p.addParameter('obs_discrep_mean','Default',@(h)isa(h,'function_handle'));
 p.addParameter('modular',false,@islogical);
 p.addParameter('doplot',true,@islogical);
 p.parse(sim_x,sim_t1,sim_t2,sim_y,obs_x,obs_t2,obs_y,des_x,des_y,...
@@ -112,8 +129,12 @@ range_t2 = p.Results.range_t2;
 mean_y = p.Results.mean_y;
 std_y = p.Results.std_y;
 ObsVar = p.Results.ObsVar;
+emulator = p.Results.emulator;
+EmulatorMean = p.Results.EmulatorMean;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
 obs_discrep = p.Results.obs_discrep;
+des_discrep = p.Results.des_discrep;
+obs_discrep_mean = p.Results.obs_discrep_mean;
 modular = p.Results.modular;
 doplot = p.Results.doplot;
 
@@ -152,15 +173,33 @@ des_y_std = (des_y - mean_y) ./ std_y ;
 
 
 %% Set emulator mean
-% Uncomment below to set so that an emulator is, strictly speaking, not
-% used. That is, the emulator mean function is set to just be the objective
-% function itself, with the expectation that this will be paired with a 0
-% covariance function.
-% mean_sim = @(a,b,c) dual_calib_example_fn(...
-%     a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
-%     mean_y,std_y);
-% If a zero mean is preferred, comment out the above and uncomment this:
-mean_sim = @(a,b,c) zeros(size(a)); % Emulator mean
+% Determines whether an emulator is used. If not, the emulator 
+% mean function is set to just be the objective
+% function itself, and pairs this with a 0
+% covariance function (by setting marginal precision to Inf).
+if emulator
+    if isequal(EmulatorMean,'Default')
+        mean_sim = @(a,b,c) zeros(size(a)); % Emulator mean
+    else
+        mean_sim = EmulatorMean;
+    end
+else
+    if isequal(EmulatorMean,'Default')
+        mean_sim = @(a,b,c) dual_calib_example_fn(...
+            a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
+            mean_y,std_y);
+    else
+        mean_sim = EmulatorMean;
+    end
+    EmulatorCovHypers(end) = Inf;
+end
+
+%% Set observation discrepancy mean
+if isequal(obs_discrep_mean,'Default')
+    mean_obs = @(x,t) zeros(size(x,1),1);
+else
+    mean_obs = obs_discrep_mean;
+end
 
 
 %% Make true observation error covariance matrix
@@ -250,6 +289,7 @@ settings = struct(...
     'mean_sim',mean_sim,...
     'emulator_rho',EmulatorCovHypers(1:end-1),...
     'emulator_lambda',EmulatorCovHypers(end),...
+    'mean_obs',mean_obs,...
     'rho_proposal',rho_proposal,...
     'lambda_proposal',lambda_proposal,...
     'rho_prop_log_mh_correction',rho_prop_log_mh_correction,...
@@ -275,6 +315,7 @@ settings = struct(...
     'log_theta1_prior',log_theta1_prior,...
     'log_theta2_prior',log_theta2_prior,...
     'obs_discrep',obs_discrep,...
+    'des_discrep',des_discrep,...
     'modular',modular,...
     'doplot',doplot);
 

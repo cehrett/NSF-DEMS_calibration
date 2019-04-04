@@ -109,14 +109,20 @@ omeans = mean(results.settings.output_means');
 osds   = mean(results.settings.output_sds'  );
 PF     = (PF_os - omeans)./ osds             ;
 
+%%% Estimate mean and sd of distance from sample mean
+PF_mean = mean(PF);
+mdists = sqrt(sum( (PF - PF_mean).^2, 2));
+
+
 %%% Find closet point to des_obs
-%orig_des_obs = results.settings.desired_obs  ;
-orig_des_obs = [ 0.6592 0.0774 98.7759 ]; % This is bottom of model ranges
-% [.74 .089 100 ] ; % This pt chosen to get at observed elbow
+orig_des_obs = results.settings.desired_obs  ;
+%orig_des_obs = [ 0.6592 0.0774 98.7759 ]; % This is bottom of model ranges
+%orig_des_obs =  [.74 .089 100 ] ; %This pt chosen to get at observed elbow
 des_obs = (orig_des_obs - omeans)./osds      ;
 dists = sum( ( PF - des_obs ).^2, 2 )        ;
 [m,i] = min( sum( ( PF - des_obs ).^2, 2 ) ) ;
 PF_optim = PF(i,:)                           ;
+PF_optim_os = PF_optim .* osds + omeans      ;
 
 %%% Get new desired obs specified distance from PF in same dir as original
 spec_dist = .2                               ;

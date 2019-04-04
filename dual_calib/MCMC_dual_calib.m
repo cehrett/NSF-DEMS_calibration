@@ -23,6 +23,7 @@ obs_cov_mat                   = settings.obs_cov_mat;
 mean_sim                      = settings.mean_sim;
 emulator_rho                  = settings.emulator_rho;
 emulator_lambda               = settings.emulator_lambda;
+mean_obs                      = settings.mean_obs;
 obs_rho                       = settings.obs_rho_init;
 obs_lambda                    = settings.obs_lambda_init;
 des_rho                       = settings.des_rho_init;
@@ -49,6 +50,7 @@ log_theta1_prior_fn           = settings.log_theta1_prior;
 log_theta2_prior_fn           = settings.log_theta2_prior;
 doplot                        = settings.doplot;
 obs_discrep                   = settings.obs_discrep;
+des_discrep                   = settings.des_discrep;
 modular                       = settings.modular;
 
 %% Set some useful variables
@@ -75,10 +77,9 @@ logit = @(a) log(a./(1-a)) ;
 
 
 %% Set mean functions for GPs
-% Currently, constant mean zero is used for both discrepancy  GPs. 
-% However, they are implemented here in function form so that they can be 
+% Currently, constant mean zero is used for discrepancy  GP. 
+% However, it is implemented here in function form so that it can be 
 % changed easily in the future if desired.
-mean_obs = @(a,b) zeros(size(a,1),1); % Observation discrepancy mean
 mean_des = @(a) zeros(size(a,1),1); 
 
 
@@ -454,7 +455,7 @@ for ii = 2:M
     log_alpha = log_lik_obs_rho_s - log_lik_obs_rho + ...
         rho_prop_log_mh_correction(obs_rho_s,obs_rho);
     
-    % Now accept theta1_s with probability min(alpha,1)
+    % Now accept obs_rho_s with probability min(alpha,1)
     if log(rand) < log_alpha
         obs_rho = obs_rho_s;
         Sigma_obs_dscr_obsobs = Sigma_obs_dscr_obsobs_s;
@@ -529,7 +530,7 @@ for ii = 2:M
     log_alpha = log_lik_obs_lambda_s - log_lik_obs_lambda + ...
         lambda_prop_log_mh_correction(obs_lambda_s,obs_lambda);
     
-    % Now accept theta1_s with probability min(alpha,1)
+    % Now accept obs_lambda_s with probability min(alpha,1)
     if log(rand) < log_alpha
         obs_lambda = obs_lambda_s;
         Sigma_obs_dscr_obsobs = Sigma_obs_dscr_obsobs_s;
@@ -542,6 +543,7 @@ for ii = 2:M
     end
     
     %% Draw new des_rho
+    if des_discrep % Only draw target outcome discrepancy if des_discrep T
     des_rho_s = rho_proposal(des_rho,des_Sigma_rho);
     
     % Get acceptance ratio alpha
@@ -582,8 +584,10 @@ for ii = 2:M
         log_des_rho_prior = log_des_rho_prior_s;
         accepted_des_rho = accepted_des_rho + 1;
     end
+    end
     
     %% Draw new des_lambda
+    if des_discrep % Only draw target outcome discrepancy if des_discrep T
     des_lambda_s = lambda_proposal(des_lambda,des_Sigma_lambda);
     
     % Get acceptance ratio alpha
@@ -623,6 +627,7 @@ for ii = 2:M
         log_des_lambda_prior = log_des_lambda_prior_s;
         log_cond_dens_D = log_cond_dens_D_s;
         accepted_des_lambda = accepted_des_lambda + 1;
+    end
     end
     
     %% Record draws
@@ -675,21 +680,25 @@ for ii = 2:M
         obs_Sigma_lambda =mult_obs_lambda*cov(log(obs_lambda_rec(1:ii,:)));
         end
         
-        % Adjust proposal covariance for des_rho
+        % Adjust proposal covariance for des_rho (if discrepancy used)
+        if des_discrep
         mult_mult = max(.5,min(2,accepted_des_rho/100/opt_acc_rate));
         mult_des_rho = mult_mult * mult_des_rho;
         fprintf('des_rho proposal variance set to %g of previous\n',...
             mult_mult);
         accepted_des_rho = 0 ;
         des_Sigma_rho = mult_des_rho * cov(log(des_rho_rec(1:ii,:)));
+        end
 
-        % Adjust proposal covariance for des_lambda
+        % Adjust proposal covariance for des_lambda (if discrepancy used)
+        if des_discrep
         mult_mult = max(.5,min(2,accepted_des_lambda/100/opt_acc_rate));
         mult_des_lambda = mult_mult * mult_des_lambda;
         fprintf('des_lambda proposal variance set to %g of previous\n',...
             mult_mult);
         accepted_des_lambda = 0 ;
         des_Sigma_lambda =mult_des_lambda*cov(log(des_lambda_rec(1:ii,:)));
+        end
         
         fprintf('\n');
         msg = fprintf('Completed: %g/%g  ',ii,M);
@@ -720,10 +729,13 @@ for ii = 2:M
         plot(obs_rho_rec(startplot:ii,col_obs_rho),'ko');
         subplot(2,3,4);
         plot(obs_lambda_rec(startplot:ii,col_obs_lambda),'ko');
-        subplot(2,3,5);
-        plot(des_rho_rec(startplot:ii,col_des_rho),'ko');
-        subplot(2,3,6);
-        plot(des_lambda_rec(startplot:ii,col_des_lambda),'ko');
+        % Only need plot these two if des_discrep == true
+        if des_discrep
+            subplot(2,3,5);
+            plot(des_rho_rec(startplot:ii,col_des_rho),'ko');
+            subplot(2,3,6);
+            plot(des_lambda_rec(startplot:ii,col_des_lambda),'ko');
+        end
         
         drawnow;
     end

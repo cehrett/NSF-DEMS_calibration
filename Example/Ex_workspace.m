@@ -723,6 +723,7 @@ scatter3(nondoms(:,3),nondoms(:,1),nondoms(:,2)); hold on;
 line([0 pf_optim(3)],[0 pf_optim(1)],[0 pf_optim(2)],...
     'Color','r');
 dists_os=sqrt(sum((des_obs - nondoms).^2,2)) ;
+% Also check out closest point on original scale, in green
 [mindist_os,mindex_os]=min(dists_os);
 line([0 nondoms(mindex_os,3)],[0 nondoms(mindex_os,1)],...
     [0 nondoms(mindex_os,2)],'Color','g');
