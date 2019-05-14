@@ -239,8 +239,8 @@ f.Children(1).Position = [0.5 0.005 0.575 0.55];
 %% Examine six different discrepancy versions
 clc ; clearvars -except dpath ; close all ;
 
-f=figure('pos',[640 5 540 800]);
-set(f,'color','white');
+% f=figure('pos',[640 5 540 800]);
+% set(f,'color','white');
 
 % Define inputs
 xmin = .5;
@@ -261,7 +261,9 @@ discrep_title_content = [ {1;'c = 1.5'}, {1;'c = 3.5'}, ...
 
 %%% Loop through all discrepancies and plot each
 for ii=1:6
-    subplot(3,2,ii);
+%     subplot(3,2,ii);
+    if mod(ii,2)==1 figure('pos',[10 + ii*20, 5, 540, 250],'color','w');end
+    subplot(1,2,mod(ii-1,2)+1);
     discrep = ii ; % Select which discrepancy
     Y = reshape(...
         dual_calib_example_fn(X(:),xmin,xrange,T1(:),t1min,t1range,...
@@ -289,22 +291,27 @@ for ii=1:6
     surf(tt1*t1range+t1min,tt2*t2range+t2min,...
         reshape(Discrep(:,xidx,:),100,100),...
         'EdgeAlpha',ea);
+    zlim([0,1.33]);
     
     % Sort out title and labels
     dtc = discrep_title_content(:,ii);
-    title(sprintf('Discrepancy %d, %s',dtc{:}));
+    title(sprintf('g_%d, %s',dtc{:}));
     xlabel('t_1');ylabel('t_2');zlabel('f(x,t_1,t_2)');
     axis vis3d;
     view([-110.4000    6.5334]);
+    
+    % Save
+    savestr = sprintf(['FIG_obj_fn_g',int2str(ceil(ii/2))]);
+    if mod(ii,2)==0 export_fig(savestr,'-png','-m2'); end
 end
 
 %%% Fix sizing
-f.Children(6).Position = [0.0 0.685 0.575 0.32];
-f.Children(5).Position = [0.5 0.685 0.575 0.32];
-f.Children(4).Position = [0.0 0.355 0.575 0.32];
-f.Children(3).Position = [0.5 0.355 0.575 0.32];
-f.Children(2).Position = [0.0 0.025 0.575 0.32];
-f.Children(1).Position = [0.5 0.025 0.575 0.32];
+% f.Children(6).Position = [0.0 0.685 0.575 0.32];
+% f.Children(5).Position = [0.5 0.685 0.575 0.32];
+% f.Children(4).Position = [0.0 0.355 0.575 0.32];
+% f.Children(3).Position = [0.5 0.355 0.575 0.32];
+% f.Children(2).Position = [0.0 0.025 0.575 0.32];
+% f.Children(1).Position = [0.5 0.025 0.575 0.32];
 
 % % Get a rotating gif
 % viewpt = [-27.2667 10.4000];

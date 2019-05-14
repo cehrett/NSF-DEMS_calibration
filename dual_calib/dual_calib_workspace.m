@@ -289,8 +289,9 @@ clc ; clearvars -except dpath ; close all ;
 
 % Set real theta1, discrepancy version, whether modular
 theta1 = 2;
-discrep = 5;
+discrep = 1;
 modular = false;
+obs_discrep = true; % Whether or not to include discrep term for real obs
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -362,8 +363,8 @@ obs_discrep_mean = @(x,t) avg_disc * ones(size(x)) ;
 settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     obs_x,obs_t2,obs_y,des_x,des_y,'min_x',xmin,'range_x',xrange,...
     'min_t1',t1min,'range_t1',t1range,'min_t2',t2min,'range_t2',t2range,...
-    'mean_y',mean_y,'std_y',std_y,'M',2e4,'burn_in',.2,...
-    'obs_discrep',true,...
+    'mean_y',mean_y,'std_y',std_y,'M',1e4,'burn_in',.4,...
+    'obs_discrep',obs_discrep,...
     'obs_discrep_mean',obs_discrep_mean,...
     'emulator',false,...
     'modular',modular);
@@ -468,8 +469,9 @@ clc ; clearvars -except dpath ; close all ;
 
 % Set real theta1, discrepancy version, whether modular
 theta1 = 2;
-discrep = 5;
+discrep = 0;
 modular = false;
+obs_discrep = false; % Whether to include discrep term for real obs
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -489,7 +491,7 @@ std_y = design.std_y;
 % Make a col vector based on true theta1
 obs_t1 = ones(size(obs_x,1),1) * theta1;
 
-% Get "real" observations without noise but with discrepancy
+% Get "real" observations
 % Get same observations used in DCTO version:
 locstr = sprintf(['C:\\Users\\carle\\Documents',...
     '\\MATLAB\\NSF DEMS\\Phase 1\\',...
@@ -525,8 +527,8 @@ obs_discrep_mean = @(x,t) avg_disc * ones(size(x)) ;
 settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     obs_x,obs_t2,obs_y,des_x,des_y,'min_x',xmin,'range_x',xrange,...
     'min_t1',t1min,'range_t1',t1range,'min_t2',t2min,'range_t2',t2range,...
-    'mean_y',mean_y,'std_y',std_y,'M',2e4,'burn_in',.2,...
-    'obs_discrep',true,...
+    'mean_y',mean_y,'std_y',std_y,'M',1e4,'burn_in',.4,...
+    'obs_discrep',obs_discrep,...
     'obs_discrep_mean',obs_discrep_mean,...
     'des_discrep',false,...
     'emulator',false,...
@@ -853,8 +855,12 @@ t2_var
 %% Take a look at realizations of discrepancies
 clc ; clearvars -except dpath ; close all ;
 
+%%% Open figure and set which rho,lambda draws are used
+f=figure('pos',[680 140 600 500]);
+idx = randsample(4000,1);
+
 %%% Set which discrepancy version is being examined
-discrep = 0 ; 
+discrep = 7; 
 
 %%% Define input rescaling settings
 xmin = .5;
@@ -866,14 +872,17 @@ t2range = 5;
 theta1 = 2;
 
 %%% Load the MCMC results
+discrep_str = int2str(discrep);
+if discrep == 7 discrep_str = ['5_inf'] ; discrep = 5 ; end
 locstr = sprintf(['C:\\Users\\carle\\Documents',...
     '\\MATLAB\\NSF DEMS\\Phase 1\\',...
     'dual_calib\\dual_calib_stored_data\\'...
-    '2019-03-28_DCTO_discrep',int2str(discrep)]);
+    '2019-03-28_DCTO_discrep',discrep_str]);
 load(locstr);
 burnin = results.settings.burn_in;
 rhos = results.obs_rho(burnin:end,:) ;
 lambdas = results.obs_lambda(burnin:end,:);
+theta1s = results.theta1(burnin:end,:);
 n = size(rhos,1);
 
 %%% Define the updated mean and covariance functions for the discrepancy
@@ -886,7 +895,7 @@ updated_mean = @(y,x,t2,xnew,t2new,rho,lambda) ...
     add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
     inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
     (y - prior_mean(x,t2)) ;
-updated_cov = @(x,t2,xnew,t2new,lambda) ...
+updated_cov = @(x,t2,xnew,t2new,rho,lambda) ...
     add_nug(prior_cov(rho,xnew,t2new,xnew,t2new,lambda)) - ...
     add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
     inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
@@ -896,18 +905,23 @@ updated_cov = @(x,t2,xnew,t2new,lambda) ...
 obs_x = results.settings.obs_x ; 
 obs_t2 = results.settings.obs_t2 ; 
 obs_y = results.settings.obs_y ; 
-h=20; % Grid mesh setting for theta2
+h=40; % Grid mesh setting for theta2
 [xp, t2p] = meshgrid(linspace(0,1,5),linspace(0,1,h)) ;
 xp=xp(:) ; t2p = t2p(:);
 
 %%% Get mean of discrep for a random draw of rho,lambda
-idx = randsample(n,1);
-rho = rhos(idx,:) ; lambda = lambdas(idx,:) ;
+rho = rhos(idx,:) ; lambda = lambdas(idx,:) ; theta1 = theta1s(idx,:) ;
 obs_disc = obs_y - dual_calib_example_fn(obs_x,xmin,xrange,...
     theta1,0,1,obs_t2,t2min,t2range,...
     results.settings.mean_y,results.settings.std_y,0);
-d_orig = updated_mean(obs_disc,obs_x,obs_t2,xp,t2p,rho,lambda) ;
-d = d_orig * results.settings.std_y ;
+% Gather discrepancy mean on standardized scale:
+d_std = updated_mean(obs_disc,obs_x,obs_t2,xp,t2p,rho,lambda) ;
+% Transform to original scale:
+d = d_std * results.settings.std_y ;
+% Now get standard deviations of d:
+d_std_cov = updated_cov(obs_x,obs_t2,xp,t2p,rho,lambda) ; 
+d_std_sds = sqrt(diag(d_std_cov)+0.05) ; 
+d_sds = d_std_sds * results.settings.std_y;
 
 %%% Plot the discrepancy
 % Define inputs
@@ -922,19 +936,19 @@ Yd= reshape(dual_calib_example_fn(X(:),xmin,xrange,T1(:),t1min,t1range,...
     T2(:),t2min,t2range,0,1,discrep),length(x),length(t1),length(t2));
 
 % Take a look
-f3=figure('pos',[680 140 600 500]);
 xx=reshape(X,100,100);
 tt1=reshape(T1,100,100);
 tt2=reshape(T2,100,100);
 Discrep = Yd-Y;
 % surf(tt1*t1range+t1min,tt2*t2range+t2min,...
 %     reshape(Y,100,100),'EdgeAlpha',.25);
-hold on;
+% hold on;
 % surf(tt1*t1range+t1min,tt2*t2range+t2min,...
 %     reshape(Yd,100,100),'EdgeAlpha',.25);
 % True discrepancy:
 surf(tt1*t1range+t1min,tt2*t2range+t2min,...
     reshape(Discrep,100,100),'EdgeAlpha',.25);
+hold on;
 % Now we add the estimated discrepancy:
 [X,T1,T2] = meshgrid(x,t1,t2p(1:size(unique(t2p),1))) ; 
 xx=reshape(X,100,h);
@@ -943,3 +957,306 @@ tt2=reshape(T2,100,h);
 dd = repmat(d(xp==0.5)',100,1);
 surf(tt1*t1range+t1min,tt2*t2range+t2min,...
     dd,'EdgeAlpha',.25);
+% Now add upper and lower 2sd surfaces
+d_upper = d + 2 * d_sds ; d_lower = d - 2 * d_sds ;
+dd_upper = repmat(d_upper(xp==.5)',100,1);
+dd_lower = repmat(d_lower(xp==.5)',100,1);
+surf(tt1*t1range+t1min,tt2*t2range+t2min,...
+    dd_upper,'EdgeAlpha',.25);
+surf(tt1*t1range+t1min,tt2*t2range+t2min,...
+    dd_lower,'EdgeAlpha',.25);
+
+f.Children.View = [-90 0]; hold off ; pause(0.01);
+
+%% Perform DCTO with informatively chosen target outcomes
+clc ; clearvars -except dpath ; close all ;
+
+% Set real theta1, optimal theta2, discrepancy version, whether modular
+theta1 = 2;
+discrep = 6;
+if discrep < 5 theta2=4/3 ; else theta2=1 ; end
+modular = false;
+obs_discrep = true; % Whether or not to include discrep term for real obs
+
+% Define inputs mins and ranges 
+xmin = .5;
+xrange = .5;
+t1min = 1.5;
+t1range = 3;
+t2min = 0;
+t2range = 5;
+
+% Load saved design
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'dual_calib\dual_calib_stored_data\'...
+    '2019-03-15_obs_design_and_sim_mean_std'],'design');
+obs_x = design.obs_x; obs_t2 = design.obs_t2; mean_y = design.mean_y;
+std_y = design.std_y;
+
+% Make a col vector based on true theta1
+obs_t1 = ones(size(obs_x,1),1) * theta1;
+
+% Get "real" observations
+% Get same observations used in DCTO version:
+locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-03-28_DCTO_discrep',int2str(discrep)]);
+load(locstr,'results');
+obs_y = results.settings.obs_y * std_y + mean_y;
+
+% Now set desired observations, informatively
+des_x = linspace(0,1,8)' * xrange + xmin;
+des_y = dual_calib_example_fn(des_x,theta1,theta2) - 0.01;%des_y=des_y*0;
+
+% Since we are not using emulator, empty out simulator observations
+sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
+
+% And get the average discrepancy value to use as the mean
+int_fn =@(x,t)...
+    dual_calib_example_fn(x,0,1,theta1*ones(size(x))...
+    ,0,1,t,0,1,0,1,discrep)-...
+    dual_calib_example_fn(x,0,1,theta1*ones(size(x)),0,1,t,0,1,...
+    mean_y,std_y,0);
+avg_disc = integral2(int_fn,xmin,xmin+xrange,t2min,t2min+t2range) / ...
+    (xrange * t2range) ; 
+avg_disc=0 ; 
+obs_discrep_mean = @(x,t) avg_disc * ones(size(x)) ; 
+% The below lines are included so that an informative discrepancy mean can
+% be set for discrep=3. 
+% c = 0.055 ; % This controls the size of the additive discrepancy
+% d = 0; %Raising/lowering c makes discrepancy more/less aggressive
+% obs_discrep_mean = @(xx,tt2) ...
+%     (c*(xx*xrange+xmin).*(tt2*t2range+t2min)+d)/std_y;
+
+% Get settings
+settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+    obs_x,obs_t2,obs_y,des_x,des_y,'min_x',xmin,'range_x',xrange,...
+    'min_t1',t1min,'range_t1',t1range,'min_t2',t2min,'range_t2',t2range,...
+    'mean_y',mean_y,'std_y',std_y,'M',1e4,'burn_in',.4,...
+    'obs_discrep',obs_discrep,...
+    'obs_discrep_mean',obs_discrep_mean,...
+    'emulator',false,...
+    'modular',modular);
+
+% Perform calibration
+results = MCMC_dual_calib(settings);
+
+burn_in = results.settings.burn_in;
+min_t1 = results.settings.min_t1; range_t1 = results.settings.range_t1;
+min_t2 = results.settings.min_t2; range_t2 = results.settings.range_t2;
+
+% First, get prior and posterior theta1
+f1 = figure('pos',[10 10 400 300]);
+% Plot prior
+fill([min_t1 min_t1 + range_t1 min_t1 + range_t1 min_t1],...
+    [0 0 1/range_t1 1/range_t1],'g','EdgeColor','none');
+xlim([min_t1 min_t1 + range_t1]);
+hold on;
+% Get a histogram of theta1 with true value marked
+histogram(results.theta1(burn_in:end,:),'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.85,'BinWidth',0.075);
+% Plot true theta1
+plot([theta1 theta1],get(gca,'YLim'),'--r','LineWidth',1.5);
+% Put a legend on it
+lg1 = legend('Prior dist.','Posterior dist.','True value');
+title('Prior and posterior distributions of \theta_1');
+xlabel('\theta_1');
+% Save it:
+set(f1,'color','white');
+% saveas(f1,'FIG_dual_calib_post_theta1-2.png');
+
+% Second, get prior and posterior theta2
+f2 = figure('pos',[420 10 400 300]);
+left_color = [.5 .5 0];
+right_color = [.5 0 .5];
+set(f2,'defaultAxesColorOrder',[left_color; right_color]);
+% Plot prior
+fill([min_t2 min_t2 + range_t2 min_t2 + range_t2 min_t2],...
+    [0 0 1/range_t2 1/range_t2],'g','EdgeColor','none');
+xlim([min_t2 min_t2 + range_t2]);
+hold on;
+% Get a histogram of theta2 with true value marked
+histogram(results.theta2(burn_in:end,:),'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.85);
+% Get and plot true theta2
+fmfn = @(z) dual_calib_example_fn(.75,0,1,theta1,0,1,z,0,1,0,1,discrep);
+theta2 = fmincon(fmfn,2,[],[],[],[],0,5);
+yyaxis left ;
+plot([theta2 theta2],get(gca,'YLim'),'--r','LineWidth',1.5);
+% Put a legend on it
+lg2 = legend('Prior dist.','Posterior dist.','Optimal value');
+title('Prior and posterior distributions of \theta_2');
+xlabel('\theta_2');
+% Save it as is:
+set(f2,'color','white');
+% saveas(f2,'FIG_dual_calib_post_theta2-2.png');
+
+% Also examine discrepancy
+% Define inputs
+xmin = .5;
+xrange = .5;
+x = linspace(0,1);
+t1min = 1.5;
+t1range = 3;
+t1=linspace(0,1);
+t2min = 0;
+t2range = 5;
+t2 = linspace(0,1);
+
+[X,T1,T2] = meshgrid(x,t1,t2) ; 
+Y = reshape(dual_calib_example_fn(X(:),xmin,xrange,T1(:),t1min,t1range,...
+    T2(:),t2min,t2range,0,1,0),length(x),length(t1),length(t2));
+Yd= reshape(dual_calib_example_fn(X(:),xmin,xrange,T1(:),t1min,t1range,...
+    T2(:),t2min,t2range,0,1,discrep),length(x),length(t1),length(t2));
+
+% Take a look
+f3=figure('pos',[680 140 600 500]);
+xidx=50;
+xx=reshape(X(:,xidx,:),100,100);
+tt1=reshape(T1(:,xidx,:),100,100);
+tt2=reshape(T2(:,xidx,:),100,100);
+Discrep = Yd-Y;
+surf(tt1*t1range+t1min,tt2*t2range+t2min,...
+    reshape(Y(:,xidx,:),100,100),'EdgeAlpha',.25);
+hold on;
+surf(tt1*t1range+t1min,tt2*t2range+t2min,...
+    reshape(Yd(:,xidx,:),100,100),'EdgeAlpha',.25);
+surf(tt1*t1range+t1min,tt2*t2range+t2min,...
+    reshape(Discrep(:,xidx,:),100,100),'EdgeAlpha',.25);
+
+% Check posterior means
+disp(mean(results.theta1));
+disp(mean(results.theta2));
+
+% Save results
+locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-05-01_DCTO_discrep',int2str(discrep)]);
+% save(locstr,'results');
+
+%% Get predictive distribution and compare to Pareto front
+clc ; clearvars -except dpath ; close all ;
+
+% Set real theta1, optimal theta2, discrepancy version, whether modular
+true_theta1 = 2;
+discrep = 6;
+if discrep < 5; opt_theta2=4/3 ; else ; opt_theta2=1 ; end
+modular = false;
+obs_discrep = true; % Whether or not to include discrep term for real obs
+xmin = 0.5 ; xrange = 0.5;
+t2min = 0;
+t2range = 5;
+
+% Load previously gathered results
+discrep_str = int2str(discrep);
+if discrep == 7 ;  discrep_str = ['5_inf'] ; discrep = 5 ; end
+locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-03-28_DCTO_discrep',discrep_str]);
+load(locstr);
+
+% Gather post-burn-in results
+burn_in = results.settings.burn_in+1;
+theta1 = results.theta1(burn_in:end,:);
+theta2 = results.theta2(burn_in:end,:);
+obs_rho = results.obs_rho(burn_in:end,:);
+obs_lambda = results.obs_lambda(burn_in:end,:);
+des_rho = results.des_rho(burn_in:end,:);
+des_lambda = results.des_lambda(burn_in:end,:);
+
+% Recover observations and target outcomes
+obs_x  = results.settings.obs_x;
+obs_y  = results.settings.obs_y;
+obs_t2 = results.settings.obs_t2;
+des_y  = results.settings.des_y;
+m = size(theta1,1);
+mean_y = results.settings.mean_y;
+std_y = results.settings.std_y;
+
+% Set desired observations (chosen for Gaussian quadrature)
+n = 10 ; % Number of points to use for integration
+[x,w] = lgwt(n,0,1); % Get points and weights
+
+
+% Define the updated mean and covariance functions for the discrepancy
+add_nug = @(X) X+1e-5*eye(size(X)); % adds nugget for computational stablty
+prior_mean = results.settings.mean_obs;
+prior_cov = @(rho,x,t2,xp,t2p,lambda) ... 
+    gp_cov(rho,[x ones(size(x,1),1).*t2],...
+    [xp ones(size(xp,1),1).*t2p],lambda,false);
+updated_mean = @(y,x,t2,xnew,t2new,rho,lambda) ...
+    prior_mean(xnew,t2new) + ...
+    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
+    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
+    (y - prior_mean(x,t2)) ;
+updated_cov = @(x,t2,xnew,t2new,rho,lambda) ...
+    add_nug(prior_cov(rho,xnew,t2new,xnew,t2new,lambda)) - ...
+    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
+    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
+    add_nug(prior_cov(rho,x,t2,xnew,t2new,lambda)) ;
+% clear results ; % No longer needed
+
+% Get computer model output for each draw from the posterior (at des_x),
+% and also get true output
+comp_model_output = dual_calib_example_fn(repmat(x,m,1),xmin,xrange,...
+    repelem(theta1,n,1),0,1,repelem(theta2,n,1),0,1,0,1,0);
+true_output = dual_calib_example_fn(x,xmin,xrange,...
+    true_theta1,0,1,opt_theta2,0,1,0,1,discrep);
+
+% Reshape so that each row corresponds to a single draw of (theta1,theta2)
+comp_model_output = reshape(comp_model_output,n,m)';
+true_output = true_output';
+
+% Add posterior mean of observation discrepancy
+discrep_gp_post_means_std = comp_model_output * 0 ; % Pre-allocate space
+obs_disc_std = zeros(m,size(obs_x,1)) ; % Pre-allocate space
+for idx = 1:m
+    rho = obs_rho(idx,:) ; lambda = obs_lambda(idx,:) ; 
+    t1 = theta1(idx,:); t2 = (theta2(idx,:)-t2min)./t2range;
+    % obs_disc_std holds the discrepancy between the observed values of y
+    % and the computer model output for each draw of theta_1, on the
+    % standardized scale.
+    obs_disc_std(idx,:)=obs_y - dual_calib_example_fn(obs_x,xmin,xrange,...
+        t1,0,1,obs_t2,t2min,t2range,...
+        mean_y,std_y,0);
+    % Gather discrepancy mean on standardized scale:
+    d =updated_mean(obs_disc_std(idx,:)',obs_x,obs_t2,x,t2,rho,lambda);
+%     % Now get standard deviations of d:
+%     d_std_cov = updated_cov(obs_x,obs_t2,des_x,t2,rho,lambda) ; 
+%     d_std_sds = sqrt(diag(d_std_cov)+0.05) ; 
+%     d_sds = d_std_sds * std_y ;
+    discrep_gp_post_means_std(idx,:) = d ;
+    if mod(idx,100)==0 ; disp(m-idx) ; end
+end
+
+% Take a look at the observed discrepancies and the GP discrepancy means
+figure();
+obs_disc_mean = mean(obs_disc_std);
+scatter3(obs_x,obs_t2,obs_disc_mean)
+hold on;
+scatter3(...
+    x,...
+    ones(size(x))*mean((theta2-t2min)./t2range),...
+    mean(discrep_gp_post_means_std))
+
+% Add discrepancy means to computer model output
+discrep_gp_post_means = discrep_gp_post_means_std * std_y;% Put on orig scl
+posterior_preds = comp_model_output + discrep_gp_post_means;
+
+% Get average across x, using Gaussian quadrature
+figure();
+posterior_preds_avg = posterior_preds * w;
+true_optimum = true_output * w;
+histogram(posterior_preds_avg);
+hold on;
+ylims = get(gca,'Ylim');
+plot([1 1]*true_optimum,ylims,'LineWidth',2);
+
+
+
+
+
+
