@@ -1189,13 +1189,13 @@ prior_cov = @(rho,x,t2,xp,t2p,lambda) ...
     [xp ones(size(xp,1),1).*t2p],lambda,false);
 updated_mean = @(y,x,t2,xnew,t2new,rho,lambda) ...
     prior_mean(xnew,t2new) + ...
-    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
-    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
+    (add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) / ...
+    add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
     (y - prior_mean(x,t2)) ;
 updated_cov = @(x,t2,xnew,t2new,rho,lambda) ...
     add_nug(prior_cov(rho,xnew,t2new,xnew,t2new,lambda)) - ...
-    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
-    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
+    (add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) / ...
+    add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
     add_nug(prior_cov(rho,x,t2,xnew,t2new,lambda)) ;
 % clear results ; % No longer needed
 
@@ -1212,6 +1212,7 @@ true_output = true_output';
 
 % Add posterior mean of observation discrepancy
 discrep_gp_post_means_std = comp_model_output * 0 ; % Pre-allocate space
+discrep_gp_post_sds_std = comp_model_output * 0 ; % Pre-allocate space
 obs_disc_std = zeros(m,size(obs_x,1)) ; % Pre-allocate space
 for idx = 1:m
     rho = obs_rho(idx,:) ; lambda = obs_lambda(idx,:) ; 
@@ -1224,11 +1225,11 @@ for idx = 1:m
         mean_y,std_y,0);
     % Gather discrepancy mean on standardized scale:
     d =updated_mean(obs_disc_std(idx,:)',obs_x,obs_t2,x,t2,rho,lambda);
-%     % Now get standard deviations of d:
-%     d_std_cov = updated_cov(obs_x,obs_t2,des_x,t2,rho,lambda) ; 
-%     d_std_sds = sqrt(diag(d_std_cov)+0.05) ; 
-%     d_sds = d_std_sds * std_y ;
     discrep_gp_post_means_std(idx,:) = d ;
+    % Now get standard deviations of d:
+    d_std_cov = updated_cov(obs_x,obs_t2,x,t2,rho,lambda) ; 
+    d_std_sds = sqrt(diag(d_std_cov)+0.05) ; 
+    discrep_gp_post_sds_std(idx,:) = d_std_sds ; 
     if mod(idx,100)==0 ; disp(m-idx) ; end
 end
 
@@ -1242,21 +1243,26 @@ scatter3(...
     ones(size(x))*mean((theta2-t2min)./t2range),...
     mean(discrep_gp_post_means_std))
 
-% Add discrepancy means to computer model output
+% Add discrepancy means to computer model output, rescale sds
+discrep_gp_post_sds = discrep_gp_post_sds_std * std_y ;% Put on orig scale
 discrep_gp_post_means = discrep_gp_post_means_std * std_y;% Put on orig scl
 posterior_preds = comp_model_output + discrep_gp_post_means;
+posterior_lb = posterior_preds - 2*discrep_gp_post_sds; % lower bound
+posterior_ub = posterior_preds + 2*discrep_gp_post_sds; % upper bound
 
 % Get average across x, using Gaussian quadrature
 figure();
 posterior_preds_avg = posterior_preds * w;
+posterior_lb_avg = posterior_lb * w;
+posterior_ub_avg = posterior_ub * w;
 true_optimum = true_output * w;
-histogram(posterior_preds_avg);
-hold on;
+
+% Make histograms
+histogram(posterior_preds_avg); hold on;
+histogram(posterior_lb_avg); histogram(posterior_ub_avg); 
 ylims = get(gca,'Ylim');
 plot([1 1]*true_optimum,ylims,'LineWidth',2);
 
-
-
-
-
-
+% Show posterior predictive distribution of average output with true optim
+posterior_distro = ...
+    normpdf(linspace(0,1),posterior_preds,discrep_gp_post_sds);

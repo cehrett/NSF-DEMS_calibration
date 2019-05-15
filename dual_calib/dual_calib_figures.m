@@ -720,3 +720,122 @@ savestr = ...
 sprintf(['FIG_KOHCTO_DCTO_comp_discrep',discrep_str,'_results.png']);
 % saveas(f,savestr);
 % export_fig(savestr,'-png','-m2',f);
+
+%% Get histograms of posterior predictive distributions
+clc ; clearvars -except dpath ; close all ;
+
+% Set real theta1, optimal theta2, discrepancy version, whether modular
+true_theta1 = 2;
+discrep = 7;
+if discrep < 5; opt_theta2=4/3 ; else ; opt_theta2=1 ; end
+modular = false;
+obs_discrep = true; % Whether or not to include discrep term for real obs
+xmin = 0.5 ; xrange = 0.5;
+t2min = 0;
+t2range = 5;
+
+% Load previously gathered results
+discrep_str = int2str(discrep);
+if discrep == 7 ;  discrep_str = ['5_inf'] ; discrep = 5 ; end
+locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-03-28_DCTO_discrep',discrep_str]);
+load(locstr);
+
+% Gather post-burn-in results
+burn_in = results.settings.burn_in+1;
+theta1 = results.theta1(burn_in:end,:);
+theta2 = results.theta2(burn_in:end,:);
+obs_rho = results.obs_rho(burn_in:end,:);
+obs_lambda = results.obs_lambda(burn_in:end,:);
+des_rho = results.des_rho(burn_in:end,:);
+des_lambda = results.des_lambda(burn_in:end,:);
+
+% Recover observations and target outcomes
+obs_x  = results.settings.obs_x;
+obs_y  = results.settings.obs_y;
+obs_t2 = results.settings.obs_t2;
+des_y  = results.settings.des_y;
+m = size(theta1,1);
+mean_y = results.settings.mean_y;
+std_y = results.settings.std_y;
+
+% Set desired observations (chosen for Gaussian quadrature)
+n = 10 ; % Number of points to use for integration
+[x,w] = lgwt(n,0,1); % Get points and weights
+
+
+% Define the updated mean and covariance functions for the discrepancy
+add_nug = @(X) X+1e-5*eye(size(X)); % adds nugget for computational stablty
+prior_mean = results.settings.mean_obs;
+prior_cov = @(rho,x,t2,xp,t2p,lambda) ... 
+    gp_cov(rho,[x ones(size(x,1),1).*t2],...
+    [xp ones(size(xp,1),1).*t2p],lambda,false);
+updated_mean = @(y,x,t2,xnew,t2new,rho,lambda) ...
+    prior_mean(xnew,t2new) + ...
+    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
+    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
+    (y - prior_mean(x,t2)) ;
+updated_cov = @(x,t2,xnew,t2new,rho,lambda) ...
+    add_nug(prior_cov(rho,xnew,t2new,xnew,t2new,lambda)) - ...
+    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
+    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
+    add_nug(prior_cov(rho,x,t2,xnew,t2new,lambda)) ;
+% clear results ; % No longer needed
+
+% Get computer model output for each draw from the posterior (at des_x),
+% and also get true output
+comp_model_output = dual_calib_example_fn(repmat(x,m,1),xmin,xrange,...
+    repelem(theta1,n,1),0,1,repelem(theta2,n,1),0,1,0,1,0);
+true_output = dual_calib_example_fn(x,xmin,xrange,...
+    true_theta1,0,1,opt_theta2,0,1,0,1,discrep);
+
+% Reshape so that each row corresponds to a single draw of (theta1,theta2)
+comp_model_output = reshape(comp_model_output,n,m)';
+true_output = true_output';
+
+% Add posterior mean of observation discrepancy
+discrep_gp_post_means_std = comp_model_output * 0 ; % Pre-allocate space
+obs_disc_std = zeros(m,size(obs_x,1)) ; % Pre-allocate space
+for idx = 1:m
+    rho = obs_rho(idx,:) ; lambda = obs_lambda(idx,:) ; 
+    t1 = theta1(idx,:); t2 = (theta2(idx,:)-t2min)./t2range;
+    % obs_disc_std holds the discrepancy between the observed values of y
+    % and the computer model output for each draw of theta_1, on the
+    % standardized scale.
+    obs_disc_std(idx,:)=obs_y - dual_calib_example_fn(obs_x,xmin,xrange,...
+        t1,0,1,obs_t2,t2min,t2range,...
+        mean_y,std_y,0);
+    % Gather discrepancy mean on standardized scale:
+    d =updated_mean(obs_disc_std(idx,:)',obs_x,obs_t2,x,t2,rho,lambda);
+%     % Now get standard deviations of d:
+%     d_std_cov = updated_cov(obs_x,obs_t2,des_x,t2,rho,lambda) ; 
+%     d_std_sds = sqrt(diag(d_std_cov)+0.05) ; 
+%     d_sds = d_std_sds * std_y ;
+    discrep_gp_post_means_std(idx,:) = d ;
+    if mod(idx,100)==0 ; disp(m-idx) ; end
+end
+
+% Take a look at the observed discrepancies and the GP discrepancy means
+figure();
+obs_disc_mean = mean(obs_disc_std);
+scatter3(obs_x,obs_t2,obs_disc_mean)
+hold on;
+scatter3(...
+    x,...
+    ones(size(x))*mean((theta2-t2min)./t2range),...
+    mean(discrep_gp_post_means_std))
+
+% Add discrepancy means to computer model output
+discrep_gp_post_means = discrep_gp_post_means_std * std_y;% Put on orig scl
+posterior_preds = comp_model_output + discrep_gp_post_means;
+
+% Get average across x, using Gaussian quadrature
+figure();
+posterior_preds_avg = posterior_preds * w;
+true_optimum = true_output * w;
+histogram(posterior_preds_avg);
+hold on;
+ylims = get(gca,'Ylim');
+plot([1 1]*true_optimum,ylims,'LineWidth',2);
