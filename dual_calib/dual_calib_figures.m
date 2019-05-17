@@ -724,15 +724,15 @@ sprintf(['FIG_KOHCTO_DCTO_comp_discrep',discrep_str,'_results.png']);
 %% Get histograms of posterior predictive distributions
 clc ; clearvars -except dpath ; close all ;
 
-% Set real theta1, optimal theta2, discrepancy version, whether modular
+% Set real theta1, optimal theta2, discrepancy version, whether modular,
+% and known observation variance
+sig2=0.05;
 true_theta1 = 2;
-discrep = 7;
+% discrep = 1;
 if discrep < 5; opt_theta2=4/3 ; else ; opt_theta2=1 ; end
-modular = false;
-obs_discrep = true; % Whether or not to include discrep term for real obs
-xmin = 0.5 ; xrange = 0.5;
-t2min = 0;
-t2range = 5;
+t1min = 1.5; t1range = 3 ;
+t2min = 0  ; t2range = 5 ;
+xmin  = .5 ; xrange  = .5;
 
 % Load previously gathered results
 discrep_str = int2str(discrep);
@@ -761,30 +761,31 @@ m = size(theta1,1);
 mean_y = results.settings.mean_y;
 std_y = results.settings.std_y;
 
-% Set desired observations (chosen for Gaussian quadrature)
-n = 10 ; % Number of points to use for integration
-[x,w] = lgwt(n,0,1); % Get points and weights
+% Set desired observations
+n = 3 ; % Number of points to use for integration
+x = linspace(0,1,n)'; % Get points 
 
 
 % Define the updated mean and covariance functions for the discrepancy
 add_nug = @(X) X+1e-5*eye(size(X)); % adds nugget for computational stablty
+sig2=0.05; % known observation variance
 prior_mean = results.settings.mean_obs;
-prior_cov = @(rho,x,t2,xp,t2p,lambda) ... 
-    gp_cov(rho,[x ones(size(x,1),1).*t2],...
+prior_cov = @(rho,xo,t2o,xp,t2p,lambda) ... 
+    gp_cov(rho,[xo ones(size(xo,1),1).*t2o],...
     [xp ones(size(xp,1),1).*t2p],lambda,false);
-updated_mean = @(y,x,t2,xnew,t2new,rho,lambda) ...
-    prior_mean(xnew,t2new) + ...
-    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
-    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
-    (y - prior_mean(x,t2)) ;
-updated_cov = @(x,t2,xnew,t2new,rho,lambda) ...
-    add_nug(prior_cov(rho,xnew,t2new,xnew,t2new,lambda)) - ...
-    add_nug(prior_cov(rho,xnew,t2new,x,t2,lambda)) * ...
-    inv(add_nug(prior_cov(rho,x,t2,x,t2,lambda))) * ...
-    add_nug(prior_cov(rho,x,t2,xnew,t2new,lambda)) ;
+updated_mean = @(y,xo,t2o,xp,t2p,rho,lambda) ...
+    prior_mean(xp,t2p) + ...
+    (add_nug(prior_cov(rho,xp,t2p,xo,t2o,lambda)) / ...
+    add_nug(prior_cov(rho,xo,t2o,xo,t2o,lambda)+sig2*eye(size(xo,1))))*...
+    (y - prior_mean(xo,t2o)) ;
+updated_cov = @(xo,t2o,xp,t2p,rho,lambda) ...
+    add_nug(prior_cov(rho,xp,t2p,xp,t2p,lambda)) - ...
+    (add_nug(prior_cov(rho,xp,t2p,xo,t2o,lambda)) / ...
+    add_nug(prior_cov(rho,xo,t2o,xo,t2o,lambda)+sig2*eye(size(xo,1))))*...
+    add_nug(prior_cov(rho,xo,t2o,xp,t2p,lambda)) ;
 % clear results ; % No longer needed
 
-% Get computer model output for each draw from the posterior (at des_x),
+% Get computer model output for each draw from the posterior (at x),
 % and also get true output
 comp_model_output = dual_calib_example_fn(repmat(x,m,1),xmin,xrange,...
     repelem(theta1,n,1),0,1,repelem(theta2,n,1),0,1,0,1,0);
@@ -797,6 +798,7 @@ true_output = true_output';
 
 % Add posterior mean of observation discrepancy
 discrep_gp_post_means_std = comp_model_output * 0 ; % Pre-allocate space
+discrep_gp_post_sds_std = comp_model_output * 0 ; % Pre-allocate space
 obs_disc_std = zeros(m,size(obs_x,1)) ; % Pre-allocate space
 for idx = 1:m
     rho = obs_rho(idx,:) ; lambda = obs_lambda(idx,:) ; 
@@ -808,34 +810,67 @@ for idx = 1:m
         t1,0,1,obs_t2,t2min,t2range,...
         mean_y,std_y,0);
     % Gather discrepancy mean on standardized scale:
-    d =updated_mean(obs_disc_std(idx,:)',obs_x,obs_t2,x,t2,rho,lambda);
-%     % Now get standard deviations of d:
-%     d_std_cov = updated_cov(obs_x,obs_t2,des_x,t2,rho,lambda) ; 
-%     d_std_sds = sqrt(diag(d_std_cov)+0.05) ; 
-%     d_sds = d_std_sds * std_y ;
+    d = updated_mean(obs_disc_std(idx,:)',obs_x,obs_t2,x,t2,rho,lambda);
     discrep_gp_post_means_std(idx,:) = d ;
-    if mod(idx,100)==0 ; disp(m-idx) ; end
+    % Now get standard deviations of d:
+    d_std_cov = updated_cov(obs_x,obs_t2,x,t2,rho,lambda) ; 
+    d_std_sds = sqrt(diag(d_std_cov)+0.0) ; % Could add sig2 here
+    discrep_gp_post_sds_std(idx,:) = d_std_sds ; 
+    if mod(idx,1000)==0 ; disp(m-idx) ; end
 end
 
-% Take a look at the observed discrepancies and the GP discrepancy means
-figure();
-obs_disc_mean = mean(obs_disc_std);
-scatter3(obs_x,obs_t2,obs_disc_mean)
-hold on;
-scatter3(...
-    x,...
-    ones(size(x))*mean((theta2-t2min)./t2range),...
-    mean(discrep_gp_post_means_std))
-
-% Add discrepancy means to computer model output
+% Add discrepancy means to computer model output, rescale sds
+discrep_gp_post_sds = discrep_gp_post_sds_std * std_y ;% Put on orig scale
 discrep_gp_post_means = discrep_gp_post_means_std * std_y;% Put on orig scl
 posterior_preds = comp_model_output + discrep_gp_post_means;
+posterior_lb = posterior_preds - 2*discrep_gp_post_sds; % lower bound
+posterior_ub = posterior_preds + 2*discrep_gp_post_sds; % upper bound
 
-% Get average across x, using Gaussian quadrature
-figure();
-posterior_preds_avg = posterior_preds * w;
-true_optimum = true_output * w;
-histogram(posterior_preds_avg);
-hold on;
-ylims = get(gca,'Ylim');
-plot([1 1]*true_optimum,ylims,'LineWidth',2);
+% Generate samples of theta1,theta2 from prior distribution
+theta1 = rand(m,1) * t1range + t1min;
+theta2 = rand(m,1) * t2range + t2min;
+
+% Get predicted output at each x point
+prior_model_output = dual_calib_example_fn(repmat(x,m,1),xmin,xrange,...
+    repelem(theta1,n,1),0,1,repelem(theta2,n,1),0,1,0,1,0);
+
+% Reshape so that each row corresponds to a single draw of (theta1,theta2)
+prior_model_output = reshape(prior_model_output,n,m)';
+
+% Show posterior predictive distribution of average output with true optim,
+% and include prior predictive distribution
+f=figure('pos',[10 10 800 250]);
+for ii = 1:n
+    posterior_distro = ...
+        mean(normpdf(linspace(0,1),...
+        posterior_preds(:,ii),discrep_gp_post_sds(:,ii)));
+    subplot(1,n,ii);
+    histogram(prior_model_output(:,ii),'Normalization','pdf',...
+        'DisplayStyle','stairs','LineWidth',2); hold on;
+    plot(linspace(0,1),posterior_distro,'LineWidth',2); 
+    ylims = get(gca,'YLim');
+    plot(true_output(ii)*[1 1],ylims,'LineWidth',2);
+    title(sprintf('x = %g',x(ii)));
+    xlim([0,1]);
+    set(gca,'YTick',[]);
+    set(gca,'YLim',ylims);
+end
+% Set title
+if discrep_str == '5_inf' discrep=7 ; end % To get proper title
+titles = {'g_0 (No discrepancy)'    ;
+    'g_1 with c = 1.5'              ; 
+    'g_1 with c = 3.5'              ;
+    'g_2 with (c,d) = (.15,.075)'   ;
+    'g_2 with (c,d) = (.65,.075)'   ;
+    'g_3 with (c,d) = (.055,0)'     ;
+    'g_3 with (c,d) = (.055,.1)'    ;
+    'g_3 with (c,d) = (.055,0) and inf. prior'}     ;
+suptitle(titles(discrep+1));
+
+
+% Save it:
+set(f,'Color','w');
+savestr = ...
+sprintf(['FIG_DCTO_post_pred_dist_discrep',discrep_str,'.png']);
+% saveas(f,savestr);
+export_fig(savestr,'-png','-m2',f);
