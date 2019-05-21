@@ -845,12 +845,17 @@ for ii = 1:n
         mean(normpdf(linspace(0,1),...
         posterior_preds(:,ii),discrep_gp_post_sds(:,ii)));
     subplot(1,n,ii);
+%     histogram(prior_model_output(:,ii),'Normalization','pdf',...
+%         'DisplayStyle','stairs','LineWidth',2); hold on;
     histogram(prior_model_output(:,ii),'Normalization','pdf',...
-        'DisplayStyle','stairs','LineWidth',2); hold on;
-    plot(linspace(0,1),posterior_distro,'LineWidth',2); 
+        'EdgeColor','none','FaceColor','b','FaceAlpha',.5); hold on;
+    histogram(prior_model_output(:,ii),'Normalization','pdf',...
+        'DisplayStyle','stairs','EdgeColor','k');
+%     plot(linspace(0,1),posterior_distro,'LineWidth',2); 
+    area(linspace(0,1),posterior_distro,'FaceColor','r','FaceAlpha',.5); 
     ylims = get(gca,'YLim');
-    plot(true_output(ii)*[1 1],ylims,'LineWidth',2);
-    title(sprintf('x = %g',x(ii)));
+    plot(true_output(ii)*[1 1],ylims,'--k','LineWidth',1.5);
+    title(sprintf('x = %g',x(ii)*xrange+xmin));
     xlim([0,1]);
     set(gca,'YTick',[]);
     set(gca,'YLim',ylims);
@@ -858,7 +863,7 @@ end
 % Set title
 if discrep_str == '5_inf' discrep=7 ; end % To get proper title
 titles = {'g_0 (No discrepancy)'    ;
-    'g_1 with c = 1.5'              ; 
+    'g_1 with c = 1.5'              ;
     'g_1 with c = 3.5'              ;
     'g_2 with (c,d) = (.15,.075)'   ;
     'g_2 with (c,d) = (.65,.075)'   ;
