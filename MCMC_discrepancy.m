@@ -95,7 +95,7 @@ sim_t = sim_xt(:,num_cntrl+1:end) ;
 % The cov matrix we need, Sigma_z, can be decomposed so that this big part
 % of it remains unchanged, so that we need calculate that only this once.
 % Massive computation savings over getting Sigma_z from scratch each time:
-Sigma_eta_xx = gp_cov(omega,sim_x,sim_x,rho,sim_t,sim_t,lambda,false);
+Sigma_eta_xx = gp_cov_old(omega,sim_x,sim_x,rho,sim_t,sim_t,lambda,false);
 % Get computationally nice versions of it and its inverse for post preds:
 Sxx=Sigma_eta_xx + eye(size(Sigma_eta_xx)) * nugsize(Sigma_eta_xx);
 iSxx = inv(Sxx);
@@ -129,14 +129,14 @@ model_output.sds_by_sample_est = sds_by_sample_est;
 % Set new observation input matrix:
 obs_theta = repmat(theta,n,1) ; 
 % Get Sigma_eta_yy:
-Sigma_eta_yy = gp_cov(omega,obs_x,obs_x,rho,...
+Sigma_eta_yy = gp_cov_old(omega,obs_x,obs_x,rho,...
     obs_theta,obs_theta,lambda,false);
 % Get Sigma_eta_xy, and hence Sigma_eta_yx
-Sigma_eta_xy = gp_cov(omega,sim_x,obs_x,...
+Sigma_eta_xy = gp_cov_old(omega,sim_x,obs_x,...
     rho,sim_t,obs_theta,lambda,false);
 Sigma_eta_yx = Sigma_eta_xy';
 % Get discrepancy covariance:
-Sigma_delta = gp_cov(omega_delta,obs_x,obs_x,0,0,0,lambda_delta,false);
+Sigma_delta = gp_cov_old(omega_delta,obs_x,obs_x,0,0,0,lambda_delta,false);
 % Combine these to get Sigma_z
 Sigma_z = [ Sigma_eta_yy + Sigma_y + Sigma_delta     Sigma_eta_yx   ; ...
             Sigma_eta_xy                             Sigma_eta_xx ] ;
@@ -173,10 +173,10 @@ for ii = 1:M
         
         %% Get new Sigma_z = Sigma_eta + [Sigma_y 0 ; 0 0], in pieces
         % Get new Sigma_eta_yy:
-        Sigma_eta_yy_s = gp_cov(omega,obs_x,obs_x,rho,...
+        Sigma_eta_yy_s = gp_cov_old(omega,obs_x,obs_x,rho,...
             obs_theta,obs_theta,lambda,false);
         % Get new Sigma_eta_xy, and hence Sigma_eta_yx
-        Sigma_eta_xy_s = gp_cov(omega,sim_x,obs_x,...
+        Sigma_eta_xy_s = gp_cov_old(omega,sim_x,obs_x,...
             rho,sim_t,obs_theta,lambda,false);
         Sigma_eta_yx_s = Sigma_eta_xy_s';
         % Combine these to get new Sigma_z
@@ -221,7 +221,7 @@ for ii = 1:M
     %% Get new Sigma_z = Sigma_eta + [Sigma_y_Sigma_delta 0 ; 0 0]
     % Set new discrep covariance matrix:
     Sigma_delta_s=...
-        gp_cov(omega_delta_s,obs_x,obs_x,0,0,0,lambda_delta,false);
+        gp_cov_old(omega_delta_s,obs_x,obs_x,0,0,0,lambda_delta,false);
     % Combine these to get new Sigma_z
     Sigma_z_s=[Sigma_eta_yy+Sigma_y+Sigma_delta_s Sigma_eta_yx ; ...
                Sigma_eta_xy                       Sigma_eta_xx ] ;
@@ -259,7 +259,7 @@ for ii = 1:M
     %% Get new Sigma_z = Sigma_eta + [Sigma_y_Sigma_delta 0 ; 0 0]
     % Set new discrep covariance matrix:
     Sigma_delta_s=...
-        gp_cov(omega_delta,obs_x,obs_x,0,0,0,lambda_delta_s,false);
+        gp_cov_old(omega_delta,obs_x,obs_x,0,0,0,lambda_delta_s,false);
     % Combine these to get new Sigma_z
     Sigma_z_s=[Sigma_eta_yy+Sigma_y+Sigma_delta_s Sigma_eta_yx ; ...
                Sigma_eta_xy                       Sigma_eta_xx ] ;
@@ -346,17 +346,17 @@ for ii = 1:M
         Sigma_od = cov(logit(delta_rec(:,1:(end-1)))) * mult_od
         msg = fprintf('Completed: %g/%g\n',ii,M);
         % Now lambda_delta
-        if accepted_ld < 24 
-            mult_ld =max(mult_ld*.5,mult_ld*accepted_ld/24);
+        if accepted_ld < 44 
+            mult_ld =max(mult_ld*.5,mult_ld*accepted_ld/44);
             fprintf(repmat('\b',1,msg));
             fprintf('lambda delta proposal variance increased\n');
             fprintf('mult_ld = %f\n',mult_ld);
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end
-        if accepted_ld > 24
+        if accepted_ld > 44
             fprintf(repmat('\b',1,msg));
             fprintf('lambda delta proposal variance increased\n');
-            mult_ld = min(mult_ld*2,mult_ld*accepted_ld/24);
+            mult_ld = min(mult_ld*2,mult_ld*accepted_ld/44);
             fprintf('mult_ld = %f\n',mult_ld);
             msg = fprintf('Completed: %g/%g\n',ii,M);
         end

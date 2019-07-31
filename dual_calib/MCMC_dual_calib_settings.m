@@ -20,11 +20,11 @@ function settings = MCMC_dual_calib_settings(...
 %   By default, this is taken to be the range of the simulator input
 %   provided as sim_x and the observation input obs_x.
 % 'min_t1':
-%   Vector giving the minimum value of each element of theta1 parameter.
-%   By default, this is taken to be the minimum of the simulator
-%   input provided as sim_t1.
+%   Vector giving the minimum value of each element of the parameter to be
+%   calibrated. By default, this is taken to be the minimum of the 
+%   simulator input provided as sim_t1.
 % 'range_t1':
-%   Vector giving the range of each element of theta1 parameter.
+%   Vector giving the range of each element of calibration parameter.
 %   By default, this is taken to be the range of the simulator
 %   input provided as sim_t1.
 % 'dim_t1':
@@ -32,11 +32,11 @@ function settings = MCMC_dual_calib_settings(...
 %   inferred from sim_t1; or, if an emulator is not used and sim_t1 is not
 %   supplied, it is assumed to be 1.
 % 'min_t2':
-%   Vector giving the minimum value of each element of theta2 parameter.
+%   Vector giving the minimum value of each element of design parameter.
 %   By default, this is taken to be the minimum of the simulator
 %   input provided as sim_t2 and the observation input obs_t2.
 % 'range_t2':
-%   Vector giving the range of each element of theta2 parameter.
+%   Vector giving the range of each element of design parameter.
 %   By default, this is taken to be the range of the simulator
 %   input provided as sim_t2 and the observation input obs_t2.
 % 'mean_y':
