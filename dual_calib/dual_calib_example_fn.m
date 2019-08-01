@@ -13,7 +13,7 @@ switch nargin
         xmin = min(x); xrange=range(x); setcd = false;
     case 11, rescale_inputs = true; discrep = 0; setcd = false;
     case 12, rescale_inputs = true; setcd = false;
-    case 14, rescale_inputs = true; setcd = true;
+    case 14, rescale_inputs = true; setcd = true; disp('ye');
     otherwise, error('Incorrect number of inputs');
 end
 
@@ -21,7 +21,7 @@ end
 if rescale_inputs
     x = x * xrange + xmin    ; 
     t1 = t1 * t1range + t1min ;
-    t2 = t2 * t2range + t2min ;
+    t2 = t2 * t2range + t2min ; 
 end
 
 % Define objective function

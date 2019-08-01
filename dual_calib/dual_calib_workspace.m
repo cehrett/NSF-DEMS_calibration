@@ -1589,7 +1589,7 @@ M = 8e3; b = .25 ; burn_in=M*b;
 
 % Set real theta1, discrepancy version, whether modular
 theta1 = 2;
-discrep = 4;
+discrep = 6;
 modular = false;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 
@@ -1631,9 +1631,18 @@ std_y = design.std_y;
 obs_t1 = ones(size(obs_x,1),1) * theta1;
 
 % Get "real" observations without noise but with discrepancy
-obs_y_noiseless = dual_calib_example_fn((obs_x-xmin)/xrange,xmin,xrange,...
-    (obs_t1-t1min)/t1range,t1min,t1range,...
-    (obs_t2-t2min)/t2range,t2min,t2range,0,1,discrep,c,d);
+% Only use specified c,d if we're using discrep 4
+if discrep == 4
+    obs_y_noiseless = dual_calib_example_fn((obs_x-xmin)/xrange,...
+        xmin,xrange,...
+        (obs_t1-t1min)/t1range,t1min,t1range,...
+        (obs_t2-t2min)/t2range,t2min,t2range,0,1,discrep,c,d);
+else
+    obs_y_noiseless = dual_calib_example_fn((obs_x-xmin)/xrange,...
+        xmin,xrange,...
+        (obs_t1-t1min)/t1range,t1min,t1range,...
+        (obs_t2-t2min)/t2range,t2min,t2range,0,1,discrep);
+end
 
 % Now noise it up
 sigma = sqrt(0.05); % This is noise s.d. of STANDARDIZED observations
@@ -1730,11 +1739,9 @@ mean_sim = @(a,b,c) dual_calib_example_fn(...
 % Now set desired observations
 obs_x = linspace(0,1,des_x_size)' * xrange + xmin;
 obs_y = zeros(size(obs_x,1),1);
-obs_t2 = obs_x ; % obs_t2 doesn't matter, it is ignored by the obj fn
-% Notice we named the above obs_x,obs_y rather than des_x,des_y. This is
-% because we are performing KOH calibration on theta2. We set des_x,des_y
-% to be empty, since we only have a KOH calibration here, no DCTO secondary
-% calibration.
+obs_t2 = [] ; % We set obs_t2 to be empty, since we only have a 
+% KOH calibration here, no DCTO secondary calibration. Similarly we will
+% set des_x,des_y to be empty
 
 % Get settings
 settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
@@ -1799,7 +1806,13 @@ histogram(CTO_results.theta1(burn_in+1:end,:),'Normalization','pdf',...
 histogram(DCTO_results.theta2(burn_in+1:end,:),'Normalization','pdf',...
     'EdgeColor','none','FaceColor','b','FaceAlpha',.65);
 % Get and plot true theta2
-fmfn =@(z) dual_calib_example_fn(.75,0,1,theta1,0,1,z,0,1,0,1,discrep,c,d);
+if discrep == 4
+    fmfn =@(z) dual_calib_example_fn(...
+        .75,0,1,theta1,0,1,z,0,1,0,1,discrep,c,d);
+else
+    fmfn =@(z) dual_calib_example_fn(...
+        .75,0,1,theta1,0,1,z,0,1,0,1,discrep);
+end
 theta2 = fmincon(fmfn,2,[],[],[],[],t2min,t2min+t2range);
 % yyaxis left ;
 plot([theta2 theta2],get(gca,'YLim'),'--','Color',lcol,'LineWidth',1.5);
@@ -1816,7 +1829,7 @@ xlabel('\theta_2');
 suptitle('CTO setting \theta_1=2.25');
 flushLegend(lg1,f1.Children(5),'northeast');
 flushLegend(lg2,f1.Children(2),'northeast');
-
+    
 
 % Save results
 % all_results_locstr = sprintf(['C:\\Users\\carle\\Documents',...
@@ -1829,6 +1842,22 @@ flushLegend(lg2,f1.Children(2),'northeast');
 %     'KOH_results',KOH_results,'CTO_results',CTO_results,...
 %     'DCTO_results',DCTO_results);
 % save(all_results_locstr,'all_results');
+discrep_str = int2str(discrep);
+DCTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-01_DCTO_discrep',discrep_str]);
+KOH_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-01_KOH_discrep_',discrep_str]);
+CTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-01_CTO_after_KOH_discrep_',discrep_str]);
+% save(DCTO_locstr,'DCTO_results')
+% save(KOH_locstr,'KOH_results')
+% save(CTO_locstr,'CTO_results')
 
 %% Compare DCTO and KOH+CTO with calib of t2 and design on t1
 clc ; clearvars -except dpath ; close all ; 
@@ -2078,7 +2107,6 @@ set(f2,'color','white');
 
 
 %% Take compare DCTO target discrepancy with CTO discrepancy
-% UNFINISHED - need to complete plotting CTO discrep
 clc ; clearvars -except dpath ; close all ;
 
 %%% Open figure and set which rho,lambda draws are used
@@ -2086,7 +2114,7 @@ f=figure('pos',[680 10 500 400]);
 idx = randsample(4000,1);
 
 %%% Set which discrepancy version is being examined
-discrep = 4; 
+discrep = 3; 
 
 %%% Define input rescaling settings
 xmin = .5;
@@ -2106,7 +2134,7 @@ if discrep == 7 discrep_str = ['5_inf'] ; discrep = 5 ; end
 locstr = sprintf(['C:\\Users\\carle\\Documents',...
     '\\MATLAB\\NSF DEMS\\Phase 1\\',...
     'dual_calib\\dual_calib_stored_data\\'...
-    '2019-07-30_DCTO_discrep',discrep_str]);
+    '2019-08-01_DCTO_discrep',discrep_str]);
 load(locstr);
 burnin = DCTO_results.settings.burn_in;
 rhos = DCTO_results.des_rho(burnin:end,:) ;
@@ -2139,14 +2167,20 @@ xp=xp(:) ;
 
 %%% Get mean of discrep for a random draw of rho,lambda
 rho = rhos(idx,:) ; lambda = lambdas(idx,:) ; 
-theta1 = mean(theta1s) ; theta2 = theta2s(idx,:) ;
+theta1 = mean(theta1s) ; 
+theta2 = mean(theta2s) ; % theta2s(idx,:) ;
+[theta1 theta2] % Have a look
+% desc_disc is the discrepancy we observe -- the difference between the
+% desired observations and the computer model run using estimates of
+% theta1, theta2. It is on the standardized scale.
 des_disc = des_y - dual_calib_example_fn(des_x,xmin,xrange,...
-    theta1,0,1,theta2,t2min,t2range,...
-    DCTO_results.settings.mean_y,DCTO_results.settings.std_y,0);
+    theta1,0,1,theta2,0,1,...
+    DCTO_results.settings.mean_y,...
+    DCTO_results.settings.std_y,0);
 % Gather discrepancy mean on standardized scale:
 d_std = updated_mean(des_disc,des_x,xp,rho,lambda) ;
 % Transform to original scale:
-d = d_std * DCTO_results.settings.std_y ;
+d = d_std * DCTO_results.settings.std_y;
 % Now get standard deviations of d:
 d_std_cov = updated_cov(des_x,xp,rho,lambda) ; 
 d_std_sds = sqrt(diag(d_std_cov)+0.05) ; 
@@ -2154,11 +2188,14 @@ d_sds = d_std_sds * DCTO_results.settings.std_y;
 
 %%% Plot the discrepancy
 Y = dual_calib_example_fn(xp,xmin,xrange,true_theta1,0,1,...
-    true_theta2,0,0,0,1,0);
+    true_theta2,0,1,0,1,0);
 Yd= zeros(length(xp),1);
 
 % Take a look
-Discrep = Yd-Y;
+% Discrep is the true discrepancy between 1. the computer model with the 
+% true value of theta1 and the optimal value of theta2, and 2. the desired
+% observations (in this case, constant 0).
+Discrep = Yd-Y; 
 plot(xp,Discrep,'b','LineWidth',2);
 hold on;
 % Now we add the estimated discrepancy:
@@ -2175,7 +2212,7 @@ idx = randsample(4000,1);
 locstr = sprintf(['C:\\Users\\carle\\Documents',...
     '\\MATLAB\\NSF DEMS\\Phase 1\\',...
     'dual_calib\\dual_calib_stored_data\\'...
-    '2019-07-30_KOH_discrep_',discrep_str]);
+    '2019-08-01_KOH_discrep_',discrep_str]);
 load(locstr);
 theta1s = KOH_results.theta1(burnin:end,:);
 
@@ -2183,7 +2220,7 @@ theta1s = KOH_results.theta1(burnin:end,:);
 locstr = sprintf(['C:\\Users\\carle\\Documents',...
     '\\MATLAB\\NSF DEMS\\Phase 1\\',...
     'dual_calib\\dual_calib_stored_data\\'...
-    '2019-07-30_CTO_after_KOH_discrep_',discrep_str]);
+    '2019-08-01_CTO_after_KOH_discrep_',discrep_str]);
 load(locstr);
 rhos = CTO_results.obs_rho(burnin:end,:) ;
 lambdas = CTO_results.obs_lambda(burnin:end,:);
@@ -2195,9 +2232,13 @@ des_y = CTO_results.settings.obs_y ;
 
 %%% Get mean of discrep for a random draw of rho,lambda
 rho = rhos(idx,:) ; lambda = lambdas(idx,:) ; 
-theta1 = mean(theta1s) ; theta2 = theta2s(idx,:) ;
+theta1 = mean(theta1s) ; 
+theta2 = mean(theta2s) ; %theta2s(idx,:) ;
+% desc_disc is the discrepancy we observe -- the difference between the
+% desired observations and the computer model run using estimates of
+% theta1, theta2. It is on the standardized scale.
 des_disc = des_y - dual_calib_example_fn(des_x,xmin,xrange,...
-    theta1,0,1,theta2,t2min,t2range,...
+    theta1,0,1,theta2,0,1,...
     CTO_results.settings.mean_y,CTO_results.settings.std_y,0);
 % Gather discrepancy mean on standardized scale:
 d_std = updated_mean(des_disc,des_x,xp,rho,lambda) ;
@@ -2214,4 +2255,4 @@ plot(xp,d,'g','Linewidth',2);
 plot(xp,d_upper,'g--','LineWidth',2);
 plot(xp,d_lower,'g--','LineWidth',2);
 
-theta2
+[theta1 theta2]

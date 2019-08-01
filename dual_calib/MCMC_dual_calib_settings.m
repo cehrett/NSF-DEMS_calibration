@@ -124,6 +124,7 @@ range_x = p.Results.range_x;
 min_t1 = p.Results.min_t1;
 range_t1 = p.Results.range_t1;
 dim_t1 = p.Results.dim_t1; if isequal(sim_t1,[]), dim_t1=1; end
+dim_t2 = size(obs_t2,2);
 min_t2 = p.Results.min_t2;
 range_t2 = p.Results.range_t2;
 mean_y = p.Results.mean_y;
@@ -226,7 +227,7 @@ theta2_prop_log_mh_correction = ...
     @(t_s,t) sum(log(t_s)+log(1-t_s)-log(t)-log(1-t));
 % Set initial values and initial covariance matrices for proposals
 theta1_init = rand(dim_t1,1);
-theta2_init = rand(dim_t1,1);
+theta2_init = rand(dim_t2);
 Sigma_theta1 = eye(size(theta1_init,1));
 Sigma_theta2 = eye(size(theta2_init,1));
 
@@ -250,10 +251,10 @@ lambda_prop_log_mh_correction = ...
     @(lam_s,lam) sum(log(lam_s)-log(lam));
 % Set initial values and initial covariance matrices for proposals
 if obs_discrep
-    obs_rho_init = rand(size(obs_x,2)+size(obs_t2,2),1);
+    obs_rho_init = rand(size(obs_x,2)+dim_t2,1);
     obs_lambda_init = gamrnd(1,1);
 else
-    obs_rho_init = .5*ones(size(obs_x,2)+size(obs_t2,2),1);
+    obs_rho_init = .5*ones(size(obs_x,2)+dim_t2,1);
     obs_lambda_init = Inf;
 end
 obs_Sigma_rho = eye(size(obs_rho_init,1));

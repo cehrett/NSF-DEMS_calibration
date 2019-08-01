@@ -312,6 +312,7 @@ for ii = 2:M
         
     
     %% Draw new theta2
+    if sum(size(theta2))>0
     theta2_s = theta2_proposal(theta2,Sigma_theta2);
     
     % Get acceptance ratio alpha
@@ -384,6 +385,7 @@ for ii = 2:M
         log_theta2_prior = log_theta2_prior_s;
         log_cond_dens_D = log_cond_dens_D_s;
         accepted_theta2 = accepted_theta2 + 1;
+    end
     end
     
     %% Draw new obs_rho (if discrepancy used)
@@ -724,7 +726,9 @@ for ii = 2:M
         subplot(2,3,1);
         plot(theta1_rec(startplot:ii,col_theta1),'ko');
         subplot(2,3,2);
-        plot(theta2_rec(startplot:ii,col_theta2),'ko');
+        if prod(size(theta2_rec))>0
+            plot(theta2_rec(startplot:ii,col_theta2),'ko');
+        end
         subplot(2,3,3);
         plot(obs_rho_rec(startplot:ii,col_obs_rho),'ko');
         subplot(2,3,4);
