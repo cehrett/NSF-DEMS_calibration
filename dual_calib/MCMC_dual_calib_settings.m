@@ -147,19 +147,21 @@ logit_inv = @(x) exp(x) ./ (1+exp(x));
 
 %% Normalize inputs
 x = [sim_x ; obs_x] ;
-if min_x == 'Default', min_x = min(x) ; end
-if range_x == 'Default', range_x = range(x) ; end
-sim_x_01 = (sim_x - min_x) ./ range_x ; 
+if isequal(min_x,'Default'), min_x = min(x) ; end
+if isequal(range_x,'Default'), range_x = range(x) ; end
+if sum(size(sim_x))>0, sim_x_01 = (sim_x - min_x) ./ range_x ;
+else sim_x_01 = sim_x ; end
 obs_x_01 = (obs_x - min_x) ./ range_x ;
-des_x_01 = (des_x - min_x) ./ range_x ;
+if sum(size(des_x))>0, des_x_01 = (des_x - min_x) ./ range_x ;
+else des_x_01 = des_x ; end
 
 if min_t1 == 'Default', min_t1 = min(sim_t1) ; end
 if range_t1 == 'Default', range_t1 = range(sim_t1) ; end
 sim_t1_01 = (sim_t1 - min_t1) ./ range_t1 ;
 
 t2 = [sim_t2 ; obs_t2 ] ;
-if min_t2 == 'Default', min_t2 = min(t2) ; end
-if range_t2 == 'Default', range_t2 = range(t2) ; end
+if isequal(min_t2,'Default'), min_t2 = min(t2) ; end
+if isequal(range_t2,'Default'), range_t2 = range(t2) ; end
 sim_t2_01 = (sim_t2 - min_t2) ./ range_t2 ; 
 obs_t2_01 = (obs_t2 - min_t2) ./ range_t2 ;
 

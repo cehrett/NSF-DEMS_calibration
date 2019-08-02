@@ -752,7 +752,8 @@ end
 
 %% Pack up and leave
 theta1_os = theta1_rec .* range_t1 + min_t1;
-theta2_os = theta2_rec .* range_t2 + min_t2;
+if prod(size(theta2_rec))>0, theta2_os = theta2_rec .* range_t2 + min_t2;
+else theta2_os = theta2_rec ; end
 results = struct('theta1',theta1_os,...
     'theta2',theta2_os,...
     'obs_rho',obs_rho_rec,...
