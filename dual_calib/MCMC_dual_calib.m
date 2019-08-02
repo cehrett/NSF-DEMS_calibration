@@ -205,6 +205,7 @@ log_obs_lambda_prior = log_lambda_prior_fn(obs_lambda);
 %% MCMC loop %%
 %%%%%%%%%%%%%%%
 
+figure();
 for ii = 2:M
     
     %% Draw new theta1
