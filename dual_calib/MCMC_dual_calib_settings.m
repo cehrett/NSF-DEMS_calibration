@@ -70,6 +70,9 @@ function settings = MCMC_dual_calib_settings(...
 % 'obs_discrep_mean':
 %   Function of x and theta2 which gives the prior mean on the observation
 %   discrepancy function. Default: constant 0.
+% 'obs_rho_lambda':
+%   Allows user to specify a value for obs_rho,obs_lambda By default, these
+%   are estimated via MCMC.
 % 'modular':
 %   Boolean value which tells whether or not to use modularized version of
 %   the model, to protect the traditional calibration from being influenced
@@ -110,6 +113,7 @@ p.addParameter('EmulatorCovHypers',...
 p.addParameter('obs_discrep',true,@islogical);
 p.addParameter('des_discrep',true,@islogical);
 p.addParameter('obs_discrep_mean','Default',@(h)isa(h,'function_handle'));
+p.addParameter('obs_rho_lambda','Default',@isnumeric);
 p.addParameter('modular',false,@islogical);
 p.addParameter('doplot',true,@islogical);
 p.parse(sim_x,sim_t1,sim_t2,sim_y,obs_x,obs_t2,obs_y,des_x,des_y,...
@@ -136,6 +140,7 @@ EmulatorCovHypers = p.Results.EmulatorCovHypers;
 obs_discrep = p.Results.obs_discrep;
 des_discrep = p.Results.des_discrep;
 obs_discrep_mean = p.Results.obs_discrep_mean;
+obs_rho_lambda = p.Results.obs_rho_lambda;
 modular = p.Results.modular;
 doplot = p.Results.doplot;
 
@@ -150,10 +155,10 @@ x = [sim_x ; obs_x] ;
 if isequal(min_x,'Default'), min_x = min(x) ; end
 if isequal(range_x,'Default'), range_x = range(x) ; end
 if sum(size(sim_x))>0, sim_x_01 = (sim_x - min_x) ./ range_x ;
-else sim_x_01 = sim_x ; end
+else, sim_x_01 = sim_x ; end
 obs_x_01 = (obs_x - min_x) ./ range_x ;
 if sum(size(des_x))>0, des_x_01 = (des_x - min_x) ./ range_x ;
-else des_x_01 = des_x ; end
+else, des_x_01 = des_x ; end
 
 if min_t1 == 'Default', min_t1 = min(sim_t1) ; end
 if range_t1 == 'Default', range_t1 = range(sim_t1) ; end
@@ -240,7 +245,8 @@ log_lambda_prior = @(ld) log( gampdf(ld,5,5) );
 
 
 %% Set real and desired discrepancy rho and lambda proposal distributions
-% We'll draw logit-transformed rho and lambda from normals centered at the
+% if isequal(obs_rho_lambda,'Default')
+% We'll draw logit-transformed rho and lambda from normals centered at
 % log-transformed previous draw.
 rho_proposal = @(r,S) logit_inv(mvnrnd(logit(r),S)); 
 lambda_proposal = @(lam,S) exp(mvnrnd(log(lam),S)); 
@@ -259,10 +265,15 @@ else
     obs_rho_init = .5*ones(size(obs_x,2)+dim_t2,1);
     obs_lambda_init = Inf;
 end
+if des_discrep
+    des_rho_init = rand(size(des_x,2),1);
+    des_lambda_init = gamrnd(1,1);
+else
+    des_rho_init = .5*ones(size(des_x,2),1);
+    des_lambda_init = Inf;
+end
 obs_Sigma_rho = eye(size(obs_rho_init,1));
 obs_Sigma_lambda = 1;
-des_rho_init = rand(size(des_x,2),1);
-des_lambda_init = gamrnd(1,1);
 des_Sigma_rho = eye(size(des_rho_init,1));
 des_Sigma_lambda = 1;
 

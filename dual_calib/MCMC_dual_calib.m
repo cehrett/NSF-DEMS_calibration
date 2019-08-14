@@ -205,7 +205,7 @@ log_obs_lambda_prior = log_lambda_prior_fn(obs_lambda);
 %% MCMC loop %%
 %%%%%%%%%%%%%%%
 
-figure();
+fig = figure();
 for ii = 2:M
     
     %% Draw new theta1
@@ -710,7 +710,9 @@ for ii = 2:M
     
     %% Update plots
     if mod(ii,upd) == 0 && doplot % Update plots every upd loops of MCMC
-    
+        
+        figure(fig); % Make the appropriate figure current
+        
         % After the burn_in is over, we exclude it from the plots
         if ii> burn_in, startplot=burn_in; end 
         
@@ -727,7 +729,7 @@ for ii = 2:M
         subplot(2,3,1);
         plot(theta1_rec(startplot:ii,col_theta1),'ko');
         subplot(2,3,2);
-        if prod(size(theta2_rec))>0
+        if numel(theta2_rec)>0
             plot(theta2_rec(startplot:ii,col_theta2),'ko');
         end
         subplot(2,3,3);
@@ -753,8 +755,8 @@ end
 
 %% Pack up and leave
 theta1_os = theta1_rec .* range_t1 + min_t1;
-if prod(size(theta2_rec))>0, theta2_os = theta2_rec .* range_t2 + min_t2;
-else theta2_os = theta2_rec ; end
+if numel(theta2_rec)>0, theta2_os = theta2_rec .* range_t2 + min_t2;
+else, theta2_os = theta2_rec ; end
 results = struct('theta1',theta1_os,...
     'theta2',theta2_os,...
     'obs_rho',obs_rho_rec,...

@@ -1103,3 +1103,172 @@ savestr = ...
 sprintf(['FIG_DCTO_KOHCTO_post_pred_dist_discrep',discrep_str,'.png']);
 % saveas(f,savestr);
 % export_fig(savestr,'-png','-m2',f);
+
+%% Compare DCTO/KOH+CTO results for various obs err levels
+clc ; clearvars -except dpath ; close all ;
+
+new_sigmas = sqrt([0.01 0.05 0.1 0.2]);
+
+% Define inputs mins and ranges, true values
+xmin = .5;
+xrange = .5;
+t1min = 1.5;
+t1range = 3;
+t2min = 0;
+t2range = 5;
+theta1=2;
+known_var = true; % Tells whether obs var treated as known
+
+% Set discrepancy
+discrep = 4;
+
+f1 = figure('pos',[10 10 650 650]);
+set(f1,'color','white');
+lcol = [218 165 32]/255 ; % Color for line
+hval = 0.04; % For adjusting subplot heights
+wval = 0.02; % For adjusting subplot widths
+Ylim_calib_heights = [ 7 7 6 4 2.5 3 3.5 ];
+Ylim_design_heights = [0.7 0.7 0.7 0.8 1 0.8 0.9];
+
+% Set legends
+sps(1)=subplot(5,2,1);
+histogram(1,'Facecolor','g'); hold on;
+histogram(1,'Facecolor','b'); histogram(1,'Facecolor','r');
+plot([0 1],[0 1],'--','Color',lcol,'Linewidth',1.5);
+lg1 = legend('Prior dist.','KOH','DCTO','True value');
+sps(1).Visible='off';
+sps(1).YLim=[10 11]; sps(1).XLim=[10 11];
+sps(2)=subplot(5,2,2);
+histogram(1,'Facecolor','g'); hold on;
+histogram(1,'Facecolor','b'); histogram(1,'Facecolor','r');
+plot([0 1],[0 1],'--','Color',lcol,'Linewidth',1.5);
+lg2 = legend('Prior dist.','CTO','DCTO','Optimum');
+sps(2).Visible='off';
+sps(2).YLim=[10 11]; sps(2).XLim=[10 11];
+sps(1).Position = sps(1).Position + [0 0 wval 0];
+sps(2).Position = sps(2).Position + [-wval 0 wval 0];
+
+% Loop through each observation error variance
+for jj = 1:4
+
+% Select which sigma2 we want to look at
+new_sigma = new_sigmas(jj);
+
+% Load the results
+discrep_str = int2str(discrep);
+DCTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-02_DCTO_discrep',discrep_str,'_err_var%g'],...
+    new_sigma^2*100);
+KOH_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-02_KOH_discrep',discrep_str,'_err_var%g'],...
+    new_sigma^2*100);
+CTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-02_CTO_after_KOH_discrep',discrep_str,'_err_var%g'],...
+    new_sigma^2*100);
+if known_var 
+    DCTO_locstr = strcat(DCTO_locstr,'_known') ; 
+    KOH_locstr = strcat(KOH_locstr,'_known') ; 
+    CTO_locstr = strcat(CTO_locstr,'_known') ; 
+end
+load(DCTO_locstr,'DCTO_results')
+load(KOH_locstr,'KOH_results')
+load(CTO_locstr,'CTO_results')
+burn_in = DCTO_results.settings.burn_in;
+
+%%%%%%%%%%%%%%%%%
+% Now make figures 
+
+% Get all results on original scale
+
+% First, get prior and posterior theta1
+sps(2*jj+1) = subplot(5,2,2*jj+1);
+% Plot prior
+fill([t1min t1min + t1range t1min + t1range t1min],...
+    [0 0 1/t1range 1/t1range],'g','EdgeColor','none');
+xlim([t1min t1min + t1range]);
+hold on;
+% Get a histogram of theta1 with true value marked
+histogram(KOH_results.theta1(burn_in+1:end),'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.65,'BinWidth',0.075);
+histogram(DCTO_results.theta1(burn_in+1:end),'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','r','FaceAlpha',.65,'BinWidth',0.075);
+% Plot true theta1
+Ylims = [0 Ylim_calib_heights(discrep+1)];
+plot([theta1 theta1],Ylims,'--','Color',lcol,'LineWidth',1.5);
+set(gca,'YLim',Ylims);
+set(gca,'XTick',[]);
+text(3,...
+    4/7*Ylim_calib_heights(discrep+1),...
+    sprintf('\\sigma^2 = %g',new_sigma^2),'FontSize',12);
+sps(2*jj+1).Position = sps(2*jj+1).Position + [0 -hval wval hval];
+
+
+% Second, get prior and posterior theta2
+% f2 = figure('pos',[10 320 400 300]);
+sps(2*jj+2) = subplot(5,2,2*jj+2);
+% left_color = [.5 .5 0];
+% right_color = [.5 0 .5];
+% set(f2,'defaultAxesColorOrder',[left_color; right_color]);
+% Plot prior
+fill([t2min t2min + t2range t2min + t2range t2min],...
+    [0 0 1/t2range 1/t2range],'g','EdgeColor','none');
+xlim([t2min t2min + t2range]);
+hold on;
+% Get a histogram of theta2 with true value marked
+histogram(CTO_results.theta1(burn_in+1:end,:),'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.65);
+histogram(DCTO_results.theta2(burn_in+1:end,:),'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','r','FaceAlpha',.65);
+% Get and plot true theta2
+fmfn =@(z) dual_calib_example_fn(...
+    .75,0,1,theta1,0,1,z,0,1,0,1,discrep);
+theta2 = fmincon(fmfn,2,[],[],[],[],t2min,t2min+t2range);
+% yyaxis left ;
+Ylims = [0 Ylim_design_heights(discrep+1)];
+plot([theta2 theta2],Ylims,'--','Color',lcol,'LineWidth',1.5);
+set(gca,'YLim',Ylims);
+set(gca,'XTick',[]);
+sps(2*jj+2).Position = sps(2*jj+2).Position + [-wval -hval wval hval];
+
+end
+
+% Adjust legend positions, add titles
+sps(1).Position = sps(1).Position + [0 0 0 -0.07];
+sps(2).Position = sps(2).Position + [0 0 0 -0.07];
+legend(sps(1),'boxoff');
+legend(sps(2),'boxoff');
+flushLegend(lg1,sps(1),'northeast');
+flushLegend(lg2,sps(2),'northeast');
+text(sps(1),10,10.25,sprintf('Calibration\nparameter'),'FontSize',14);
+text(sps(2),10,10.25,sprintf('Design\nparameter'),'FontSize',14);
+
+% Prevent overcrowded axes ticks
+if sps(3).YTick(end) == Ylim_calib_heights(discrep+1)
+    for jj = 1:4
+        sps(2*jj+1).YTick = ...
+            sps(2*jj+1).YTick(1:(end-1));
+    end
+end
+if sps(4).YTick(end) == Ylim_design_heights(discrep+1)
+    for jj = 1:4
+        sps(2*jj+2).YTick = ...
+            sps(2*jj+2).YTick(1:(end-1));
+    end
+end
+
+% Turn bottom axes ticks back on
+set(sps(9),'XTick',[2 3 4]);
+set(sps(10),'XTick',[1 2 3 4 5]);
+
+% Save
+savestr = ...
+    sprintf(['FIG_DCTO_KOHCTO_obs_err_comparison_discrep',...
+    int2str(discrep),'.png']);
+% saveas(f,savestr);
+% export_fig(savestr,'-png','-m2',f1);
