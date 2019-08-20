@@ -46,9 +46,14 @@ function settings = MCMC_dual_calib_settings(...
 %   Scalar giving the standard deviation of the output y. By default, this
 %   is taken to be the standard deviation of the simulator and
 %   observational data sim_y and obs_y.
-% 'ObsVar':
-%   Scalar value which gives the variance of the iid true observation
-%   error. Default: 0.05.
+% 'obs_var':
+%   Gives the covariance matrix of the observation error. Inputting a
+%   scalar value here results in a covariance matrix that is the identity
+%   multiplied by that scalar value. Default: scalar 0.05.
+% 'des_var':
+%   Gives the covariance matrix of the target outcomes' error. Inputting a
+%   scalar value here results in a covariance matrix that is the identity
+%   multiplied by that scalar value. Default: scalar 0.05.
 % 'emulator':
 %   Determines whether an emulator is used. If not, the emulator mean 
 %   function is set to just be the objective function itself, and pairs 
@@ -104,7 +109,8 @@ p.addParameter('min_t2','Default',@isnumeric);
 p.addParameter('range_t2','Default',@isnumeric);
 p.addParameter('mean_y','Default',@isscalar);
 p.addParameter('std_y','Default',@isscalar);
-p.addParameter('ObsVar',0.05,@isscalar);
+p.addParameter('obs_var',0.05,@isscalar);
+p.addParameter('des_var',0,@isscalar);
 p.addParameter('emulator',true,@islogical);
 p.addParameter('EmulatorMean','Default',@(h)isa(h,'function_handle'));
 p.addParameter('EmulatorCovHypers',...
@@ -133,7 +139,8 @@ min_t2 = p.Results.min_t2;
 range_t2 = p.Results.range_t2;
 mean_y = p.Results.mean_y;
 std_y = p.Results.std_y;
-ObsVar = p.Results.ObsVar;
+obs_var = p.Results.obs_var;
+des_var = p.Results.des_var;
 emulator = p.Results.emulator;
 EmulatorMean = p.Results.EmulatorMean;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
@@ -143,6 +150,11 @@ obs_discrep_mean = p.Results.obs_discrep_mean;
 obs_rho_lambda = p.Results.obs_rho_lambda;
 modular = p.Results.modular;
 doplot = p.Results.doplot;
+
+%% Todo
+if ~(isequal(obs_rho_lambda,'Default'))
+    error('Error: obs_rho_lambda input parameter not implemented yet!');
+end
 
 
 %% Some useful definitions
@@ -209,12 +221,6 @@ else
     mean_obs = obs_discrep_mean;
 end
 
-
-%% Make true observation error covariance matrix
-num_obs = size(obs_y(:),1) ; 
-obs_cov_mat = ObsVar * eye(num_obs) ; 
-
-
 %% Set theta priors
 log_theta1_prior = @(t) 0 ; % Uniform prior
 log_theta2_prior = @(t) 0 ; % Uniform prior
@@ -277,6 +283,12 @@ obs_Sigma_lambda = 1;
 des_Sigma_rho = eye(size(des_rho_init,1));
 des_Sigma_lambda = 1;
 
+%% Make observation and target error/tolerance covariance matrices
+num_obs = size(obs_y(:),1) ; 
+obs_cov_mat = obs_var * eye(num_obs) ;
+num_tgt = size(des_y(:),1) ;
+des_cov_mat = des_var * eye(num_tgt) ;
+
 
 %% Pack up the settings structure
 settings = struct(...
@@ -300,6 +312,7 @@ settings = struct(...
     'mean_y',mean_y,...
     'std_y',std_y,...
     'obs_cov_mat',obs_cov_mat,...
+    'des_cov_mat',des_cov_mat,...
     'mean_sim',mean_sim,...
     'emulator_rho',EmulatorCovHypers(1:end-1),...
     'emulator_lambda',EmulatorCovHypers(end),...
