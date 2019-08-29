@@ -27,10 +27,15 @@ function settings = MCMC_dual_calib_settings(...
 %   Vector giving the range of each element of calibration parameter.
 %   By default, this is taken to be the range of the simulator
 %   input provided as sim_t1.
+% 'dim_x':
+%   Dimensionality of x control input. By default, this is
+%   inferred from the x inputs.
 % 'dim_t1':
 %   Dimensionality of theta1 calibration parameter. By default, this is
-%   inferred from sim_t1; or, if an emulator is not used and sim_t1 is not
-%   supplied, it is assumed to be 1.
+%   inferred from the t1 inputs.
+% 'dim_t2':
+%   Dimensionality of theta2 design parameter. By default, this is
+%   inferred from the t2 inputs.
 % 'min_t2':
 %   Vector giving the minimum value of each element of design parameter.
 %   By default, this is taken to be the minimum of the simulator
@@ -54,6 +59,16 @@ function settings = MCMC_dual_calib_settings(...
 %   Gives the covariance matrix of the target outcomes' error. Inputting a
 %   scalar value here results in a covariance matrix that is the identity
 %   multiplied by that scalar value. Default: scalar 0.05.
+% 'additional_discrep_mean':
+%   Optional additional discrepancy mean. This is primarily intended to
+%   be used in the case when CTO is completed after KOH; this additional
+%   discrepancy term allows us to include in CTO information about the
+%   observation discrepancy learned during KOH. Default 0.
+% 'additional_discrep_cov':
+%   Optional additional discrepancy covariance. This is primarily intended 
+%   to be used in the case when CTO is completed after KOH; this additional
+%   discrepancy term allows us to include in CTO information about the
+%   observation discrepancy learned during KOH. Default 0.
 % 'emulator':
 %   Determines whether an emulator is used. If not, the emulator mean 
 %   function is set to just be the objective function itself, and pairs 
@@ -104,18 +119,22 @@ p.addParameter('min_x','Default',@isnumeric);
 p.addParameter('range_x','Default',@isnumeric);
 p.addParameter('min_t1','Default',@isnumeric);
 p.addParameter('range_t1','Default',@isnumeric);
-p.addParameter('dim_t1',size(sim_t1,2),@isscalar);
+p.addParameter('dim_x','Default',@isscalar);
+p.addParameter('dim_t1','Default',@isscalar);
+p.addParameter('dim_t2','Default',@isscalar);
 p.addParameter('min_t2','Default',@isnumeric);
 p.addParameter('range_t2','Default',@isnumeric);
 p.addParameter('mean_y','Default',@isscalar);
 p.addParameter('std_y','Default',@isscalar);
 p.addParameter('obs_var',0.05,@isscalar);
 p.addParameter('des_var',0,@isscalar);
+p.addParameter('additional_discrep_mean',@(x)0,...
+    @(h)isa(h,'function_handle'));
+p.addParameter('additional_discrep_cov',@(x)0,...
+    @(h)isa(h,'function_handle'));
 p.addParameter('emulator',true,@islogical);
 p.addParameter('EmulatorMean','Default',@(h)isa(h,'function_handle'));
-p.addParameter('EmulatorCovHypers',...
-    [0.992943679103582 0.785517245465518 ...
-    0.077856518100309 0.083606519464691],@ismatrix);
+p.addParameter('EmulatorCovHypers','Default',@ismatrix);
 p.addParameter('obs_discrep',true,@islogical);
 p.addParameter('des_discrep',true,@islogical);
 p.addParameter('obs_discrep_mean','Default',@(h)isa(h,'function_handle'));
@@ -133,14 +152,17 @@ min_x = p.Results.min_x;
 range_x = p.Results.range_x;
 min_t1 = p.Results.min_t1;
 range_t1 = p.Results.range_t1;
-dim_t1 = p.Results.dim_t1; if isequal(sim_t1,[]), dim_t1=1; end
-dim_t2 = size(obs_t2,2);
+dim_x = p.Results.dim_x; 
+dim_t1 = p.Results.dim_t1; 
+dim_t2 = p.Results.dim_t2;
 min_t2 = p.Results.min_t2;
 range_t2 = p.Results.range_t2;
 mean_y = p.Results.mean_y;
 std_y = p.Results.std_y;
 obs_var = p.Results.obs_var;
 des_var = p.Results.des_var;
+additional_discrep_cov = p.Results.additional_discrep_cov;
+additional_discrep_mean = p.Results.additional_discrep_mean;
 emulator = p.Results.emulator;
 EmulatorMean = p.Results.EmulatorMean;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
@@ -183,25 +205,58 @@ sim_t2_01 = (sim_t2 - min_t2) ./ range_t2 ;
 obs_t2_01 = (obs_t2 - min_t2) ./ range_t2 ;
 
 
+%% Infer some useful values
+if isequal(dim_x,'Default')
+    dim_x = numel(min_x);
+end
+if isequal(dim_t1,'Default')
+    dim_t1 = numel(min_t1);
+end
+if isequal(dim_t2,'Default')
+    dim_t2 = numel(min_t2);
+end
+
+
+
 %% Standardize outputs
-y = [sim_y ; obs_y] ; 
-if mean_y == 'Default', mean_y = mean(y) ; end
-if std_y == 'Default', std_y = std(y) ; end
+if mean_y == 'Default', mean_y = mean(sim_y) ; end
+if std_y == 'Default', std_y = std(sim_y) ; end
 sim_y_std = (sim_y - mean_y) ./ std_y ; 
 obs_y_std = (obs_y - mean_y) ./ std_y ;
 des_y_std = (des_y - mean_y) ./ std_y ; 
 
 
-%% Set emulator mean
+%% Set emulator mean and covariance hyperparameters
 % Determines whether an emulator is used. If not, the emulator 
 % mean function is set to just be the objective
 % function itself, and pairs this with a 0
 % covariance function (by setting marginal precision to Inf).
 if emulator
     if isequal(EmulatorMean,'Default')
-        mean_sim = @(a,b,c) zeros(size(a)); % Emulator mean
+        mean_sim = @(a,b,c) zeros(size(a,1),1); % Emulator mean
     else
         mean_sim = EmulatorMean;
+    end
+    if isequal(EmulatorCovHypers,'Default')
+        % Define function for minimization
+        f = @(rl) ...
+            -logmvnpdf(((sim_y-mean_y)./std_y)',...
+            mean_sim(sim_x_01,sim_t1_01,sim_t2_01)',...
+            gp_cov(rl(1:(end-1)),...
+            [sim_x_01 sim_t1_01 sim_t2_01],...
+            [sim_x_01 sim_t1_01 sim_t2_01],...
+            rl(end),false) + ...
+            1e-4*eye(size(sim_x_01,1)));
+        % Perform minimization
+        A = [];
+        b = [];
+        Aeq = [];
+        beq = [];
+        lb = [zeros(1,size([sim_x sim_t1 sim_t2],2)) 0];
+        ub = [ones(1,size([sim_x sim_t1 sim_t2],2)) Inf];
+        x0 = [.5*ones(1,size([sim_x sim_t1 sim_t2],2)) 1];
+        [inp,~,~,~] = fmincon(f,x0,A,b,Aeq,beq,lb,ub);
+        EmulatorCovHypers = inp ;
     end
 else
     if isequal(EmulatorMean,'Default')
@@ -211,7 +266,7 @@ else
     else
         mean_sim = EmulatorMean;
     end
-    EmulatorCovHypers(end) = Inf;
+    EmulatorCovHypers = [.5* ones(1,dim_x+dim_t1+dim_t2) Inf];
 end
 
 %% Set observation discrepancy mean
@@ -240,7 +295,7 @@ theta2_prop_log_mh_correction = ...
     @(t_s,t) sum(log(t_s)+log(1-t_s)-log(t)-log(1-t));
 % Set initial values and initial covariance matrices for proposals
 theta1_init = rand(dim_t1,1);
-theta2_init = rand(dim_t2);
+theta2_init = rand(dim_t2,1);
 Sigma_theta1 = eye(size(theta1_init,1));
 Sigma_theta2 = eye(size(theta2_init,1));
 
@@ -265,10 +320,10 @@ lambda_prop_log_mh_correction = ...
     @(lam_s,lam) sum(log(lam_s)-log(lam));
 % Set initial values and initial covariance matrices for proposals
 if obs_discrep
-    obs_rho_init = rand(size(obs_x,2)+dim_t2,1);
+    obs_rho_init = rand(dim_x+dim_t2,1);
     obs_lambda_init = gamrnd(1,1);
 else
-    obs_rho_init = .5*ones(size(obs_x,2)+dim_t2,1);
+    obs_rho_init = .5*ones(dim_x+dim_t2,1);
     obs_lambda_init = Inf;
 end
 if des_discrep
@@ -288,7 +343,6 @@ num_obs = size(obs_y(:),1) ;
 obs_cov_mat = obs_var * eye(num_obs) ;
 num_tgt = size(des_y(:),1) ;
 des_cov_mat = des_var * eye(num_tgt) ;
-
 
 %% Pack up the settings structure
 settings = struct(...
@@ -313,6 +367,8 @@ settings = struct(...
     'std_y',std_y,...
     'obs_cov_mat',obs_cov_mat,...
     'des_cov_mat',des_cov_mat,...
+    'additional_discrep_cov',additional_discrep_cov,...
+    'additional_discrep_mean',additional_discrep_mean,...
     'mean_sim',mean_sim,...
     'emulator_rho',EmulatorCovHypers(1:end-1),...
     'emulator_lambda',EmulatorCovHypers(end),...
