@@ -39,8 +39,10 @@ obs_Sigma_rho                 = settings.obs_rho_prop_cov;
 obs_Sigma_lambda              = settings.obs_lambda_prop_cov;
 des_Sigma_rho                 = settings.des_rho_prop_cov;
 des_Sigma_lambda              = settings.des_lambda_prop_cov;
-log_rho_prior_fn              = settings.log_rho_prior;
-log_lambda_prior_fn           = settings.log_lambda_prior;
+log_obs_rho_prior_fn          = settings.log_obs_rho_prior;
+log_obs_lambda_prior_fn       = settings.log_obs_lambda_prior;
+log_des_rho_prior_fn          = settings.log_des_rho_prior;
+log_des_lambda_prior_fn       = settings.log_des_lambda_prior;
 theta1                        = settings.theta1_init;
 theta2                        = settings.theta2_init;
 theta1_proposal               = settings.theta1_proposal;
@@ -228,10 +230,10 @@ mu_D = [mu_R ;
 log_cond_dens_D = logmvnpdf(D',mu_D',Sigma_D);
 log_theta1_prior = log_theta1_prior_fn(theta1);
 log_theta2_prior = log_theta2_prior_fn(theta2);
-log_des_rho_prior = log_rho_prior_fn(des_rho);
-log_des_lambda_prior = log_lambda_prior_fn(des_lambda);
-log_obs_rho_prior = log_rho_prior_fn(obs_rho);
-log_obs_lambda_prior = log_lambda_prior_fn(obs_lambda);
+log_des_rho_prior = log_des_rho_prior_fn(des_rho);
+log_des_lambda_prior = log_des_lambda_prior_fn(des_lambda);
+log_obs_rho_prior = log_obs_rho_prior_fn(obs_rho);
+log_obs_lambda_prior = log_obs_lambda_prior_fn(obs_lambda);
 
 %%%%%%%%%%%%%%%
 %% MCMC loop %%
@@ -532,7 +534,7 @@ for ii = 2:M
     % Now we can get the log factors of the likelihood for the new draw
     log_cond_dens_R_s = logmvnpdf(R',mu_R',Sigma_R_s);
     log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-    log_obs_rho_prior_s = log_rho_prior_fn(obs_rho_s);
+    log_obs_rho_prior_s = log_des_rho_prior_fn(obs_rho_s);
     % Get the log likelihoods for new and old draw either modularized or no
     if modular
         log_lik_obs_rho_s = log_cond_dens_R_s + log_obs_rho_prior_s; 
@@ -607,7 +609,7 @@ for ii = 2:M
     % Now we can get the log factors of the likelihood for the new draw
     log_cond_dens_R_s = logmvnpdf(R',mu_R',Sigma_R_s);
     log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-    log_obs_lambda_prior_s = log_lambda_prior_fn(obs_lambda_s);
+    log_obs_lambda_prior_s = log_obs_lambda_prior_fn(obs_lambda_s);
     % Get the log likelihoods for new and old draw either modularized or no
     if modular
         log_lik_obs_lambda_s = log_cond_dens_R_s + log_obs_lambda_prior_s; 
@@ -667,7 +669,7 @@ for ii = 2:M
         
          % Now we can get the log factors of the likelihd for the new draw
         log_cond_dens_T_s = logmvnpdf(T',mu_T',Sigma_T_s);
-        log_des_rho_prior_s = log_rho_prior_fn(des_rho_s);
+        log_des_rho_prior_s = log_des_rho_prior_fn(des_rho_s);
         log_lik_des_rho_s = log_cond_dens_T_s + log_des_rho_prior_s; 
         % And we get the likelihood for the old draw
         log_lik_des_rho = log_cond_dens_T + log_des_rho_prior;
@@ -688,7 +690,7 @@ for ii = 2:M
         Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-        log_des_rho_prior_s = log_rho_prior_fn(des_rho_s);
+        log_des_rho_prior_s = log_des_rho_prior_fn(des_rho_s);
         log_lik_des_rho_s = log_cond_dens_D_s + log_des_rho_prior_s; 
         % And we get the likelihood for the old draw
         log_lik_des_rho = log_cond_dens_D + log_des_rho_prior;
@@ -735,7 +737,7 @@ for ii = 2:M
         Sigma_T_s = Sigma_T_s + eye(size(Sigma_T_s)) * nugsize(Sigma_T_s);
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_T_s = logmvnpdf(T',mu_T',Sigma_T_s);
-        log_des_lambda_prior_s = log_lambda_prior_fn(des_lambda_s);
+        log_des_lambda_prior_s = log_des_lambda_prior_fn(des_lambda_s);
         log_lik_des_lambda_s = log_cond_dens_T_s + log_des_lambda_prior_s; 
         % And we get the likelihood for the old draw
         log_lik_des_lambda = log_cond_dens_T + log_des_lambda_prior;
@@ -756,7 +758,7 @@ for ii = 2:M
         Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-        log_des_lambda_prior_s = log_lambda_prior_fn(des_lambda_s);
+        log_des_lambda_prior_s = log_des_lambda_prior_fn(des_lambda_s);
         log_lik_des_lambda_s = log_cond_dens_D_s + log_des_lambda_prior_s; 
         % And we get the likelihood for the old draw
         log_lik_des_lambda = log_cond_dens_D + log_des_lambda_prior;
