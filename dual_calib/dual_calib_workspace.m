@@ -4062,10 +4062,10 @@ clc ; clearvars -except dpath ; close all ;
 
 % Set des_x size and discrepancy
 des_x_size = 15;
-discrep = 4;
+discrep = 5;
 
 % Set number of draws, burn_in for each mcmc:
-M = 8e3; b = .25 ; burn_in=M*b;
+M = 4e3; b = .25 ; burn_in=M*b;
 
 % Set real theta1, whether modular
 theta1 = 2;
@@ -4073,7 +4073,7 @@ modular = true;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 des_var = 0; % target error/tolerance
-obs_var = 0.05 ; % observation error
+obs_var = 0.05; % observation error
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -4105,7 +4105,7 @@ sigma = sqrt(0.05); % This is noise s.d. of STANDARDIZED observations
 % Load noise from file, so all runs can use the same noise.
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
     'dual_calib\dual_calib_stored_data\2019-07-22_obs_noise']);
-obs_y = obs_y_noiseless + tempnoise;
+obs_y = obs_y_noiseless + tempnoise / sigma * sqrt(obs_var);
 
 % Now set desired observations
 des_x = linspace(0,1,des_x_size)' * xrange + xmin;
@@ -4312,8 +4312,8 @@ xlabel('\theta_2');
 
 % suptitle(['Prior and posterior distributions of ',...
 %     '\theta_1 (left) and \theta_2 (right)']);
-suptitle('CTO setting \theta_1=2.25');
-flushLegend(lg1,f1.Children(5),'northeast');
+% suptitle('CTO setting \theta_1=2.25');
+flushLegend(lg1,f1.Children(4),'northeast');
 flushLegend(lg2,f1.Children(2),'northeast');
     
 
@@ -4378,10 +4378,10 @@ clc ; clearvars -except dpath ; close all ;
 
 % Set des_x size and discrepancy
 des_x_size = 15;
-discrep = 6;
+discrep = 5;
 
 % Set number of draws, burn_in for each mcmc:
-M = 8e3; b = .25 ; burn_in=M*b;
+M = 2e3; b = .5 ; burn_in=M*b;
 
 % Set real theta1, whether modular
 theta1 = 2;
@@ -4389,7 +4389,7 @@ modular = true;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 des_var = 0 ; % target error/tolerance
-obs_var = 0.01 ; % observation error
+obs_var = 0.05 ; % observation error
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -4666,15 +4666,15 @@ des_x_size = 15;
 discrep = 6;
 
 % Set number of draws, burn_in for each mcmc:
-M = 8e3; b = .25 ; burn_in=M*b;
+M = 2e3; b = .5 ; burn_in=M*b;
 
 % Set real theta1, whether modular
 theta1 = 2;
-modular = true;
+modular = false;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 des_var = 0 ; % target error/tolerance
-obs_var = 0.01 ; % observation error
+obs_var = 0.05 ; % observation error
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -4742,6 +4742,13 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'des_discrep',des_discrep,...
     'des_var',des_var,...
     'obs_var',obs_var);
+
+% TEMP set cov hyperparams to specified values
+% settings.rho_proposal = @(r,s) ones(size(r)) * (.85 + .05*numel(r));
+% settings.rho_prop_log_mh_correction = @(r_s,r) 0;
+% settings.des_lambda_init = .6 ; settings.obs_lambda_init = 85;
+% settings.lambda_proposal = @(lam,s) lam;
+% settings.lambda_prop_log_mh_correction = @(lam_s,lam) 0;
 
 % Perform dual calibration
 DCTO_results = MCMC_dual_calib(settings);
@@ -4894,10 +4901,10 @@ hold on;
 % Get a histogram of theta2 with true value marked
 burn_in = CTO_results.settings.burn_in; 
 histogram(CTO_results.theta1(burn_in+1:end,:),'Normalization','pdf',...
-    'EdgeColor','none','FaceColor','r','FaceAlpha',.65);
+    'EdgeColor','none','FaceColor','r','FaceAlpha',.65,'BinWidth',0.15);
 burn_in = DCTO_results.settings.burn_in; 
 histogram(DCTO_results.theta2(burn_in+1:end,:),'Normalization','pdf',...
-    'EdgeColor','none','FaceColor','b','FaceAlpha',.65);
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.65,'BinWidth',0.15);
 % Get and plot true theta2
 fmfn =@(z) dual_calib_example_fn(...
     .75,0,1,theta1,0,1,z,0,1,0,1,discrep);

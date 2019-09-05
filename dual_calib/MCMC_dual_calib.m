@@ -208,6 +208,13 @@ Sigma_D = [... % The covariance of D
             Sigma_des_dscr_desdes + des_cov_mat];
 % Add nugget for computational tractability:
 Sigma_D = Sigma_D + eye(size(Sigma_D)) * nugsize(Sigma_D) ;
+% And get observation discrepancy value at target locations (to be used in
+% modular version)
+if modular
+    cov_obs_disc_upd = updated_cov(obs_x,obs_t2,...
+                des_x, repmat(theta2,size(des_x,1),1),...
+                obs_rho,obs_lambda);
+end
 % Now to get the log likelihoods
 mu_R = [mean_sim(sim_x,sim_t1,sim_t2) ; ...
     mean_sim(obs_x,repmat(theta1,size(obs_x,1),1),obs_t2) + ...
@@ -400,7 +407,7 @@ for ii = 2:M
         mean_obs_disc_upd = updated_mean(obs_discrep_vals,obs_x,obs_t2,...
             des_x, repmat(theta2_s,size(des_x,1),1),...
             obs_rho,obs_lambda);
-        cov_obs_disc_upd = updated_cov(obs_x,obs_t2,...
+        cov_obs_disc_upd_s = updated_cov(obs_x,obs_t2,...
             des_x, repmat(theta2_s,size(des_x,1),1),...
             obs_rho,obs_lambda);
         mu_T_s = [mean_sim(sim_x,sim_t1,sim_t2) ; ...
@@ -413,7 +420,7 @@ for ii = 2:M
                 Sigma_emulator_simdes_s ;
             Sigma_emulator_simdes_s' ...
                 Sigma_emulator_desdes_s + ... %Sigma_obs_dscr_desdes_s+...
-                    Sigma_des_dscr_desdes + cov_obs_disc_upd + ...
+                    Sigma_des_dscr_desdes + cov_obs_disc_upd_s + ...
                     des_cov_mat...
         ];
         Sigma_T_s = Sigma_T_s + eye(size(Sigma_T_s)) * nugsize(Sigma_T_s) ;
@@ -428,9 +435,6 @@ for ii = 2:M
         % We can't just use it saved from last time, because other vars may
         % have changed.
         mean_obs_disc_upd = updated_mean(obs_discrep_vals,obs_x,obs_t2,...
-            des_x, repmat(theta2,size(des_x,1),1),...
-            obs_rho,obs_lambda);
-        cov_obs_disc_upd = updated_cov(obs_x,obs_t2,...
             des_x, repmat(theta2,size(des_x,1),1),...
             obs_rho,obs_lambda);
         mu_T = [mean_sim(sim_x,sim_t1,sim_t2) ; ...
@@ -466,6 +470,11 @@ for ii = 2:M
     if log(rand) < log_alpha
         theta2 = theta2_s;
         mu_D = mu_D_s;
+        if modular
+            cov_obs_disc_upd = cov_obs_disc_upd_s ;
+            mu_T = mu_T_s;
+            log_cond_dens_T = log_cond_dens_T_s;
+        end
         Sigma_emulator_simdes = Sigma_emulator_simdes_s;
         Sigma_emulator_obsdes = Sigma_emulator_obsdes_s;
         Sigma_emulator_desdes = Sigma_emulator_desdes_s;
@@ -643,7 +652,27 @@ for ii = 2:M
     % of the GPs. Only part of the big covariance
     % matrix Sigma need to be updated -- the part that depends on des_rho.
     Sigma_des_dscr_desdes_s=gp_cov(des_rho_s,des_x,des_x,des_lambda,false);
-    Sigma_D_s = [...
+    
+    if modular
+        
+        Sigma_T_s = [...
+            Sigma_emulator_simsim ...
+                Sigma_emulator_simdes ;
+            Sigma_emulator_simdes' ...
+                Sigma_emulator_desdes + ... 
+                    Sigma_des_dscr_desdes_s + cov_obs_disc_upd + ...
+                    des_cov_mat...
+        ];
+        Sigma_T_s = Sigma_T_s + eye(size(Sigma_T_s)) * nugsize(Sigma_T_s) ;
+        
+         % Now we can get the log factors of the likelihd for the new draw
+        log_cond_dens_T_s = logmvnpdf(T',mu_T',Sigma_T_s);
+        log_des_rho_prior_s = log_rho_prior_fn(des_rho_s);
+        log_lik_des_rho_s = log_cond_dens_T_s + log_des_rho_prior_s; 
+        % And we get the likelihood for the old draw
+        log_lik_des_rho = log_cond_dens_T + log_des_rho_prior;
+    else
+        Sigma_D_s = [...
         Sigma_emulator_simsim Sigma_emulator_simobs ...
             Sigma_emulator_simdes ;
         Sigma_emulator_simobs' ...
@@ -654,15 +683,17 @@ for ii = 2:M
             Sigma_emulator_obsdes' + Sigma_obs_dscr_obsdes' ...
             Sigma_emulator_desdes + Sigma_obs_dscr_desdes + ...
                 Sigma_des_dscr_desdes_s + des_cov_mat...
-    ];
-    % Add nugget for computational tractability
-    Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
-    % Now we can get the log factors of the likelihood for the new draw
-    log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-    log_des_rho_prior_s = log_rho_prior_fn(des_rho_s);
-    log_lik_des_rho_s = log_cond_dens_D_s + log_des_rho_prior_s; 
-    % And we get the likelihood for the old draw
-    log_lik_des_rho = log_cond_dens_D + log_des_rho_prior;
+        ];
+        % Add nugget for computational tractability
+        Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
+        % Now we can get the log factors of the likelihood for the new draw
+        log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
+        log_des_rho_prior_s = log_rho_prior_fn(des_rho_s);
+        log_lik_des_rho_s = log_cond_dens_D_s + log_des_rho_prior_s; 
+        % And we get the likelihood for the old draw
+        log_lik_des_rho = log_cond_dens_D + log_des_rho_prior;
+    end
+    
     % Now we can get the acceptance ratio
     log_alpha = log_lik_des_rho_s - log_lik_des_rho + ...
         rho_prop_log_mh_correction(des_rho_s,des_rho);
@@ -671,7 +702,11 @@ for ii = 2:M
     if log(rand) < log_alpha
         des_rho = des_rho_s;
         Sigma_des_dscr_desdes = Sigma_des_dscr_desdes_s;
-        log_cond_dens_D = log_cond_dens_D_s;
+        if modular
+            log_cond_dens_T = log_cond_dens_T_s;
+        else
+            log_cond_dens_D = log_cond_dens_D_s; 
+        end
         log_des_rho_prior = log_des_rho_prior_s;
         accepted_des_rho = accepted_des_rho + 1;
     end
@@ -687,7 +722,25 @@ for ii = 2:M
     % of the GPs. Only part of the big covariance
     % matrix Sigma need to be updated -- the part that depends on lambda.
     Sigma_des_dscr_desdes_s=gp_cov(des_rho,des_x,des_x,des_lambda_s,false);
-    Sigma_D_s = [...
+    
+    if modular
+        Sigma_T_s = [...
+            Sigma_emulator_simsim ...
+                Sigma_emulator_simdes ;
+            Sigma_emulator_simdes' ...
+                Sigma_emulator_desdes + ... 
+                    Sigma_des_dscr_desdes_s + cov_obs_disc_upd + ...
+                    des_cov_mat...
+        ];
+        Sigma_T_s = Sigma_T_s + eye(size(Sigma_T_s)) * nugsize(Sigma_T_s);
+        % Now we can get the log factors of the likelihood for the new draw
+        log_cond_dens_T_s = logmvnpdf(T',mu_T',Sigma_T_s);
+        log_des_lambda_prior_s = log_lambda_prior_fn(des_lambda_s);
+        log_lik_des_lambda_s = log_cond_dens_T_s + log_des_lambda_prior_s; 
+        % And we get the likelihood for the old draw
+        log_lik_des_lambda = log_cond_dens_T + log_des_lambda_prior;
+    else
+        Sigma_D_s = [...
         Sigma_emulator_simsim Sigma_emulator_simobs ...
             Sigma_emulator_simdes ;
         Sigma_emulator_simobs' ...
@@ -698,15 +751,17 @@ for ii = 2:M
             Sigma_emulator_obsdes' + Sigma_obs_dscr_obsdes' ...
             Sigma_emulator_desdes + Sigma_obs_dscr_desdes + ...
                 Sigma_des_dscr_desdes_s + des_cov_mat...
-    ];
-    % Add nugget for computational tractability
-    Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
-    % Now we can get the log factors of the likelihood for the new draw
-    log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
-    log_des_lambda_prior_s = log_lambda_prior_fn(des_lambda_s);
-    log_lik_des_lambda_s = log_cond_dens_D_s + log_des_lambda_prior_s; 
-    % And we get the likelihood for the old draw
-    log_lik_des_lambda = log_cond_dens_D + log_des_lambda_prior;
+        ];
+        % Add nugget for computational tractability
+        Sigma_D_s = Sigma_D_s + eye(size(Sigma_D_s)) * nugsize(Sigma_D_s) ;
+        % Now we can get the log factors of the likelihood for the new draw
+        log_cond_dens_D_s = logmvnpdf(D',mu_D',Sigma_D_s);
+        log_des_lambda_prior_s = log_lambda_prior_fn(des_lambda_s);
+        log_lik_des_lambda_s = log_cond_dens_D_s + log_des_lambda_prior_s; 
+        % And we get the likelihood for the old draw
+        log_lik_des_lambda = log_cond_dens_D + log_des_lambda_prior;
+    end
+    
     % Now we can get the acceptance ratio
     log_alpha = log_lik_des_lambda_s - log_lik_des_lambda + ...
         lambda_prop_log_mh_correction(des_lambda_s,des_lambda);
@@ -716,7 +771,11 @@ for ii = 2:M
         des_lambda = des_lambda_s;
         Sigma_des_dscr_desdes = Sigma_des_dscr_desdes_s;
         log_des_lambda_prior = log_des_lambda_prior_s;
-        log_cond_dens_D = log_cond_dens_D_s;
+        if modular 
+            log_cond_dens_T = log_cond_dens_T_s;
+        else
+            log_cond_dens_D = log_cond_dens_D_s; 
+        end
         accepted_des_lambda = accepted_des_lambda + 1;
     end
     end
