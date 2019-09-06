@@ -301,10 +301,10 @@ Sigma_theta2 = eye(size(theta2_init,1));
 
 
 %% Set real and desired discrepancy rho and lambda prior distributions
-log_obs_rho_prior  = @(r) sum(log( betapdf(r,2,0.2) ));
-log_obs_lambda_prior = @(ld) log( gampdf(ld,10,10) );
-log_des_rho_prior  = @(r) sum(log( betapdf(r,2,0.2) ));
-log_des_lambda_prior = @(ld) log( gampdf(ld,10,10) );
+log_obs_rho_prior  = @(r) sum(log( betapdf(r,2,0.4) ));
+log_obs_lambda_prior = @(ld) log( gampdf(ld,150,4) );
+log_des_rho_prior  = @(r) sum(log( betapdf(r,2,0.4) ));
+log_des_lambda_prior = @(ld) log( gampdf(ld,150,4) );
 
 
 %% Set real and desired discrepancy rho and lambda proposal distributions

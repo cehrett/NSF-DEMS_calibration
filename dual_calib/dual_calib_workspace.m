@@ -4946,18 +4946,18 @@ CTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
 clc ; clearvars -except dpath ; close all ; 
 
 % Set priors for covariance hyperparameters
-% lolp = @(lo) log( gampdf( lo, 1500, 0.1 ) ) ;
-lolp = @(ld) log( gampdf( ld, 10,   10  ) ) ;
-% lorp = @(r ) sum( log( betapdf( r, 1, 1 ) ) ) ;
+lolp = @(lo) log( gampdf( lo, 150, 4 ) ) ;
+% lolp = @(ld) log( gampdf( ld, 10,   10  ) ) ;
 lorp = @(r ) sum( log( betapdf( r, 2, 0.4 ) ) ) ;
-ldlp = @(ld) log( gampdf( ld, 100,   .1   ) ) ;
+% lorp = @(r ) sum( log( betapdf( r, 2, 0.4 ) ) ) ;
+ldlp = @(ld) log( gampdf( ld, 150,   4   ) ) ;
 % ldlp = @(ld) log( gampdf( ld, 10,   10  ) ) ;
-% ldrp = @(r ) sum( log( betapdf( r, 2, 0.4 ) ) ) ;
 ldrp = @(r ) sum( log( betapdf( r, 2, 0.4 ) ) ) ;
+% ldrp = @(r ) sum( log( betapdf( r, 2, 0.4 ) ) ) ;
 
 % Set des_x size and discrepancy
 des_x_size = 15;
-discrep = 5;
+discrep = 6;
 
 % Load nonmodular DCTO results
 locstr = ['C:\\Users\\carle\\Documents\\MATLAB\\NSF DEMS\\'...
