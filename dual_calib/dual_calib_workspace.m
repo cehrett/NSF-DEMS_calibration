@@ -45,7 +45,7 @@ surf(tt1 * t1range + t1min,tt2*t2range+t2min,reshape(Y(:,xidx,:),100,100));
 clc ; clearvars -except dpath ; close all ;
 
 % Set discrepancy version
-discrep = 6;
+discrep = 0; % If collecting raw data for emulator this should be 0
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -87,7 +87,7 @@ sim_y = dual_calib_example_fn(sim_x,sim_t1,sim_t2,discrep);
 clear X sigma obs_y_noiseless dpath
 save(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
     'dual_calib\dual_calib_stored_data\'...
-    '2019-08-28_dual_calib_raw_data_discrep',int2str(discrep)]);
+    '2019-09-10_dual_calib_raw_data_for_emulator']);
 
 % Get dpath back
 direc = pwd; 
@@ -3836,12 +3836,16 @@ discrep = 4;
 % Set number of draws, burn_in for each mcmc:
 M = 8e2; b = .25 ; burn_in=M*b;
 
-% Set real theta1, whether modular
+% Set real theta1, whether modular, covariance hyperparams
 theta1 = 2;
 modular = true;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 DesVar = 0.05 ; % error/tolerance
+obs_rho_beta_params = [2,.4];
+obs_lambda_gam_params = [10,10];
+des_rho_beta_params = [2,.4];
+des_lambda_gam_params = [150,4];
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -3896,7 +3900,11 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'emulator',false,...
     'modular',modular,...
     'des_discrep',des_discrep,...
-    'des_var',DesVar);
+    'des_var',DesVar,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
+    'des_rho_beta_params',des_rho_beta_params,...
+    'des_lambda_gam_params',des_lambda_gam_params);
 
 % Perform dual calibration
 DCTO_results = MCMC_dual_calib(settings);
@@ -3933,7 +3941,9 @@ settings = MCMC_dual_calib_settings(zeros(0,2),sim_t1,[],sim_y,...
     'des_discrep',false,...
     'emulator',false,...
     'modular',false,...
-    'EmulatorMean',mean_sim);
+    'EmulatorMean',mean_sim,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params);
 
 % Perform calibration
 KOH_results = MCMC_dual_calib(settings);
@@ -3973,7 +3983,9 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'emulator',false,...
     'modular',false,...
     'EmulatorMean',mean_sim,...
-    'obs_var',DesVar);
+    'obs_var',DesVar,...
+    'obs_rho_beta_params',des_rho_beta_params,...
+    'obs_lambda_gam_params',des_lambda_gam_params);
 
 % Perform calibration
 CTO_results = MCMC_dual_calib(settings);
@@ -4062,18 +4074,22 @@ clc ; clearvars -except dpath ; close all ;
 
 % Set des_x size and discrepancy
 des_x_size = 15;
-discrep = 5;
+discrep = 6;
 
 % Set number of draws, burn_in for each mcmc:
-M = 4e3; b = .25 ; burn_in=M*b;
+M = 2e3; b = .5 ; burn_in=M*b;
 
-% Set real theta1, whether modular
+% Set real theta1, whether modular, covariance hyperparams
 theta1 = 2;
 modular = true;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 des_var = 0; % target error/tolerance
 obs_var = 0.05; % observation error
+obs_rho_beta_params = [2,.4];
+obs_lambda_gam_params = [10,10];
+des_rho_beta_params = [2,.4];
+des_lambda_gam_params = [100,4];
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -4087,8 +4103,7 @@ t2range = 5;
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
     'dual_calib\dual_calib_stored_data\'...
     '2019-03-15_obs_design_and_sim_mean_std'],'design');
-obs_x = design.obs_x; obs_t2 = design.obs_t2; mean_y = design.mean_y;
-std_y = design.std_y;
+obs_x = design.obs_x; obs_t2 = design.obs_t2;
 
 % Make a col vector based on true theta1
 obs_t1 = ones(size(obs_x,1),1) * theta1;
@@ -4110,6 +4125,12 @@ obs_y = obs_y_noiseless + tempnoise / sigma * sqrt(obs_var);
 % Now set desired observations
 des_x = linspace(0,1,des_x_size)' * xrange + xmin;
 des_y = zeros(size(des_x,1),1);
+
+% Load raw data for emulator, just to get mean and std
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'dual_calib\dual_calib_stored_data\'...
+    '2019-09-10_dual_calib_raw_data_for_emulator']);
+mean_y = mean(sim_y) ; std_y = std(sim_y) ; 
 
 % Since we are not using emulator, empty out simulator observations
 sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
@@ -4135,7 +4156,11 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'modular',modular,...
     'des_discrep',des_discrep,...
     'des_var',des_var,...
-    'obs_var',obs_var);
+    'obs_var',obs_var,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
+    'des_rho_beta_params',des_rho_beta_params,...
+    'des_lambda_gam_params',des_lambda_gam_params);
 
 % Perform dual calibration
 DCTO_results = MCMC_dual_calib(settings);
@@ -4174,7 +4199,9 @@ settings = MCMC_dual_calib_settings(zeros(0,2),sim_t1,[],sim_y,...
     'emulator',false,...
     'modular',false,...
     'EmulatorMean',mean_sim_KOH,...
-    'obs_var',obs_var);
+    'obs_var',obs_var,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params);
 
 % Perform calibration
 KOH_results = MCMC_dual_calib(settings);
@@ -4254,7 +4281,9 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'EmulatorMean',mean_sim_CTO,...
     'obs_var',des_var,...
     'additional_discrep_mean',additional_discrep_mean,...
-    'additional_discrep_cov',additional_discrep_cov);
+    'additional_discrep_cov',additional_discrep_cov,...
+    'obs_rho_beta_params',des_rho_beta_params,...
+    'obs_lambda_gam_params',des_lambda_gam_params);
 
 % Perform calibration
 CTO_results = MCMC_dual_calib(settings);
@@ -4378,14 +4407,14 @@ clc ; clearvars -except dpath ; close all ;
 
 % Set des_x size and discrepancy
 des_x_size = 15;
-discrep = 5;
+discrep = 6;
 
 % Set number of draws, burn_in for each mcmc:
 M = 2e3; b = .5 ; burn_in=M*b;
 
 % Set real theta1, whether modular
 theta1 = 2;
-modular = true;
+modular = false;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 des_var = 0 ; % target error/tolerance
@@ -4668,13 +4697,17 @@ discrep = 6;
 % Set number of draws, burn_in for each mcmc:
 M = 2e3; b = .5 ; burn_in=M*b;
 
-% Set real theta1, whether modular
+% Set real theta1, whether modular, covariance hyperparams
 theta1 = 2;
 modular = true;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 des_var = 0 ; % target error/tolerance
 obs_var = 0.05 ; % observation error
+obs_rho_beta_params = [2,.4];
+obs_lambda_gam_params = [10,10];
+des_rho_beta_params = [2,.4];
+des_lambda_gam_params = [150,4];
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -4687,7 +4720,7 @@ t2range = 5;
 % Load raw data for emulator
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
     'dual_calib\dual_calib_stored_data\'...
-    '2019-08-28_dual_calib_raw_data_discrep',int2str(discrep)]);
+    '2019-09-10_dual_calib_raw_data_for_emulator']);
 
 % Load saved design
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
@@ -4741,7 +4774,11 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'modular',modular,...
     'des_discrep',des_discrep,...
     'des_var',des_var,...
-    'obs_var',obs_var);
+    'obs_var',obs_var,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
+    'des_rho_beta_params',des_rho_beta_params,...
+    'des_lambda_gam_params',des_lambda_gam_params);
 
 % TEMP set cov hyperparams to specified values
 % settings.rho_proposal = @(r,s) ones(size(r)) * (.85 + .05*numel(r));
@@ -4782,7 +4819,9 @@ settings = MCMC_dual_calib_settings([sim_x sim_t2],sim_t1,[],sim_y,...
     'emulator',true,...
     'modular',false,...
     'EmulatorMean',mean_sim_KOH,...
-    'obs_var',obs_var);
+    'obs_var',obs_var,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params);
 
 % Perform calibration
 KOH_results = MCMC_dual_calib(settings);
@@ -4859,7 +4898,9 @@ settings = MCMC_dual_calib_settings([sim_x,sim_t1],sim_t2,[],sim_y,...
     'EmulatorMean',mean_sim_CTO,...
     'obs_var',des_var,...
     'additional_discrep_mean',additional_discrep_mean,...
-    'additional_discrep_cov',additional_discrep_cov);
+    'additional_discrep_cov',additional_discrep_cov,...
+    'obs_rho_beta_params',des_rho_beta_params,...
+    'obs_lambda_gam_params',des_lambda_gam_params);
 
 % Perform calibration
 CTO_results = MCMC_dual_calib(settings);

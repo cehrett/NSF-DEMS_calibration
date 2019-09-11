@@ -93,6 +93,18 @@ function settings = MCMC_dual_calib_settings(...
 % 'obs_rho_lambda':
 %   Allows user to specify a value for obs_rho,obs_lambda By default, these
 %   are estimated via MCMC.
+% 'obs_rho_beta_params':
+%   Shape parameters for the beta prior on obs_rho, the characteristic
+%   length-scale of the observation discrepancy function. Default: [2,0.4].
+% 'obs_lambda_gam_params':
+%   Shape/scale parameters for the gamma prior on obs_lambda, the precision
+%   of the observation discrepancy function. Default: [5,5].
+% 'des_rho_beta_params':
+%   Shape parameters for the beta prior on des_rho, the characteristic
+%   length-scale of the target discrepancy function. Default: [2,0.4].
+% 'des_lambda_gam_params':
+%   Shape/scale parameters for the gamma prior on des_lambda, the precision
+%   of the target discrepancy function. Default: [150,4].
 % 'modular':
 %   Boolean value which tells whether or not to use modularized version of
 %   the model, to protect the traditional calibration from being influenced
@@ -139,11 +151,14 @@ p.addParameter('obs_discrep',true,@islogical);
 p.addParameter('des_discrep',true,@islogical);
 p.addParameter('obs_discrep_mean','Default',@(h)isa(h,'function_handle'));
 p.addParameter('obs_rho_lambda','Default',@isnumeric);
+p.addParameter('obs_rho_beta_params','Default',@isnumeric);
+p.addParameter('obs_lambda_gam_params','Default',@isnumeric);
+p.addParameter('des_rho_beta_params','Default',@isnumeric);
+p.addParameter('des_lambda_gam_params','Default',@isnumeric);
 p.addParameter('modular',false,@islogical);
 p.addParameter('doplot',true,@islogical);
 p.parse(sim_x,sim_t1,sim_t2,sim_y,obs_x,obs_t2,obs_y,des_x,des_y,...
     varargin{:});
-
 
 %% Collect inputs
 M = p.Results.M;
@@ -170,6 +185,10 @@ obs_discrep = p.Results.obs_discrep;
 des_discrep = p.Results.des_discrep;
 obs_discrep_mean = p.Results.obs_discrep_mean;
 obs_rho_lambda = p.Results.obs_rho_lambda;
+obs_rho_beta_params = p.Results.obs_rho_beta_params;
+obs_lambda_gam_params = p.Results.obs_lambda_gam_params;
+des_rho_beta_params = p.Results.des_rho_beta_params;
+des_lambda_gam_params = p.Results.des_lambda_gam_params;
 modular = p.Results.modular;
 doplot = p.Results.doplot;
 
@@ -224,6 +243,7 @@ if std_y == 'Default', std_y = std(sim_y) ; end
 sim_y_std = (sim_y - mean_y) ./ std_y ; 
 obs_y_std = (obs_y - mean_y) ./ std_y ;
 des_y_std = (des_y - mean_y) ./ std_y ; 
+
 
 
 %% Set emulator mean and covariance hyperparameters
@@ -301,10 +321,26 @@ Sigma_theta2 = eye(size(theta2_init,1));
 
 
 %% Set real and desired discrepancy rho and lambda prior distributions
-log_obs_rho_prior  = @(r) sum(log( betapdf(r,2,0.4) ));
-log_obs_lambda_prior = @(ld) log( gampdf(ld,150,4) );
-log_des_rho_prior  = @(r) sum(log( betapdf(r,2,0.4) ));
-log_des_lambda_prior = @(ld) log( gampdf(ld,150,4) );
+if isequal(obs_rho_beta_params,"Default")
+    obs_rho_beta_params = [2,0.4];
+end
+if isequal(obs_lambda_gam_params,"Default")
+    obs_lambda_gam_params = [5,5];
+end
+if isequal(des_rho_beta_params,"Default")
+    des_rho_beta_params = [2,0.4];
+end
+if isequal(des_lambda_gam_params,"Default")
+    des_lambda_gam_params = [150,4];
+end
+log_obs_rho_prior  = @(r) sum(log( betapdf(...
+    r,obs_rho_beta_params(1),obs_rho_beta_params(2)) ));
+log_obs_lambda_prior = @(ld) log( gampdf(...
+    ld,obs_lambda_gam_params(1),obs_lambda_gam_params(2)) );
+log_des_rho_prior  = @(r) sum(log( betapdf(...
+    r,des_rho_beta_params(1),des_rho_beta_params(2)) ));
+log_des_lambda_prior = @(ld) log( gampdf(...
+    ld,des_lambda_gam_params(1),des_lambda_gam_params(2)) );
 
 
 %% Set real and desired discrepancy rho and lambda proposal distributions
@@ -322,15 +358,19 @@ lambda_prop_log_mh_correction = ...
     @(lam_s,lam) sum(log(lam_s)-log(lam));
 % Set initial values and initial covariance matrices for proposals
 if obs_discrep
-    obs_rho_init = rand(dim_x+dim_t2,1);
-    obs_lambda_init = gamrnd(1,1);
+    obs_rho_init = betarnd(...
+        obs_rho_beta_params(1),obs_rho_beta_params(2),dim_x+dim_t2,1);
+    obs_lambda_init = gamrnd(obs_lambda_gam_params(1),...
+        obs_lambda_gam_params(2));
 else
     obs_rho_init = .5*ones(dim_x+dim_t2,1);
     obs_lambda_init = Inf;
 end
 if des_discrep
-    des_rho_init = rand(size(des_x,2),1);
-    des_lambda_init = gamrnd(1,1);
+    des_rho_init = betarnd(...
+        des_rho_beta_params(1),des_rho_beta_params(2),dim_x,1);
+    des_lambda_init = gamrnd(des_lambda_gam_params(1),...
+        des_lambda_gam_params(2));
 else
     des_rho_init = .5*ones(size(des_x,2),1);
     des_lambda_init = Inf;
