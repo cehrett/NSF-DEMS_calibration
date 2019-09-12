@@ -4412,13 +4412,17 @@ discrep = 6;
 % Set number of draws, burn_in for each mcmc:
 M = 2e3; b = .5 ; burn_in=M*b;
 
-% Set real theta1, whether modular
+% Set real theta1, whether modular, covar hyperparams
 theta1 = 2;
-modular = false;
+modular = true;
 obs_discrep = true; % Whether or not to include discrep term for real obs
 des_discrep = true;
 des_var = 0 ; % target error/tolerance
 obs_var = 0.05 ; % observation error
+obs_rho_beta_params = [2,.4];
+obs_lambda_gam_params = [10,10];
+des_rho_beta_params = [2,.4];
+des_lambda_gam_params = [100,4];
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -4484,6 +4488,10 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'EmulatorMean',mean_sim,...
     'modular',modular,...
     'des_discrep',des_discrep,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
+    'des_rho_beta_params',des_rho_beta_params,...
+    'des_lambda_gam_params',des_lambda_gam_params,...
     'des_var',des_var,...
     'obs_var',obs_var);
 
@@ -4523,6 +4531,8 @@ settings = MCMC_dual_calib_settings(zeros(0,2),sim_t1,[],sim_y,...
     'emulator',false,...
     'modular',false,...
     'EmulatorMean',mean_sim_KOH,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
     'obs_var',obs_var);
 
 % Perform calibration
@@ -4603,6 +4613,8 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'modular',false,...
     'EmulatorMean',mean_sim_CTO,...
     'obs_var',des_var,...
+    'obs_rho_beta_params',des_rho_beta_params,...
+    'obs_lambda_gam_params',des_lambda_gam_params,...
     'additional_discrep_mean',additional_discrep_mean,...
     'additional_discrep_cov',additional_discrep_cov);
 
@@ -4842,7 +4854,7 @@ mean_sim_CTO = @(a,b,c) zeros(size(a,1),1);
 CTO_obs_x_01 = linspace(0,1,des_x_size)' ;
 CTO_obs_x = CTO_obs_x_01 * xrange + xmin;
 CTO_obs_y = des_y;
-CTO_obs_t2 = mean(theta1_samps) * ones(size(CTO_obs_x)) * t1range + t1min ; 
+CTO_obs_t2 = mean(theta1_samps) * ones(size(CTO_obs_x)) * t1range + t1min ;
 % We set obs_t2 to be the point estimate from KOH calibration
 % We will set des_x,des_y to be empty
 CTO_des_x = [] ; CTO_des_y = [];
@@ -5214,6 +5226,188 @@ hold on;
 histogram(nonmodres.des_lambda(burn_in:end),'BinWidth',0.2,...
     'Normalization','pdf') ; 
 title('\lambda_{des}');
+
+
+%% Compare two versions of modularity
+clc ; clearvars -except dpath ; close all ; 
+
+% Set des_x size and discrepancy
+des_x_size = 15;
+discrep = 5;
+
+% Set number of draws, burn_in for each mcmc:
+M = 2e3; b = .5;
+
+% Set real theta1, whether emulator, whether modular, covar hyperparams
+theta1 = 2;
+emulator = false;
+modular = true;
+obs_discrep = true; % Whether or not to include discrep term for real obs
+des_discrep = true;
+des_var = 0 ; % target error/tolerance
+obs_var = 0.05 ; % observation error
+obs_rho_beta_params = [2,.4];
+obs_lambda_gam_params = [10,10];
+des_rho_beta_params = [2,.4];
+des_lambda_gam_params = [150,4];
+
+% Define inputs mins and ranges 
+xmin = .5;
+xrange = .5;
+t1min = 1.5;
+t1range = 3;
+t2min = 0;
+t2range = 5;
+
+% Load raw data for emulator, get mean and std
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'dual_calib\dual_calib_stored_data\'...
+    '2019-09-10_dual_calib_raw_data_for_emulator']);
+mean_y = mean(sim_y) ; std_y = std(sim_y);
+
+% Load saved design
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'dual_calib\dual_calib_stored_data\'...
+    '2019-03-15_obs_design_and_sim_mean_std'],'design');
+obs_x = design.obs_x; obs_t2 = design.obs_t2;
+
+% Make a col vector based on true theta1
+obs_t1 = ones(size(obs_x,1),1) * theta1;
+
+% Get "real" observations without noise but with discrepancy
+obs_y_noiseless = dual_calib_example_fn((obs_x-xmin)/xrange,...
+    xmin,xrange,...
+    (obs_t1-t1min)/t1range,t1min,t1range,...
+    (obs_t2-t2min)/t2range,t2min,t2range,0,1,discrep);
+
+% Now noise it up
+sigma = sqrt(0.05); % This is noise s.d. of STANDARDIZED observations
+% obs_y = obs_y_noiseless + randn(size(obs_x,1),1) * sigma * std_y;
+% Load noise from file, so all runs can use the same noise.
+load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
+    'dual_calib\dual_calib_stored_data\2019-07-22_obs_noise']);
+obs_y = obs_y_noiseless + tempnoise / sigma * sqrt(obs_var);
+
+% Now load desired observations
+des_x = linspace(0,1,des_x_size)' * xrange + xmin;
+locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-21_nearby_target_outcomes_discrep',int2str(discrep),...
+    '_des_x_size',int2str(des_x_size)]);
+load(locstr,'des_y');
+des_y = des_y * 0 ; disp('Using target outcomes constant 0');
+
+% And get the average discrepancy value to use as the mean
+avg_disc=0 ; % Actually nevermind
+obs_discrep_mean = @(x,t) avg_disc * ones(size(x,1),1) ; 
+
+if emulator
+    % Emulator mean
+    mean_sim = @(a,b,c) zeros(size(a)); 
+else
+    % Since we are not using emulator, empty out simulator observations
+    sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
+
+    % Emulator mean
+    mean_sim = @(a,b,c) dual_calib_example_fn(...
+                a,xmin,xrange,b,t1min,t1range,c,t2min,t2range,...
+                mean_y,std_y);
+end
+
+% Get settings for DCTO
+settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+    obs_x,obs_t2,obs_y,des_x,des_y,'min_x',xmin,'range_x',xrange,...
+    'min_t1',t1min,'range_t1',t1range,'min_t2',t2min,'range_t2',t2range,...
+    'M',M,'burn_in',b,...
+    'mean_y',mean_y,...
+    'std_y',std_y,...
+    'obs_discrep',obs_discrep,...
+    'obs_discrep_mean',obs_discrep_mean,...
+    'emulator',emulator,...
+    'EmulatorMean',mean_sim,...
+    'modular',modular,...
+    'des_discrep',des_discrep,...
+    'des_var',des_var,...
+    'obs_var',obs_var,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
+    'des_rho_beta_params',des_rho_beta_params,...
+    'des_lambda_gam_params',des_lambda_gam_params);
+
+% Perform dual calibration
+DCTO_fullmod_results = MCMC_dual_calib(settings);
+DCTO_halfmod_results = MCMC_dual_calib_altmod(settings);
+
+
+%%%%%%%%%%%%%%%%%
+% Now make figures 
+
+% First, get prior and posterior theta1
+f1 = figure('pos',[10 10 550 225]);
+lcol = [218 165 32]/255 ; % Color for line
+subplot(1,2,1);
+% Plot prior
+fill([t1min t1min + t1range t1min + t1range t1min],...
+    [0 0 1/t1range 1/t1range],'g','EdgeColor','none');
+xlim([t1min t1min + t1range]);
+hold on;
+% Get a histogram of theta1 with true value marked
+burn_in = DCTO_fullmod_results.settings.burn_in; 
+histogram(DCTO_halfmod_results.theta1(burn_in+1:end),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','r','FaceAlpha',.65,'BinWidth',0.075);
+histogram(DCTO_fullmod_results.theta1(burn_in+1:end),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.65,'BinWidth',0.075);
+% Plot true theta1
+plot([theta1 theta1],get(gca,'YLim'),'--','Color',lcol,'LineWidth',1.5);
+% Put a legend on it
+lg1 = legend('Prior dist.','Fullmod','Halfmod','True value');
+% title('Prior and posterior distributions of \theta_1');
+xlabel('\theta_1');
+set(f1,'color','white');
+
+% Second, get prior and posterior theta2
+subplot(1,2,2);
+% Plot prior
+fill([t2min t2min + t2range t2min + t2range t2min],...
+    [0 0 1/t2range 1/t2range],'g','EdgeColor','none');
+xlim([t2min t2min + t2range]);
+hold on;
+% Get a histogram of theta2 with true value marked
+histogram(DCTO_halfmod_results.theta2(burn_in+1:end,:),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','r','FaceAlpha',.65,'BinWidth',0.15);
+histogram(DCTO_fullmod_results.theta2(burn_in+1:end,:),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.65,'BinWidth',0.15);
+% Get and plot true theta2
+fmfn =@(z) dual_calib_example_fn(...
+    .75,0,1,theta1,0,1,z,0,1,0,1,discrep);
+theta2 = fmincon(fmfn,2,[],[],[],[],t2min,t2min+t2range);
+% yyaxis left ;
+plot([theta2 theta2],get(gca,'YLim'),'--','Color',lcol,'LineWidth',1.5);
+% Put a legend on it
+lg2 = legend('Prior dist.','Fullmod','Halfmod','Optimal value');
+xlabel('\theta_2');
+
+% suptitle(['Prior and posterior distributions of ',...
+%     '\theta_1 (left) and \theta_2 (right)']);
+% suptitle('CTO setting \theta_1=2.25');
+flushLegend(lg1,f1.Children(4),'northeast');
+flushLegend(lg2,f1.Children(2),'northeast');
+    
+
+% Save results
+discrep_str = int2str(discrep);
+des_x_size_str = int2str(des_x_size);
+DCTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-09_DCTO_discrep',discrep_str,'_des_x_size',des_x_size_str]);
+% save(DCTO_locstr,'DCTO_results')
+
 
 
 %% Try CTO after KOH, drawing design param as theta2 not theta1
