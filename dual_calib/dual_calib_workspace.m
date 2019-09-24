@@ -5972,7 +5972,7 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'obs_final_size',obs_final_size);
 
 % Perform dual calibration
-PDOE_results = MCMC_dual_calib(settings);
+PDOE_results = MCMC_dual_calib_sdoe(settings);
 
 %%%%%%%%%%
 % Take a look at the results
