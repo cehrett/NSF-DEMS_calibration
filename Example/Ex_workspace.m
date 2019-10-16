@@ -66,8 +66,8 @@ plot3([pmo(1) pmo(1)], [pmo(2) pmo(2)], get(gca,'Zlim'), 'k',...
 
 %% Get simulation observations
 n_cval  = 3 ; % Number of distinct c values to use
-n_theta1 = 12 ; % Number of distinct theta1 values to use
-n_theta2 = 12 ; % Number of distinct theta2 values to use
+n_theta1 = 6 ; % Number of distinct theta1 values to use
+n_theta2 = 6 ; % Number of distinct theta2 values to use
 cvals  = linspace(1.95,2.05,n_cval)  ; % Get distinct c values
 theta1vals = linspace(0,3,n_theta1) ; % Get distinct theta1 values
 theta2vals = linspace(0,6,n_theta2) ; % Get distinct theta2 values
@@ -83,7 +83,7 @@ sim_y = Ex_sim(sim_xt);
 raw_dat = struct('sim_xt',sim_xt,'sim_y',sim_y);
 
 % save([dpath,'Example\Ex_results\'...
-% '2018-05-28-raw_dat-3-12-12'],...
+% '2019-10-16-raw_dat-3-6-6'],...
 % 'raw_dat');
 
 
@@ -106,13 +106,13 @@ Rho_lam_optimum  = [  0.280981573480363   0.999189406633873...
    0.000837772517865 ] ;
 
 % Settings
-settings = MCMC_settings (M,desired_obs,sim_xt(:,1),sim_xt(:,2:3),...
-    sim_y,which_outputs,Rho_lam_optimum);
+settings = MCMC_settings (desired_obs,sim_xt(:,1),sim_xt(:,2:3),...
+    sim_y,'which_outputs',which_outputs,'Rho_lam_optimum',Rho_lam_optimum);
 settings.doplot = false;
 settings.doplot = true;
 
 % MCMC
-[samples,sigma2_rec,Sigma] = MCMC_sigma_prior_joint_prop(settings);
+results = MCMC_sigma_prior_joint_prop(settings);
 
 % Get extra info about results and save everything
 post_mean_out = em_out(samples,settings)
@@ -127,9 +127,9 @@ results = struct('samples',samples,...
     'post_mean_out',post_mean_out,...
     'settings',settings);
 
-save([dpath,'Example\Ex_results\'...
-'2018-05-28_d0_incl_min_cost'],...
-'results');
+% save([dpath,'Example\Ex_results\'...
+% '2018-05-28_d0_incl_min_cost'],...
+% 'results');
 
 % Add model predictions for each sample point to results
 emout = em_out_many(results.samples,results.settings,0);
@@ -143,9 +143,9 @@ model_output.sds = emout.output_sds;
 % Now package everything up in the results structs
 results.model_output = model_output;
 
-save([dpath,'Example\Ex_results\'...
-'2018-05-28_d0_incl_min_cost'],...
-'results');
+% save([dpath,'Example\Ex_results\'...
+% '2018-05-28_d0_incl_min_cost'],...
+% 'results');
 
 
 %% Gather results over grid of cost values
@@ -684,7 +684,7 @@ clc ; clearvars -except dpath ; close all ;
 des_obs = [ 0 0 0 ];
 
 % Set desired distance from Pareto front for new des obs found below
-spec_dist = .5;
+spec_dist = 1;
 
 %%% Get points estimating the PF
 % Use results from set total observation variance method:
@@ -756,22 +756,24 @@ sim_y = raw_dat.sim_y;
 clear raw_dat;
 
 % Get settings
-desired_obs = [0 0 0 ] ; %[ 0.7130 0.7144 17.9220 ] ; 
+desired_obs = [0 0 0 ] ; %[ 0.7130 0.7144 17.9220 ] ; % 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
-    'Discrepancy',true,'M',2e4,'ObsVar','Constant');
+    'Discrepancy',false,'M',1e4,'ObsVar','Constant',...
+    'Rho_lam_optimum',0); % Setting Rho_lam_optimum=0 makes it get MLEs
 
 % Modify settings to use constant lambda_delta
-settings.lambda_delta_init = 1/64;%1;
+% settings.lambda_delta_init = 1/64; % 1; % 
 settings.log_lambda_delta_prior = @(ld) ld;
 settings.proposal.lambda_prop_density = @(x,s) x;
 settings.proposal.log_mh_correction_ld = @(ld_s,ld) 0 ;
 
-results = MCMC_discrepancy_true_fn(settings);
+% results = MCMC_discrepancy_true_fn(settings);
+results = MCMC_discrepancy(settings);
 results.model_output.by_sample_true = ...
     Ex_sim([2*ones(size(results.samples,1),1) results.samples_os]);
 
 % save([dpath,'Example\Ex_results\'...
-%     '2018-07-12_discrepancy_true_fn_set_lambda_delta_1-64'],...
+%     '2019-10-16_no_discrep_no_PCTO_with_emulator'],...
 %     'results');
 
 %% Given desired observation, find true optimum of toy sim problem using dd
@@ -785,7 +787,7 @@ load([dpath,'Example\Ex_results\'...
 % Get standardized version
 % First load some calib results, just to get the settings
 load([dpath,'Example\Ex_results\'...
-    '2018-07-11_discrepancy_true_fn_set_lambda_delta_1'],...
+    '2019-10-16_no_discrep_with_PCTO_with_emulator'],...
     'results');
 cntrl_mins = results.settings.input_cntrl_mins   ;
 cntrl_rngs = results.settings.input_calib_ranges ;
@@ -806,9 +808,21 @@ optim = ctheta_output_nondom(idx,:);
 optim_calib = optim(2:3);
 
 % Take a look against a heatmap
-% calib_heatmap(des_obs_os);
-% hold on;
-% plot(optim_calib(1),optim_calib(2),'.g');
+calib_heatmap(des_obs_os);
+hold on;
+plot(optim_calib(1),optim_calib(2),'.g');
+burn_in = results.settings.burn_in;
+scatter(results.samples_os(burn_in:end,1),...
+    results.samples_os(burn_in:end,2));
+plot(mean(results.samples_os(burn_in:end,1)),...
+    mean(results.samples_os(burn_in:end,2)),'.m','MarkerSize',15);   
+load([dpath,'Example\Ex_results\'...
+    '2019-10-16_no_discrep_no_PCTO_with_emulator'],...
+    'results');
+scatter(results.samples_os(burn_in:end,1),...
+    results.samples_os(burn_in:end,2));
+plot(optim_calib(1),optim_calib(2),'.g','MarkerSize',15);   
+
 
 %% Get farthest distance in parameter space from desired observation
 clc ; clearvars -except dpath ; close all ;
@@ -891,3 +905,39 @@ optim_input = samps(i,:);
 optim_output = outputs(i,:);
 optdists = sqrt( sum( (outputs - optim_output).^2, 2) );
 optprop = sum( optdists < 1.96 ) / size(optdists,1)
+
+%% Perform calibration without discrepancy function, using emulator
+% But make it possible to use discrepancy and true function, for comparison
+clc ; clearvars -except dpath ; close all; 
+% Load data
+load([dpath,'Example\Ex_results\'...
+'2019-10-16-raw_dat-100obs']);
+load([dpath,'Example\Ex_results\'...
+'2019-10-16-raw_dat-3-6-6']);
+
+sim_x = raw_dat.sim_xt(:,1);
+sim_t = raw_dat.sim_xt(:,2:3);
+sim_y = raw_dat.sim_y;
+clear raw_dat;
+
+% Get settings
+desired_obs =  [0 0 0 ] ; % [ 0.7130 0.7144 17.9220 ] ; %
+settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
+    'Discrepancy',false,'M',5e3,'ObsVar','Constant',...
+    'Rho_lam_optimum',0); % Setting Rho_lam_optimum=0 makes it get MLEs
+
+% Modify settings to use constant lambda_delta
+% settings.lambda_delta_init = 1/64; % 1; %Comment out this line if no disc
+settings.log_lambda_delta_prior = @(ld) ld;
+settings.proposal.lambda_prop_density = @(x,s) x;
+settings.proposal.log_mh_correction_ld = @(ld_s,ld) 0 ;
+
+% results = MCMC_discrepancy_true_fn(settings);
+results = MCMC_discrepancy(settings);
+results.model_output.by_sample_true = ...
+    Ex_sim([2*ones(size(results.samples,1),1) results.samples_os]);
+
+% save([dpath,'Example\Ex_results\'...
+%     '2019-10-16_no_discrep_no_PCTO_with_emulator'],...
+%     'results');
+

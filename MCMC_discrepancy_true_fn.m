@@ -121,7 +121,7 @@ mult_ld          = 5                          ; % mult for pd of lam_dl
 % Set new observation input matrix:
 obs_theta = repmat(theta,n,1) ; 
 % Get discrepancy covariance:
-Sigma_delta = gp_cov(omega_delta,obs_x,obs_x,0,0,0,lambda_delta,false);
+Sigma_delta = gp_cov(omega_delta,obs_x,obs_x,lambda_delta,false);
 % Combine these to get Sigma_z
 Sigma_z = Sigma_y + Sigma_delta ;
 % Add a nugget to Sigma_z for computational stability
@@ -194,7 +194,7 @@ for ii = 1:M
     %% Get new Sigma_z = Sigma_eta + [Sigma_y_Sigma_delta 0 ; 0 0]
     % Set new discrep covariance matrix:
     Sigma_delta_s=...
-        gp_cov(omega_delta_s,obs_x,obs_x,0,0,0,lambda_delta,false);
+        gp_cov(omega_delta_s,obs_x,obs_x,lambda_delta,false);
     % Combine these to get new Sigma_z
     Sigma_z_s = Sigma_y + Sigma_delta_s ;
     % Add a nugget to Sigma_z for computational stability
@@ -231,7 +231,7 @@ for ii = 1:M
     %% Get new Sigma_z = Sigma_eta + [Sigma_y_Sigma_delta 0 ; 0 0]
     % Set new discrep covariance matrix:
     Sigma_delta_s=...
-        gp_cov(omega_delta,obs_x,obs_x,0,0,0,lambda_delta_s,false);
+        gp_cov(omega_delta,obs_x,obs_x,lambda_delta_s,false);
     % Combine these to get new Sigma_z
     Sigma_z_s = Sigma_y + Sigma_delta_s ;
     % Add a nugget to Sigma_z for computational stability

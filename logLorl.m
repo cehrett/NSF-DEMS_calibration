@@ -30,7 +30,7 @@ for ii = 1 : length(lambda)
     % Get simulation GP cov
     D_in_x = [ obs_x ; sim_x ];
     D_in_t = [ repmat(theta, n, 1) ; sim_t ];
-    Sigma_eta = gp_cov(omega, D_in_x, D_in_x, rho, D_in_t, D_in_t,...
+    Sigma_eta = gp_cov([omega rho], [D_in_x, D_in_t], [D_in_x, D_in_t],...
         lambda(ii),false);
 
     %% Get Sigma_D
@@ -48,8 +48,9 @@ for ii = 1 : length(lambda)
     D = [obs_y ; sim_y ] ;
 
     %% Get the likelihood
-    omega_rho_lambda = [ omega rho lambda ] % Just to peek
-    log_likelihood = -1/2 * log_det_Sigma_D - 1/2 * D' * Sigma_D_inv * D
+%     omega_rho_lambda = [ omega rho lambda ]; % Just to peek
+%     log_likelihood = -1/2 * log_det_Sigma_D - 1/2 * D' * Sigma_D_inv * D
+    log_likelihood = logmvnpdf(D',0,Sigma_D)
 
 
 end

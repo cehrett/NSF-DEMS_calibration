@@ -68,9 +68,9 @@ if which_outputs(1)==1
     outputs_defl_mean_std = em.mu(ndcs);
     outputs_defl_sd_std=sqrt(diag(em.cov_gp(ndcs,ndcs)));
     outputs_defl_mean =outputs_defl_mean_std * ...
-        mean(tdat.output_sds(ndx,:)) + ...
-        mean(tdat.output_means(ndx,:));
-    outputs_defl_sd = outputs_defl_sd_std * mean(tdat.output_sds(ndx,:));
+        mean(tdat.output_sds(ndx)) + ...
+        mean(tdat.output_means(ndx));
+    outputs_defl_sd = outputs_defl_sd_std * mean(tdat.output_sds(ndx));
     ndx = ndx + 1;
 end
 if which_outputs(2)==1
@@ -78,9 +78,9 @@ if which_outputs(2)==1
     outputs_rotn_mean_std = em.mu(ndcs);
     outputs_rotn_sd_std=sqrt(diag(em.cov_gp(ndcs,ndcs)));
     outputs_rotn_mean =outputs_rotn_mean_std * ...
-        mean(tdat.output_sds(ndx,:)) + ...
-        mean(tdat.output_means(ndx,:));
-    outputs_rotn_sd = outputs_rotn_sd_std * mean(tdat.output_sds(ndx,:));
+        mean(tdat.output_sds(ndx)) + ...
+        mean(tdat.output_means(ndx));
+    outputs_rotn_sd = outputs_rotn_sd_std * mean(tdat.output_sds(ndx));
     ndx = ndx + 1;
 end
 if which_outputs(3)==1
@@ -88,9 +88,9 @@ if which_outputs(3)==1
     outputs_cost_mean_std = em.mu(ndcs);
     outputs_cost_sd_std = sqrt(diag(em.cov_gp(ndcs,ndcs)));
     outputs_cost_mean =outputs_cost_mean_std * ...
-        mean(tdat.output_sds(ndx,:)) + ...
-        mean(tdat.output_means(ndx,:));
-    outputs_cost_sd = outputs_cost_sd_std * mean(tdat.output_sds(ndx,:)); 
+        mean(tdat.output_sds(ndx)) + ...
+        mean(tdat.output_means(ndx));
+    outputs_cost_sd = outputs_cost_sd_std * mean(tdat.output_sds(ndx)); 
 end
  
  

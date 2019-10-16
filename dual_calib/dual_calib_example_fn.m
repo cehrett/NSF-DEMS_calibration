@@ -1,19 +1,23 @@
 function output = dual_calib_example_fn(...
     x,xmin,xrange,t1,t1min,t1range,t2,t2min,t2range,ymean,ysd,discrep,...
-    c,d)
+    rescale_inputs,c,d)
 % This function is a univariate objective function with state-aware true
 % optimum given by theta2 = 4/3 * (theta1-1).
 % discrep is a nonneg integer identifying which discrepancy to use.
 
+if xmin == 0, error('Error: Need minima and ranges for all inputs'); end
+
 switch nargin
-    case 3, rescale_inputs = false; discrep = 0;
-        t1 = xmin; t2 = xrange; ymean = 0; ysd = 1; setcd = false;
-    case 4, rescale_inputs = false; discrep = t1;
-        t1 = xmin; t2 = xrange; ymean = 0; ysd = 1; 
-        xmin = min(x); xrange=range(x); setcd = false;
-    case 11, rescale_inputs = true; discrep = 0; setcd = false;
-    case 12, rescale_inputs = true; setcd = false;
-    case 14, rescale_inputs = true; setcd = true; disp('ye');
+    case 3, error('Error: Need minima and ranges for all inputs');
+%         rescale_inputs = false; discrep = 0;
+%         t1 = xmin; t2 = xrange; ymean = 0; ysd = 1; setcd = false;
+    case 4, error('Error: Need minima and ranges for all inputs');
+%         rescale_inputs = false; discrep = t1;
+%         t1 = xmin; t2 = xrange; ymean = 0; ysd = 1; 
+%         xmin = min(x); xrange=range(x); setcd = false;
+    case 12, discrep = 0; setcd = false;
+    case 13, setcd = false;
+    case 15, setcd = true; disp('ye');
     otherwise, error('Incorrect number of inputs');
 end
 

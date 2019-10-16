@@ -5,7 +5,7 @@ function settings = MCMC_settings (desired_obs,sim_x,sim_t,sim_y,varargin)
 % 'M':
 %   Number of samples to draw in the MCMC, includes burn-in. Default: 1e4.
 % 'burn_in':
-%   Proportion of samples to treat as burn-in. Default: 1/5.
+%   Proportion of samples to treat as burn-in. Default: 1/2.
 % 'ObsVar':
 %   'RefPrior' - (Default) Puts independent 1/sigma^2 prior on each obs var
 %                          for each of the outputs.
@@ -54,7 +54,7 @@ p.addRequired('sim_x',@ismatrix);
 p.addRequired('sim_t',@ismatrix);
 p.addRequired('sim_y',@ismatrix);
 p.addParameter('M',1e4,@isscalar);
-p.addParameter('burn_in',1/5,@(x) x>0 && x<1);
+p.addParameter('burn_in',1/2,@(x) x>0 && x<1);
 p.addParameter('ObsVar','RefPrior',@isstr);
 p.addParameter('Cost_lambda',0,@isscalar);
 p.addParameter('which_outputs',ones(size(desired_obs)),@ismatrix);
@@ -104,20 +104,6 @@ num_out = size(sim_y,2);
 num_cntrl = size(sim_x,2) + num_out - 1 ; % The num_out - 1 is for dum vars
 num_cntrl_wod = size(sim_x,2) ; % Without dummy vars
 
-%% MCMC settings
-% Covariance parameter settings, found by optimization routine:
-if Rho_lam_optimum == 0
-    fprintf('No rho,lambda values specified; commencing ML estimation.\n');
-    Rho_lam_optimum = opt_rho_lambda(sim_xt,sim_dat,num_cal,...
-        rand(1,num_cntrl),rand(1,num_cal),gamrnd(5,5));
-end
-omega  = Rho_lam_optimum(1:num_cntrl);
-rho    = Rho_lam_optimum(num_cntrl+1:num_cntrl+num_cal);
-lambda = Rho_lam_optimum(num_cntrl+num_cal+1);
-% Need different omega in case not all three outputs used
-if sum(which_outputs) ~= 3
-    error('To use < 3 outputs, sort out manually what to do with omega');
-end
 
 %% Proposal density
 logit = @(x) log(x./(1-x));
@@ -186,17 +172,17 @@ if Discrepancy
     log_lambda_delta_prior = @(ld) log( gampdf(ld,5,5) );
 else 
     % If we're not using a discrepancy function, then set all these to
-    % null.
-    omega_delta_init       = 'null';
-    lambda_delta_init      = 'null';
-    omega_prop_density     = 'null';
+    % accordingly.
+    omega_delta_init       = .5 * ones(1,num_cntrl) ;
+    lambda_delta_init      = Inf;
+    omega_prop_density     = @(x,Sigma)x;
     Sigma_od               = 'null';
     log_mh_correction_od   = 'null';
-    lambda_prop_density    = 'null';
+    lambda_prop_density    = @(x)x;
     Sigma_ld               = 'null';
     log_mh_correction_ld   = 'null';
-    log_omega_delta_prior  = 'null';
-    log_lambda_delta_prior = 'null';
+    log_omega_delta_prior  = @(od)0;
+    log_lambda_delta_prior = @(ld)0;
 end
 
 %% Package proposal density
@@ -250,6 +236,21 @@ sim_output_sds = mean(tdat.output_sds') ;
 % Assuming uniform prior for theta: find LB,UB and rescale them
 LB = (LB - sim_calib_input_mins)./sim_calib_input_ranges ;
 UB = (UB - sim_calib_input_mins)./sim_calib_input_ranges ;
+
+%% MCMC settings
+% Covariance parameter settings, found by optimization routine:
+if Rho_lam_optimum == 0
+    fprintf('No rho,lambda values specified; commencing ML estimation.\n');
+    Rho_lam_optimum = opt_rho_lambda(sim_xt,eta,num_cal,...
+        rand(1,num_cntrl),rand(1,num_cal),gamrnd(5,5));
+end
+omega  = Rho_lam_optimum(1:num_cntrl);
+rho    = Rho_lam_optimum(num_cntrl+1:num_cntrl+num_cal);
+lambda = Rho_lam_optimum(num_cntrl+num_cal+1);
+% Need different omega in case not all three outputs used
+if sum(which_outputs) ~= 3
+    error('To use < 3 outputs, sort out manually what to do with omega');
+end
 
 %% Prepare field observations, control settings, and variance for MCMC
 % First, we must standardize them to be on the same scale as the simulation

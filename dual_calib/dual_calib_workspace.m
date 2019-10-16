@@ -5416,40 +5416,72 @@ clc ; clearvars -except dpath ; close all ;
 % Define inputs mins and ranges 
 xmin = .5;
 xrange = .5;
-t1min = 1.5;
-t1range = 3;
-t2min = 0;
-t2range = 5;
+t1min = 4.5;
+t1range = 9;
+t2min = -3;
+t2range = 2;
 
 % Set discrepancy
 discrep = 6;
 
 % Set base theta1
-base_theta1 = 1.75
+low_theta1 = 1.5
+high_theta1 = 2.25
 
 % The function
 % t1_fn = @(t2) t1min + t1range - t1range / t2range * (t2 - t2min) ;
 % t1_fn = @(t2) t1min * 7/6 + (t1range - t1min/2) *...
 %     exp(-2*(t2-(t2min+t2range*7/10)).^10) ;
-t1_fn = @(x) base_theta1 + ...
-    2.25 * exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+t1_fn = @(x) low_theta1 + ...
+    (high_theta1-low_theta1) * ...
+    exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) base_theta1 - ...
+%     2.25 *exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) high_theta1 - ...
+%     (high_theta1 - low_theta1) * ...
+%     exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) low_theta1 + ...
+%     (high_theta1-low_theta1) * ...
+%     exp(20*((x-t2min)/t2range).^2-10)./...
+%     (1+exp(20*((x-t2min)/t2range).^2-10));
+% t1_fn = @(x) low_theta1 + ...
+%     (high_theta1-low_theta1) * ...
+%     exp(80*((x-t2min)/t2range)-40)./...
+%     (1+exp(80*((x-t2min)/t2range)-40));
+t1_fn = @(x) low_theta1 + ...
+    (high_theta1-low_theta1) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
+t1_fn = @(x) high_theta1 - ...
+    (high_theta1-low_theta1) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
+% t1_fn=@(x)2.5 * ones(size(x))
 
 % Let's take a look at the objective function values for set x, using true
 % t1 function as well as just base theta1
 x = 1;
 t2 = linspace(t2min,t2min+t2range,10000)';
 t1 = t1_fn(t2);
-y = dual_calib_example_fn(x,0,1,t1,0,1,t2,0,1,0,1,discrep);
-y_wrong = dual_calib_example_fn(x,0,1,base_theta1,0,1,t2,0,1,0,1,discrep);
+y = dual_calib_example_fn(x,xmin,xrange,t1,t1min,t1range,...
+    t2,t2min,t2range,0,1,discrep,false);
+y_wrong = dual_calib_example_fn(x,xmin,xrange,low_theta1,t1min,t1range,...
+    t2,t2min,t2range,0,1,discrep,false);
+y_wrong2= dual_calib_example_fn(x,xmin,xrange,high_theta1,t1min,t1range,...
+    t2,t2min,t2range,0,1,discrep,false);
 figure('Position',[10 10 1100 300]);
 subplot(1,3,1);
 plot(t2,t1);
+xlabel('t2');ylabel('t1');
 subplot(1,3,2);
 plot(t1,y,'.');
+xlabel('t1');ylabel('y');
 subplot(1,3,3);
 plot(t2,y);
+xlabel('t2');ylabel('y');
 hold on;
 plot(t2,y_wrong);
+plot(t2,y_wrong2);
 [m,i] = min(y) ; t2opt = t2(i)
 t1opt = t1(i)
 
@@ -5811,15 +5843,22 @@ CTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
 clc ; clearvars -except dpath ; close all ;
 
 % Set initial and final observation set sizes
-obs_initial_size = 6;
-obs_final_size = 100;
+obs_initial_size = 10;
+obs_final_size = 20;
 
-% Set des_x size and discrepancy
+% Settings
+modular = true;
+informative_targets = false;
+obs_discrep = true; % Whether or not to include discrep term for real obs
+des_discrep = true;
+obs_discrep_use_MLEs = false;
+des_var = 0; % target error/tolerance
+obs_var = 0.05; % observation error
 des_x_size = 15;
-discrep = 2;
+discrep = 6;
 
 % Set number of draws, burn_in for each mcmc:
-M = 4e3; b = .5 ; burn_in=M*b;
+M = 6e3; b = .5 ; burn_in=M*b;
 
 % Define inputs mins and ranges 
 xmin = .5;
@@ -5829,17 +5868,11 @@ t1range = 3;
 t2min = 0;
 t2range = 5;
 
-% Settings
-modular = true;
-informative_targets = false;
-obs_discrep = true; % Whether or not to include discrep term for real obs
-des_discrep = true;
-des_var = 0; % target error/tolerance
-obs_var = 0.05; % observation error
-obs_rho_beta_params = [2,.4];
-obs_lambda_gam_params = [10,4];
+% Observation and target discrepancy covariance hyperparameters
+obs_rho_beta_params = [8,1];
+obs_lambda_gam_params = [8,4];
 des_rho_beta_params = [2,.4];
-des_lambda_gam_params = [10,4];
+des_lambda_gam_params = [40,40];
 
 % True theta1 function
 % t1_fn = @(t2) t1min + t1range - t1range / t2range * (t2 - t2min) ;
@@ -5849,8 +5882,20 @@ des_lambda_gam_params = [10,4];
 %     exp(-2*(t2-(t2min+t2range*3/10)).^100) ;
 % t1_fn = @(t2) t1min * 7/6 + (t1range - t1min/2) *...
 %     exp(-2*(t2-(t2min+t2range*7/10)).^10) ;
-t1_fn = @(x) 1.75 + ...
-    2.25 * exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) 1.75 + ...
+%     2.25 *exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) 2 + ...
+%     (1) * ...
+%     exp(80*((x-t2min)/t2range).^2-40)./...
+%     (1+exp(80*((x-t2min)/t2range).^2-40));
+% t1_fn = @(x) 1.5 + ...
+%     (2.25-1.5) * ...
+%     exp(40*((x-t2min)/t2range)-20)./...
+%     (1+exp(40*((x-t2min)/t2range)-20));
+t1_fn = @(x) 2.25 - ...
+    (2.25-1.5) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
 
 % Load raw data for emulator, if just to get mean and std
 load(['C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\',...
@@ -5867,9 +5912,9 @@ obs_t2 = X(:,2) * t2range + t2min ;
 obs_t1 = t1_fn(obs_t2);
 
 % Get "real" observations without noise but with discrepancy
-obs_y_noiseless = dual_calib_example_fn(obs_x,0,1,...
-    obs_t1,0,1,...
-    obs_t2,0,1,0,1,discrep);
+obs_y_noiseless = dual_calib_example_fn(obs_x,xmin,xrange,...
+    obs_t1,t1min,t1range,...
+    obs_t2,t2min,t2range,0,1,discrep,false);
 
 % Now noise it up (add N(0,obs_var) noise to STANDARDIZED observations)
 obs_y = obs_y_noiseless+ randn(obs_initial_size,1) * sqrt(obs_var) * std_y;
@@ -5878,12 +5923,13 @@ obs_y = obs_y_noiseless+ randn(obs_initial_size,1) * sqrt(obs_var) * std_y;
 des_x = linspace(0,1,des_x_size)' * xrange + xmin;
 if informative_targets    
     % Find true minimum at des_x
-    fn=@(t2)dual_calib_example_fn(.5,0,1,t1_fn(t2),0,1,t2,0,1,0,1,discrep);
+    fn=@(t2)dual_calib_example_fn(.5,xmin,xrange,...
+        t1_fn(t2),t1min,t1range,t2,t2min,t2range,0,1,discrep,false);
     theta2 = ...
         fmincon(fn,rand*t2range + t2min,[],[],[],[],t2min,t2min+t2range);
-        true_min = dual_calib_example_fn(des_x,0,1,...
-            t1_fn(theta2) * ones(size(des_x)),0,1,...
-            theta2,0,1,0,1,discrep);
+        true_min = dual_calib_example_fn(des_x,xmin,xrange,...
+            t1_fn(theta2) * ones(size(des_x)),t1min,t1range,...
+            theta2,t2min,t2range,0,1,discrep,false);
         des_y = true_min - 2*sqrt(obs_var) ; 
 else
     des_y = zeros(size(des_x,1),1);
@@ -5894,10 +5940,11 @@ sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
 
 % And get the average discrepancy value to use as the mean
 int_fn =@(x,t)...
-    dual_calib_example_fn(x,0,1,t1_fn(t),...
-    0,1,t,0,1,mean_y,std_y,discrep)-...
-    dual_calib_example_fn(x,0,1,t1_fn(t),0,1,t,0,1,...
-    mean_y,std_y,0);
+    dual_calib_example_fn(x,xmin,xrange,t1_fn(t),...
+    t1min,t1range,t,t2min,t2range,mean_y,std_y,discrep,false)-...
+    dual_calib_example_fn(x,xmin,xrange,t1_fn(t),t1min,t1range,...
+    t,t2min,t2range,...
+    mean_y,std_y,0,false);
 avg_disc = integral2(int_fn,xmin,xmin+xrange,t2min,t2min+t2range) / ...
     (xrange * t2range) ; 
 obs_discrep_mean = @(x,t) avg_disc * ones(size(x)) ; 
@@ -5905,12 +5952,13 @@ obs_discrep_mean = @(x,t) avg_disc * ones(size(x)) ;
 % Emulator mean
 mean_sim = @(a,b,c) dual_calib_example_fn(...
             a,xmin,xrange,b,t1min,t1range,c,t2min,t2range,...
-            mean_y,std_y);
+            mean_y,std_y,0,true);
         
 % True phenomenon
 true_phenomenon = @(a,c) dual_calib_example_fn(...
-    a,xmin,xrange,t1_fn(c*t2range+t2min),0,1,c,t2min,t2range,...
-    mean_y,std_y,discrep) + randn(size(a)) * std_y * sqrt(obs_var);
+    a,xmin,xrange,(t1_fn(c*t2range+t2min)-t1min)./t1range,...
+    t1min,t1range,c,t2min,t2range,...
+    mean_y,std_y,discrep,true) + randn(size(a)) * sqrt(obs_var);
 
 % Get settings for DCTO
 settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
@@ -5919,7 +5967,7 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
     'obs_discrep',obs_discrep,...
     'obs_discrep_mean',obs_discrep_mean,...
-    'emulator',false,...
+    'emulator_use',false,...
     'EmulatorMean',mean_sim,...
     'modular',modular,...
     'des_discrep',des_discrep,...
@@ -5930,10 +5978,11 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'des_rho_beta_params',des_rho_beta_params,...
     'des_lambda_gam_params',des_lambda_gam_params,...
     'obs_final_size',obs_final_size,...
+    'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
     'true_phenomenon',true_phenomenon);
 
 % Perform dual calibration
-SDOE_results = MCMC_dual_calib_sdoe(settings);
+SDOE_results = MCMC_dual_calib(settings);
 
 %%% Now do DCTO with all observations made ahead of time
 % Get observations
@@ -5945,9 +5994,9 @@ obs_t2 = X(:,2) * t2range + t2min ;
 obs_t1 = t1_fn(obs_t2);
 
 % Get "real" observations without noise but with discrepancy
-obs_y_noiseless = dual_calib_example_fn(obs_x,0,1,...
-    obs_t1,0,1,...
-    obs_t2,0,1,0,1,discrep);
+obs_y_noiseless = dual_calib_example_fn(obs_x,xmin,xrange,...
+    obs_t1,t1min,t1range,...
+    obs_t2,t2min,t2range,0,1,discrep,false);
 
 % Now noise it up (add N(0,obs_var) noise to STANDARDIZED observations)
 obs_y = obs_y_noiseless+ randn(obs_final_size,1) * sqrt(obs_var) * std_y;
@@ -5959,7 +6008,7 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
     'obs_discrep',obs_discrep,...
     'obs_discrep_mean',obs_discrep_mean,...
-    'emulator',false,...
+    'emulator_use',false,...
     'EmulatorMean',mean_sim,...
     'modular',modular,...
     'des_discrep',des_discrep,...
@@ -5969,10 +6018,11 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'obs_lambda_gam_params',obs_lambda_gam_params,...
     'des_rho_beta_params',des_rho_beta_params,...
     'des_lambda_gam_params',des_lambda_gam_params,...
+    'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
     'obs_final_size',obs_final_size);
 
 % Perform dual calibration
-PDOE_results = MCMC_dual_calib_sdoe(settings);
+PDOE_results = MCMC_dual_calib(settings);
 
 %%%%%%%%%%
 % Take a look at the results
@@ -5980,7 +6030,303 @@ PDOE_results = MCMC_dual_calib_sdoe(settings);
 % Get optimal theta2 and corresponding theta1 value
 % Get and plot true theta2
 fmfn =@(z) dual_calib_example_fn(...
-    .75,0,1,t1_fn(z),0,1,z,0,1,0,1,discrep);
+    .75,xmin,xrange,t1_fn(z),t1min,t1range,...
+    z,t2min,t2range,0,1,discrep,false);
+theta2 = fmincon(fmfn,t2min+t2range/2,[],[],[],[],t2min,t2min+.5*t2range);
+theta1 = t1_fn(theta2);
+
+% Get prior and posterior theta1
+f1 = figure('pos',[10 10 550 225]);
+lcol = [218 165 32]/255 ; % Color for line
+subplot(1,2,1);
+% Plot prior
+fill([t1min t1min + t1range t1min + t1range t1min],...
+    [0 0 1/t1range 1/t1range],'g','EdgeColor','none');
+xlim([t1min t1min + t1range]);
+hold on;
+% Get a histogram of theta1 with true value marked
+burn_in = SDOE_results.settings.burn_in; 
+histogram(PDOE_results.theta1(burn_in+1:end),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','r','FaceAlpha',.65,'BinWidth',0.075);
+histogram(SDOE_results.theta1(burn_in+1:end),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.65,'BinWidth',0.075);
+% Plot true theta1
+plot([theta1 theta1],get(gca,'YLim'),'--','Color',lcol,'LineWidth',1.5);
+% Put a legend on it
+lg1 = legend('Prior dist.','PDoE','SDoE','True value');
+% title('Prior and posterior distributions of \theta_1');
+xlabel('\theta_1');
+set(f1,'color','white');
+
+% Second, get prior and posterior theta2
+subplot(1,2,2);
+% Plot prior
+fill([t2min t2min + t2range t2min + t2range t2min],...
+    [0 0 1/t2range 1/t2range],'g','EdgeColor','none');
+xlim([t2min t2min + t2range]);
+hold on;
+% Get a histogram of theta2 with true value marked
+histogram(PDOE_results.theta2(burn_in+1:end,:),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','r','FaceAlpha',.65,'BinWidth',0.15);
+histogram(SDOE_results.theta2(burn_in+1:end,:),...
+    'Normalization','pdf',...
+    'EdgeColor','none','FaceColor','b','FaceAlpha',.65,'BinWidth',0.15);
+% yyaxis left ;
+plot([theta2 theta2],get(gca,'YLim'),'--','Color',lcol,'LineWidth',1.5);
+% Put a legend on it
+lg2 = legend('Prior dist.','PDoE','SDoE','Optimal value');
+xlabel('\theta_2');
+
+% suptitle(['Prior and posterior distributions of ',...
+%     '\theta_1 (left) and \theta_2 (right)']);
+% suptitle('CTO setting \theta_1=2.25');
+flushLegend(lg1,f1.Children(4),'northeast');
+flushLegend(lg2,f1.Children(2),'northeast');
+
+% Also take a look at the observation locations of SDoE
+figure();
+plot(SDOE_results.settings.obs_x(1:obs_initial_size),...
+    SDOE_results.settings.obs_t2(1:obs_initial_size),'*');
+hold on
+plot(SDOE_results.settings.obs_x((obs_initial_size+1):end),...
+    SDOE_results.settings.obs_t2((obs_initial_size+1):end),'*');
+plot(PDOE_results.settings.obs_x,PDOE_results.settings.obs_t2,'*');
+
+% Save results
+discrep_str = int2str(discrep);
+des_x_size_str = int2str(des_x_size);
+DCTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-08-09_DCTO_discrep',discrep_str,'_des_x_size',des_x_size_str]);
+% save(DCTO_locstr,'DCTO_results')
+
+%% Create new example function designed for state-aware case
+clc ; clearvars -except dpath ; close all ;
+
+% Set mins and ranges
+t1min = 1.5; t1range = 3 ; 
+t2min = 0; t2range = 5 ;
+
+t1 = linspace(t1min,t1min+t1range);
+t2 = linspace(t2min,t2min+t2range);
+
+[T1,T2] = meshgrid(t1,t2);
+
+exfn = @(t1,t2) 4 - 2.5 * exp(-((t1-2).^2+(t2-3.5).^2)) - ...
+    3 * exp(-((t1-3).^2+(t2-1.5).^2)) ; 
+
+y = exfn(T1(:),T2(:)) ; 
+Y = reshape(y,length(t1),length(t2));
+
+% surf(T1,T2,Y);
+contour(T2,T1,Y);
+
+%%% Now let's look at the results of taking this as a state-aware case
+% Define the function linking t1 to t2
+high_theta1 = 4.25 ; low_theta1 = 2 ; 
+t1_fn = @(x) high_theta1 - ...
+    (high_theta1-low_theta1) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
+
+% Put the function on the contour plot
+hold on;
+plot(t2,t1_fn(t2));
+
+% Let's take a look at the objective function values for set x, using true
+% t1 function as well as just base theta1
+t2 = linspace(t2min,t2min+t2range)';
+t1 = t1_fn(t2);
+y = exfn(t1,t2);
+y_low = exfn(low_theta1,t2);
+y_high = exfn(high_theta1,t2);
+
+
+figure('Position',[10 10 1100 300]);
+subplot(1,3,1);
+plot(t2,t1);
+xlabel('t2');ylabel('t1');
+subplot(1,3,2);
+plot(t1,y,'.');
+xlabel('t1');ylabel('y');
+subplot(1,3,3);
+plot(t2,y);
+xlabel('t2');ylabel('y');
+hold on;
+plot(t2,y_low);
+plot(t2,y_high);
+[m,i] = min(y) ; t2opt = t2(i)
+t1opt = t1(i)
+
+%% Use new example fn designed for state-aware case in DCTO with SDoE
+clc ; clearvars -except dpath ; close all ;
+
+% Set initial and final observation set sizes
+obs_initial_size = 10;
+obs_final_size = 20;
+
+% Settings
+modular = true;
+informative_targets = false;
+obs_discrep = false; % Whether or not to include discrep term for real obs
+des_discrep = true;
+obs_discrep_use_MLEs = false;
+des_var = 0; % target error/tolerance
+obs_var = 0.05; % observation error
+des_x_size = 15;
+discrep = 0;
+
+% Set number of draws, burn_in for each mcmc:
+M = 6e3; b = .5 ;
+
+% Define inputs mins and ranges 
+xmin = .75;
+xrange = .5;
+t1min = 1.5;
+t1range = 3;
+t2min = 0;
+t2range = 5;
+
+% Observation and target discrepancy covariance hyperparameters
+obs_rho_beta_params = [8,1];
+obs_lambda_gam_params = [8,4];
+des_rho_beta_params = [2,.4];
+des_lambda_gam_params = [40,40];
+
+% True theta1 function
+high_theta1 = 4.25 ; low_theta1 = 2 ; 
+t1_fn = @(x) high_theta1 - ...
+    (high_theta1-low_theta1) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
+
+% Define the computer model & truth (version giving nonstandardized output)
+model_fn_ns = @(x,t1,t2) 4 - (x*xrange+xmin).* ...
+    (...
+    4 * exp(-(((t1*t1range+t1min)-2).^2+...
+    ((t2*t2range+t2min)-3.5).^2)) - ...
+    1 * exp(-(((t1*t1range+t1min)-3).^2+((t2*t2range+t2min)-1.5).^2))...
+    ) ; 
+true_phenomenon_ns = @(x,t2) model_fn_ns(x,...
+    (t1_fn(t2*t2range+t2min)-t1min)./t1range,t2);
+
+% Get mean and std using computer model, use to define standardized version
+X=lhsdesign(1000,3); 
+Y=model_fn_ns(X(:,1),X(:,2),X(:,3));
+mean_y = mean(Y) ; std_y = std(Y) ;
+model_fn = @(x,t1,t2) (model_fn_ns(x,t1,t2) - mean_y)./std_y;
+true_phenomenon = @(x,t2) (true_phenomenon_ns(x,t2) - mean_y)./std_y;
+
+% Get initial design
+X = lhsdesign(obs_initial_size,2);
+obs_x = X(:,1) * xrange + xmin ; 
+obs_t2 = X(:,2) * t2range + t2min ;
+
+% Get "real" observations without noise but with discrepancy
+obs_y_noiseless = true_phenomenon_ns((obs_x-xmin)./xrange,...
+    (obs_t2-t2min)./t2range);
+
+% Now noise it up (add N(0,obs_var) noise to STANDARDIZED observations)
+obs_y = obs_y_noiseless+ randn(obs_initial_size,1) * sqrt(obs_var) * std_y;
+
+% Now set desired observations
+des_x = linspace(0,1,des_x_size)' * xrange + xmin;
+if informative_targets    
+    % Find true minimum at des_x
+    fn=@(t2)dual_calib_example_fn(.5,xmin,xrange,...
+        t1_fn(t2),t1min,t1range,t2,t2min,t2range,0,1,discrep,false);
+    theta2 = ...
+        fmincon(fn,rand*t2range + t2min,[],[],[],[],t2min,t2min+t2range);
+        true_min = dual_calib_example_fn(des_x,xmin,xrange,...
+            t1_fn(theta2) * ones(size(des_x)),t1min,t1range,...
+            theta2,t2min,t2range,0,1,discrep,false);
+        des_y = true_min - 2*sqrt(obs_var) ; 
+else
+    des_y = -4 * ones(size(des_x,1),1);
+end
+        
+% Since we are not using emulator, empty out simulator observations
+sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
+
+% And get the average discrepancy value to use as the mean
+int_fn =@(x,t) true_phenomenon(x,t) - ...
+    model_fn(x,(t1_fn(t*t2range+t2min)-t1min)./t1range,t) ;
+avg_disc = integral2(int_fn,0,1,0,1) ; 
+obs_discrep_mean = @(x,t) avg_disc * ones(size(x)) ; 
+
+% Emulator mean
+mean_sim = @(a,b,c) model_fn(a,b,c) ; 
+
+% Get settings for DCTO
+settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+    obs_x,obs_t2,obs_y,des_x,des_y,'min_x',xmin,'range_x',xrange,...
+    'min_t1',t1min,'range_t1',t1range,'min_t2',t2min,'range_t2',t2range,...
+    'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
+    'obs_discrep',obs_discrep,...
+    'obs_discrep_mean',obs_discrep_mean,...
+    'emulator_use',false,...
+    'EmulatorMean',mean_sim,...
+    'modular',modular,...
+    'des_discrep',des_discrep,...
+    'des_var',des_var,...
+    'obs_var',obs_var,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
+    'des_rho_beta_params',des_rho_beta_params,...
+    'des_lambda_gam_params',des_lambda_gam_params,...
+    'obs_final_size',obs_final_size,...
+    'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
+    'true_phenomenon',true_phenomenon);
+
+% Perform dual calibration
+SDOE_results = MCMC_dual_calib(settings);
+
+%%% Now do DCTO with all observations made ahead of time
+% Get observations
+X = lhsdesign(obs_final_size,2);
+obs_x = X(:,1) * xrange + xmin ; 
+obs_t2 = X(:,2) * t2range + t2min ;
+
+% Get "real" observations without noise but with discrepancy
+obs_y_noiseless = true_phenomenon_ns((obs_x-xmin)./xrange,...
+    (obs_t2-t2min)./t2range);
+
+% Now noise it up (add N(0,obs_var) noise to STANDARDIZED observations)
+obs_y = obs_y_noiseless+ randn(obs_final_size,1) * sqrt(obs_var) * std_y;
+
+% Get settings for DCTO
+settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+    obs_x,obs_t2,obs_y,des_x,des_y,'min_x',xmin,'range_x',xrange,...
+    'min_t1',t1min,'range_t1',t1range,'min_t2',t2min,'range_t2',t2range,...
+    'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
+    'obs_discrep',obs_discrep,...
+    'obs_discrep_mean',obs_discrep_mean,...
+    'emulator_use',false,...
+    'EmulatorMean',mean_sim,...
+    'modular',modular,...
+    'des_discrep',des_discrep,...
+    'des_var',des_var,...
+    'obs_var',obs_var,...
+    'obs_rho_beta_params',obs_rho_beta_params,...
+    'obs_lambda_gam_params',obs_lambda_gam_params,...
+    'des_rho_beta_params',des_rho_beta_params,...
+    'des_lambda_gam_params',des_lambda_gam_params,...
+    'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
+    'obs_final_size',obs_final_size);
+
+% Perform dual calibration
+PDOE_results = MCMC_dual_calib(settings);
+
+%%%%%%%%%%
+% Take a look at the results
+
+% Get optimal theta2 and corresponding theta1 value
+% Get and plot true theta2
+fmfn =@(z) true_phenomenon_ns(.5,(z-t2min)./t2range);
 theta2 = fmincon(fmfn,t2min+t2range/2,[],[],[],[],t2min,t2min+t2range);
 theta1 = t1_fn(theta2);
 
@@ -6052,5 +6398,757 @@ DCTO_locstr = sprintf(['C:\\Users\\carle\\Documents',...
     'dual_calib\\dual_calib_stored_data\\'...
     '2019-08-09_DCTO_discrep',discrep_str,'_des_x_size',des_x_size_str]);
 % save(DCTO_locstr,'DCTO_results')
+
+%% Gather results for SDoE DCTO
+clc ; clearvars -except dpath ; close all ; 
+
+for discrep = 0:6 % For each version of the discrepancy
+
+    % Turn on observation discrepancy in the model iff discrep ~=0
+    if discrep == 0
+        obs_discrep = false;
+    else 
+        obs_discrep = true;
+    end
+    
+    % Number of chains
+    m = 50;
+
+    for ii = 1:m
+        % Set initial and final observation set sizes
+        obs_initial_size = 0;
+        obs_final_size = 20;
+
+        % Settings
+        modular = true;
+        informative_targets = false;
+        des_discrep = true;
+        obs_discrep_use_MLEs = false;
+        des_var = 0; % target error/tolerance
+        obs_var = 0.05; % observation error
+        des_x_size = 15;
+
+        % Set number of draws, burn_in for each mcmc:
+        M = 6e3; b = .5 ; burn_in = M*b;
+
+        % Define inputs mins and ranges 
+        xmin = .5;
+        xrange = .5;
+        t1min = 1.5;
+        t1range = 3;
+        t2min = 0;
+        t2range = 5;
+
+        % Observation and target discrepancy covariance hyperparameters
+        obs_rho_beta_params = [8,1];
+        obs_lambda_gam_params = [8,4];
+        des_rho_beta_params = [2,.4];
+        des_lambda_gam_params = [40,40];
+
+        % True theta1 function
+        high_theta1 = 2.25 ; low_theta1 = 1.5 ; 
+%         t1_fn = @(x) high_theta1 - ...
+%             (high_theta1-low_theta1) * ...
+%             exp(40*((x-t2min)/t2range)-20)./...
+%             (1+exp(40*((x-t2min)/t2range)-20));
+        t1_fn = @(x) high_theta1 - ...
+            (high_theta1-low_theta1) * ...
+            exp(40*((x-t2min)/t2range)-20)./...
+            (1+exp(40*((x-t2min)/t2range)-20));
+
+
+        % Define comp. model & truth (version w/ nonstandardized output)
+        model_fn_ns = @(x,t1,t2) dual_calib_example_fn(...
+            x,xmin,xrange,t1,t1min,t1range,t2,t2min,t2range,...
+            0,1,0,true) ; 
+        true_phenomenon_ns = @(x,t2) dual_calib_example_fn(...
+            x,xmin,xrange,...
+            (t1_fn(t2*t2range+t2min)-t1min)./t1range,t1min,t1range,...
+            t2,t2min,t2range,0,1,discrep,true);
+            
+
+        % Get mean and std using comp. model, define standardized version
+        X=lhsdesign(1000,3); 
+        Y=model_fn_ns(X(:,1),X(:,2),X(:,3));
+        mean_y = mean(Y) ; std_y = std(Y) ;
+        model_fn = @(x,t1,t2) (model_fn_ns(x,t1,t2) - mean_y)./std_y;
+        true_phenomenon = ...
+            @(x,t2) (true_phenomenon_ns(x,t2) - mean_y)./std_y;
+
+        % Get initial design
+        X = lhsdesign(obs_initial_size,2);
+        obs_x = X(:,1) * xrange + xmin ; 
+        obs_t2 = X(:,2) * t2range + t2min ;
+
+        % Get "real" observations without noise but with discrepancy
+        obs_y_noiseless = true_phenomenon_ns((obs_x-xmin)./xrange,...
+            (obs_t2-t2min)./t2range);
+
+        % Now add N(0,obs_var) noise to STANDARDIZED observations
+        obs_y = obs_y_noiseless+ ...
+            randn(obs_initial_size,1) * sqrt(obs_var) * std_y;
+
+        % Now set desired observations
+        des_x = linspace(0,1,des_x_size)' * xrange + xmin;
+        if informative_targets    
+            % Find true minimum at des_x
+            fn=@(t2)dual_calib_example_fn(.5,xmin,xrange,...
+                t1_fn(t2),t1min,t1range,...
+                t2,t2min,t2range,0,1,discrep,false);
+            theta2 = ...
+                fmincon(fn,rand*t2range + t2min,...
+                [],[],[],[],t2min,t2min+t2range);
+                true_min = dual_calib_example_fn(des_x,xmin,xrange,...
+                    t1_fn(theta2) * ones(size(des_x)),t1min,t1range,...
+                    theta2,t2min,t2range,0,1,discrep,false);
+                des_y = true_min - 2*sqrt(obs_var) ; 
+        else
+            des_y = 0 * ones(size(des_x,1),1);
+        end
+
+        % Since we are not using emulator, empty out simulator observations
+        sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
+
+        % And get the average discrepancy value to use as the mean
+        int_fn =@(x,t) true_phenomenon(x,t) - ...
+            model_fn(x,(t1_fn(t*t2range+t2min)-t1min)./t1range,t) ;
+        avg_disc = integral2(int_fn,0,1,0,1) ; 
+        fprintf('Average observation discrepancy: %g\n',avg_disc);
+        obs_discrep_mean = @(x,t) avg_disc * ones(size(x)) ; 
+
+        % Emulator mean
+        mean_sim = @(a,b,c) model_fn(a,b,c) ; 
+
+        % Get settings for DCTO
+        settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+            obs_x,obs_t2,obs_y,...
+            des_x,des_y,'min_x',xmin,'range_x',xrange,...
+            'min_t1',t1min,'range_t1',t1range,...
+            'min_t2',t2min,'range_t2',t2range,...
+            'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
+            'obs_discrep',obs_discrep,...
+            'obs_discrep_mean',obs_discrep_mean,...
+            'emulator_use',false,...
+            'EmulatorMean',mean_sim,...
+            'modular',modular,...
+            'des_discrep',des_discrep,...
+            'des_var',des_var,...
+            'obs_var',obs_var,...
+            'obs_rho_beta_params',obs_rho_beta_params,...
+            'obs_lambda_gam_params',obs_lambda_gam_params,...
+            'des_rho_beta_params',des_rho_beta_params,...
+            'des_lambda_gam_params',des_lambda_gam_params,...
+            'obs_final_size',obs_final_size,...
+            'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
+            'true_phenomenon',true_phenomenon,...
+            'doplot',false);
+
+        % Perform dual calibration
+        % We need a loop because sometimes an ill-conditioned matrix early
+        % in the burn-in makes the whole calibration fail.
+        count = 0 ; err_count = 0 ; 
+        while count == err_count
+            try
+                res = MCMC_dual_calib(settings);
+            catch ME
+                warning('Warning: calibration failed. Retrying...');
+                err_count = err_count + 1;
+            end
+            count = count + 1;
+            if count >= 10, rethrow(ME) ; end
+        end
+        
+        
+        sdoe_results.theta1(:,ii) = res.theta1 ;
+        sdoe_results.theta1_hat(ii) = mean(res.theta1(burn_in:end)) ;
+        sdoe_results.theta2(:,ii) = res.theta2 ;
+        sdoe_results.theta2_hat(ii) = mean(res.theta2(burn_in:end));
+        sdoe_results.obs_rho(:,:,ii) = res.obs_rho ;
+        sdoe_results.obs_rho_hat(ii,:) = ...
+            mean(res.obs_rho(burn_in:end,:));
+        sdoe_results.obs_lambda(:,ii) = res.obs_lambda ;
+        sdoe_results.obs_lambda_hat(ii) = ...
+            mean(res.obs_lambda(burn_in:end));
+        sdoe_results.des_rho(:,ii) = res.des_rho ;
+        sdoe_results.des_rho_hat(ii) =mean(res.des_rho(burn_in:end));
+        sdoe_results.des_lambda(:,ii) = res.des_lambda ;
+        sdoe_results.des_lambda_hat(ii) = ...
+            mean(res.des_lambda(burn_in:end));
+        sdoe_results.theta1_var(ii) = var(res.theta1(burn_in:end)) ;
+        sdoe_results.theta2_var(ii) = var(res.theta2(burn_in:end)) ;
+        sdoe_results.obs_rho_var(ii,:) = ...
+            var(res.obs_rho(burn_in:end,:)) ;
+        sdoe_results.obs_lambda_var(ii) = ...
+            var(res.obs_lambda(burn_in:end)) ;
+        sdoe_results.des_rho_var(ii) = ...
+            var(res.des_rho(burn_in:end)) ;
+        sdoe_results.des_lambda_var(ii) = ...
+            var(res.des_lambda(burn_in:end)) ;
+        sdoe_results.settings{ii} = settings ; 
+        
+        %%% Now do DCTO with all observations made ahead of time
+        % Get observations
+        X = lhsdesign(obs_final_size,2);
+        obs_x = X(:,1) * xrange + xmin ; 
+        obs_t2 = X(:,2) * t2range + t2min ;
+
+        % Make a col vector based on true theta1
+        obs_t1 = t1_fn(obs_t2);
+
+        % Get "real" observations without noise but with discrepancy
+        obs_y_noiseless = true_phenomenon_ns((obs_x-xmin)./xrange,...
+            (obs_t2-t2min)./t2range);
+
+        % Now add N(0,obs_var) noise to STANDARDIZED observations
+        obs_y = obs_y_noiseless + ...
+            randn(obs_final_size,1) * sqrt(obs_var) * std_y;
+
+        % Get settings for DCTO
+        settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+            obs_x,obs_t2,obs_y,des_x,des_y,...
+            'min_x',xmin,'range_x',xrange,...
+            'min_t1',t1min,'range_t1',t1range,...
+            'min_t2',t2min,'range_t2',t2range,...
+            'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
+            'obs_discrep',obs_discrep,...
+            'obs_discrep_mean',obs_discrep_mean,...
+            'emulator_use',false,...
+            'EmulatorMean',mean_sim,...
+            'modular',modular,...
+            'des_discrep',des_discrep,...
+            'des_var',des_var,...
+            'obs_var',obs_var,...
+            'obs_rho_beta_params',obs_rho_beta_params,...
+            'obs_lambda_gam_params',obs_lambda_gam_params,...
+            'des_rho_beta_params',des_rho_beta_params,...
+            'des_lambda_gam_params',des_lambda_gam_params,...
+            'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
+            'obs_final_size',obs_final_size,...
+            'doplot',false);
+
+        % Perform dual calibration
+        count = 0 ; err_count = 0 ; 
+        while count == err_count
+            try
+                res = MCMC_dual_calib(settings);
+            catch ME
+                warning('Warning: calibration failed. Retrying...');
+                err_count = err_count + 1;
+            end
+            count = count + 1;
+            if count >= 10, rethrow(ME) ; end
+        end
+        
+        pdoe_results.theta1(:,ii) = res.theta1 ;
+        pdoe_results.theta1_hat(ii) = mean(res.theta1(burn_in:end)) ;
+        pdoe_results.theta2(:,ii) = res.theta2 ;
+        pdoe_results.theta2_hat(ii) = mean(res.theta2(burn_in:end));
+        pdoe_results.obs_rho(:,:,ii) = res.obs_rho ;
+        pdoe_results.obs_rho_hat(ii,:) = ...
+            mean(res.obs_rho(burn_in:end,:));
+        pdoe_results.obs_lambda(:,ii) = res.obs_lambda ;
+        pdoe_results.obs_lambda_hat(ii) = ...
+            mean(res.obs_lambda(burn_in:end));
+        pdoe_results.des_rho(:,ii) = res.des_rho ;
+        pdoe_results.des_rho_hat(ii) =mean(res.des_rho(burn_in:end));
+        pdoe_results.des_lambda(:,ii) = res.des_lambda ;
+        pdoe_results.des_lambda_hat(ii) = ...
+            mean(res.des_lambda(burn_in:end));
+        pdoe_results.theta1_var(ii) = var(res.theta1(burn_in:end)) ;
+        pdoe_results.theta2_var(ii) = var(res.theta2(burn_in:end)) ;
+        pdoe_results.obs_rho_var(ii,:) = ...
+            var(res.obs_rho(burn_in:end,:)) ;
+        pdoe_results.obs_lambda_var(ii) = ...
+            var(res.obs_lambda(burn_in:end)) ;
+        pdoe_results.des_rho_var(ii) = ...
+            var(res.des_rho(burn_in:end)) ;
+        pdoe_results.des_lambda_var(ii) = ...
+            var(res.des_lambda(burn_in:end)) ;
+        pdoe_results.settings{ii} = settings ; 
+        
+        both_results.sdoe_results = sdoe_results;
+        both_results.pdoe_results = pdoe_results;
+        
+        save('temp','both_results');
+        
+        % Close windows every now and again
+        if mod(ii,10) == 0, close all ; end
+        
+        % Update location in the loop
+        fprintf('\n####################################\n');
+        fprintf('COMPLETED STEP %g/%g OF DISCREP %g\n',ii,m,discrep);
+        fprintf('####################################\n');
+        
+        
+    end
+    
+    % Get optimal theta2 and corresponding theta1 value
+    % Get and plot true theta2
+    fmfn =@(z) dual_calib_example_fn(...
+        .75,xmin,xrange,t1_fn(z),t1min,t1range,...
+        z,t2min,t2range,0,1,discrep,false);
+    % Try two different start locations
+    [theta2_1, fval_1] = fmincon(fmfn,t2min+t2range/4,...
+        [],[],[],[],t2min,t2min+.5*t2range);
+    [theta2_2, fval_2] = fmincon(fmfn,t2min+3*t2range/4,...
+        [],[],[],[],t2min,t2min+.5*t2range);
+    [~,idx] = min([fval_1 fval_2]);
+    theta2s = [theta2_1 theta2_2] ; theta2 = theta2s(idx) ; 
+    theta1 = t1_fn(theta2);
+    
+    % Add true parameter values, discrepancy version to results
+    sdoe_results.discrepancy = discrep;
+    pdoe_results.discrepancy = discrep;
+    sdoe_results.true_theta1 = theta1;
+    pdoe_results.true_theta1 = theta1;
+    sdoe_results.true_theta2 = theta2;
+    pdoe_results.true_theta2 = theta2;
+    
+    % Add results to full set of results
+    results{discrep+1,1} = sdoe_results;
+    results{discrep+1,2} = pdoe_results;
+    
+    % Save
+    locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-10-04_SDOE_results_nobs' int2str(obs_initial_size) '-'...
+    int2str(obs_final_size)]);
+    save(locstr,'results');
+    
+    % Close all those windows
+    close all ;
+    
+    % Update location in the loop
+    fprintf('####################################\n');
+    fprintf('\nCOMPLETED DISCREPANCY VERSION %g\n',discrep);
+    fprintf('####################################\n');
+    
+end
+
+
+%% Collect results for DCTO vs KOH+CTO
+clc ; clearvars -except dpath ; close all ; 
+
+for discrep = 0:6 % For each version of the discrepancy
+
+    % Turn on observation discrepancy in the model iff discrep ~=0
+    if discrep == 0
+        obs_discrep = false;
+    else 
+        obs_discrep = true;
+    end
+    
+    % Number of chains
+    m = 50;
+
+    for ii = 1:m
+        % Set initial and final observation set sizes
+%         obs_initial_size = 30;
+        obs_size = 20;
+
+        % Settings
+        modular = true;
+        informative_targets = false;
+        des_discrep = true;
+        obs_discrep_use_MLEs = false;
+        des_var = 0; % target error/tolerance
+        obs_var = 0.05; % observation error
+        des_x_size = 15;
+
+        % Set number of draws, burn_in for each mcmc:
+        M = 6e3; b = .5 ; burn_in = M*b;
+
+        % Define inputs mins and ranges 
+        xmin = .5;
+        xrange = .5;
+        t1min = 1.5;
+        t1range = 3;
+        t2min = 0;
+        t2range = 5;
+
+        % Observation and target discrepancy covariance hyperparameters
+        obs_rho_beta_params = [8,1];
+        obs_lambda_gam_params = [8,4];
+        des_rho_beta_params = [2,.4];
+        des_lambda_gam_params = [40,40];
+
+        % True theta1 
+        theta1 = 2 ;
+
+        % Define comp. model & truth (version w/ nonstandardized output)
+        model_fn_ns = @(x,t1,t2) dual_calib_example_fn(...
+            x,xmin,xrange,t1,t1min,t1range,t2,t2min,t2range,...
+            0,1,0,true) ; 
+        true_phenomenon_ns = @(x,t2) dual_calib_example_fn(...
+            x,xmin,xrange,...
+            (theta1-t1min)./t1range,t1min,t1range,...
+            t2,t2min,t2range,0,1,discrep,true);
+            
+
+        % Get mean and std using comp. model, define standardized version
+        X=lhsdesign(1000,3); 
+        Y=model_fn_ns(X(:,1),X(:,2),X(:,3));
+        mean_y = mean(Y) ; std_y = std(Y) ;
+        model_fn = @(x,t1,t2) (model_fn_ns(x,t1,t2) - mean_y)./std_y;
+        true_phenomenon = ...
+            @(x,t2) (true_phenomenon_ns(x,t2) - mean_y)./std_y;
+
+        % Get initial design
+        X = lhsdesign(obs_size,2);
+        obs_x = X(:,1) * xrange + xmin ; 
+        obs_t2 = X(:,2) * t2range + t2min ;
+
+        % Get "real" observations without noise but with discrepancy
+        obs_y_noiseless = true_phenomenon_ns((obs_x-xmin)./xrange,...
+            (obs_t2-t2min)./t2range);
+
+        % Now add N(0,obs_var) noise to STANDARDIZED observations
+        obs_y = obs_y_noiseless+ ...
+            randn(obs_size,1) * sqrt(obs_var) * std_y;
+
+        % Now set desired observations
+        des_x = linspace(0,1,des_x_size)' * xrange + xmin;
+        if informative_targets    
+            % Find true minimum at des_x
+            fn=@(t2)dual_calib_example_fn(.5,xmin,xrange,...
+                t1_fn(t2),t1min,t1range,...
+                t2,t2min,t2range,0,1,discrep,false);
+            theta2 = ...
+                fmincon(fn,rand*t2range + t2min,...
+                [],[],[],[],t2min,t2min+t2range);
+                true_min = dual_calib_example_fn(des_x,xmin,xrange,...
+                    t1_fn(theta2) * ones(size(des_x)),t1min,t1range,...
+                    theta2,t2min,t2range,0,1,discrep,false);
+                des_y = true_min - 2*sqrt(obs_var) ; 
+        else
+            des_y = 0 * ones(size(des_x,1),1);
+        end
+
+        % Since we are not using emulator, empty out simulator observations
+        sim_x = [] ; sim_t1 = [] ; sim_t2 = [] ; sim_y = [] ;
+
+        % And get the average discrepancy value to use as the mean
+        int_fn =@(x,t) true_phenomenon(x,t) - ...
+            model_fn(x,(theta1-t1min)./t1range,t) ;
+%         avg_disc = integral2(int_fn,0,1,0,1) ; 
+        avg_disc = mean(...
+            true_phenomenon((obs_x-xmin)./xrange,...
+            (obs_t2-t2min)./t2range) - ...
+            model_fn((obs_x-xmin)./xrange,(theta1-t1min)./t1range,...
+            (obs_t2-t2min)./t2range));
+        fprintf('Average observation discrepancy: %g\n',avg_disc);
+        obs_discrep_mean = @(x,t) avg_disc * ones(size(x,1),1) ; 
+%         % Do this by linear regression on x,t2, without interaction.
+%         obs_discrep_coeffs = ...
+%             [ones(size(obs_x)) (obs_x-xmin)./xrange ...
+%             (obs_t2-t2min)./t2range]\(obs_y-mean_y)./std_y ; 
+%         obs_discrep_mean = @(x,t) ...
+%             [ones(size(x,1),1) x t] * obs_discrep_coeffs ; 
+
+        % Emulator mean
+        mean_sim = @(a,b,c) model_fn(a,b,c) ; 
+
+        % Get settings for DCTO
+        settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+            obs_x,obs_t2,obs_y,...
+            des_x,des_y,'min_x',xmin,'range_x',xrange,...
+            'min_t1',t1min,'range_t1',t1range,...
+            'min_t2',t2min,'range_t2',t2range,...
+            'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
+            'obs_discrep',obs_discrep,...
+            'obs_discrep_mean',obs_discrep_mean,...
+            'emulator_use',false,...
+            'EmulatorMean',mean_sim,...
+            'modular',modular,...
+            'des_discrep',des_discrep,...
+            'des_var',des_var,...
+            'obs_var',obs_var,...
+            'obs_rho_beta_params',obs_rho_beta_params,...
+            'obs_lambda_gam_params',obs_lambda_gam_params,...
+            'des_rho_beta_params',des_rho_beta_params,...
+            'des_lambda_gam_params',des_lambda_gam_params,...
+            'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
+            'doplot',false);
+
+        % Perform dual calibration
+        % We need a loop because sometimes an ill-conditioned matrix early
+        % in the burn-in makes the whole calibration fail.
+        count = 0 ; err_count = 0 ; 
+        while count == err_count
+            try
+                res = MCMC_dual_calib(settings);
+            catch ME
+                warning('Warning: calibration failed. Retrying...');
+                err_count = err_count + 1;
+            end
+            count = count + 1;
+            if count >= 10, rethrow(ME) ; end
+        end
+        
+        
+        dcto_results.theta1(:,ii) = res.theta1 ;
+        dcto_results.theta1_hat(ii) = mean(res.theta1(burn_in:end)) ;
+        dcto_results.theta2(:,ii) = res.theta2 ;
+        dcto_results.theta2_hat(ii) = mean(res.theta2(burn_in:end));
+        dcto_results.obs_rho(:,:,ii) = res.obs_rho ;
+        dcto_results.obs_rho_hat(ii,:) = ...
+            mean(res.obs_rho(burn_in:end,:));
+        dcto_results.obs_lambda(:,ii) = res.obs_lambda ;
+        dcto_results.obs_lambda_hat(ii) = ...
+            mean(res.obs_lambda(burn_in:end));
+        dcto_results.des_rho(:,ii) = res.des_rho ;
+        dcto_results.des_rho_hat(ii) =mean(res.des_rho(burn_in:end));
+        dcto_results.des_lambda(:,ii) = res.des_lambda ;
+        dcto_results.des_lambda_hat(ii) = ...
+            mean(res.des_lambda(burn_in:end));
+        dcto_results.theta1_var(ii) = var(res.theta1(burn_in:end)) ;
+        dcto_results.theta2_var(ii) = var(res.theta2(burn_in:end)) ;
+        dcto_results.obs_rho_var(ii,:) = ...
+            var(res.obs_rho(burn_in:end,:)) ;
+        dcto_results.obs_lambda_var(ii) = ...
+            var(res.obs_lambda(burn_in:end)) ;
+        dcto_results.des_rho_var(ii) = ...
+            var(res.des_rho(burn_in:end)) ;
+        dcto_results.des_lambda_var(ii) = ...
+            var(res.des_lambda(burn_in:end)) ;
+        dcto_results.settings{ii} = settings ; 
+        
+        %%% Now do KOH calibration
+        
+        % Set observations
+        KOH_obs_x = [obs_x obs_t2]; KOH_obs_t2 = [];
+        
+        % Set target outcomes to be empty
+        KOH_des_x = zeros(0,2); KOH_des_y = [] ; 
+        
+        % Set sim inputs
+        KOH_sim_x = zeros(0,2) ; % Avoids index error
+        KOH_sim_t1 = [] ; KOH_sim_t2 = [] ; KOH_sim_y = [];
+        
+        % Set simulator mean for KOH
+        KOH_mean_sim = @(x_t2,t1,junk) model_fn(x_t2(:,1),t1,x_t2(:,2));
+        
+        % Set obs discrep function for KOH
+        KOH_obs_discrep_mean = @(x,t) ...
+            obs_discrep_mean(x(:,1),x(:,2)) ;
+
+        % Get settings for KOH
+        settings = MCMC_dual_calib_settings(KOH_sim_x,KOH_sim_t1,...
+            KOH_sim_t2,KOH_sim_y,...
+            KOH_obs_x,KOH_obs_t2,obs_y,KOH_des_x,KOH_des_y,...
+            'min_x',[xmin t2min],'range_x',[xrange t2range],...
+            'min_t1',t1min,'range_t1',t1range,...
+            'min_t2',[],'range_t2',[],...
+            'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
+            'obs_discrep',obs_discrep,...
+            'obs_discrep_mean',KOH_obs_discrep_mean,...
+            'emulator_use',false,...
+            'EmulatorMean',KOH_mean_sim,...
+            'modular',false,...
+            'des_discrep',false,...
+            'des_var',des_var,...
+            'obs_var',obs_var,...
+            'obs_rho_beta_params',obs_rho_beta_params,...
+            'obs_lambda_gam_params',obs_lambda_gam_params,...
+            'des_rho_beta_params',des_rho_beta_params,...
+            'des_lambda_gam_params',des_lambda_gam_params,...
+            'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
+            'doplot',false);
+
+        % Perform KOH calibration
+        count = 0 ; err_count = 0 ; 
+        while count == err_count
+            try
+                res = MCMC_dual_calib(settings);
+            catch ME
+                warning('Warning: calibration failed. Retrying...');
+                err_count = err_count + 1;
+            end
+            count = count + 1;
+            if count >= 10, rethrow(ME) ; end
+        end
+        
+        % Extract results
+        khtc_results.theta1(:,ii) = res.theta1 ;
+        khtc_results.theta1_hat(ii) = mean(res.theta1(burn_in:end)) ;
+        khtc_results.obs_rho(:,:,ii) = res.obs_rho ;
+        khtc_results.obs_rho_hat(ii,:) = ...
+            mean(res.obs_rho(burn_in:end,:));
+        khtc_results.obs_lambda(:,ii) = res.obs_lambda ;
+        khtc_results.obs_lambda_hat(ii) = ...
+            mean(res.obs_lambda(burn_in:end));
+        khtc_results.theta1_var(ii) = var(res.theta1(burn_in:end)) ;
+        khtc_results.obs_rho_var(ii,:) = ...
+            var(res.obs_rho(burn_in:end,:)) ;
+        khtc_results.obs_lambda_var(ii) = ...
+            var(res.obs_lambda(burn_in:end)) ;
+        khtc_results.settings{ii} = settings ; 
+        
+        %%%%%%
+        % Now do CTO design using KOH calibration results
+        
+        % Set CTO obs to be target outcomes
+        CTO_obs_x = des_x ; CTO_obs_t2 = [] ; CTO_obs_y = des_y; 
+        CTO_obs_x_01 = (des_x - xmin)./xrange ; % Will come in handy
+        
+        % Set CTO targets to be empty
+        CTO_des_x = [] ; CTO_des_y = [];
+        
+        % Set CTO "obs" discrepancy (actually target discrepancy)
+        CTO_obs_discrep_mean = @(x,t) 0 * ones(size(x)) ; 
+            
+        % Get theta1 dist from KOH:
+        theta1_samps =(khtc_results.theta1(burn_in:end,ii)-t1min)./t1range;
+
+        % Define objective function
+        CTO_mean_sim = @(x,t2,junk) model_fn(x, mean(theta1_samps), t2) ;
+
+        % Get additional observation discrepancy informatn learned from KOH
+        mean_obs = obs_discrep_mean;
+        add_nug = @(X) X+eye(size(X))*1e-4;
+        obs_discrep_vals = res.settings.obs_y - ...
+            mean_sim(res.settings.obs_x(:,1),...
+                repmat(mean(theta1_samps),...
+                    size(res.settings.obs_x,1),1),...
+                    res.settings.obs_x(:,2));
+        prior_cov = @(rho,xo,t2o,xp,t2p,lambda) ... 
+            gp_cov(rho,[xo ones(size(xo,1),1).*t2o],...
+            [xp ones(size(xp,1),1).*t2p],lambda,false);
+        updated_mean = @(y,xo,t2o,xp,t2p,rho,lambda) ...
+            mean_obs(xp,t2p) + ...
+            (add_nug(prior_cov(rho,xp,t2p,xo,t2o,lambda)) / ...
+                add_nug(prior_cov(rho,xo,t2o,xo,t2o,lambda) + ...
+                    obs_var*eye(size(xo,1))))*...
+            (y - mean_obs(xo,t2o)) ;
+        updated_cov = @(xo,t2o,xp,t2p,rho,lambda) ...
+            add_nug(prior_cov(rho,xp,t2p,xp,t2p,lambda)) - ...
+            (add_nug(prior_cov(rho,xp,t2p,xo,t2o,lambda)) / ...
+                add_nug(prior_cov(rho,xo,t2o,xo,t2o,lambda) + ...
+                    obs_var*eye(size(xo,1)))) * ...
+            add_nug(prior_cov(rho,xo,t2o,xp,t2p,lambda)) ;
+        additional_discrep_mean = @(t2) updated_mean(...
+            obs_discrep_vals,...
+            res.settings.obs_x(:,1),...
+            res.settings.obs_x(:,2),...
+            CTO_obs_x_01, repmat(t2,size(CTO_obs_x_01,1),1),...
+            mean(res.obs_rho(burn_in:end,:)),...
+            mean(res.obs_lambda(burn_in:end,:)));
+        additional_discrep_cov = @(t2) updated_cov(...
+            res.settings.obs_x(:,1),...
+            res.settings.obs_x(:,2),...
+            CTO_obs_x_01, repmat(t2,size(CTO_obs_x_01,1),1),...
+            mean(res.obs_rho(burn_in:end,:)),...
+            mean(res.obs_lambda(burn_in:end,:)));
+
+        % Get settings
+        settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
+            CTO_obs_x,CTO_obs_t2,CTO_obs_y,CTO_des_x,CTO_des_y,...
+            'min_x',xmin,'range_x',xrange,...
+            'min_t1',t2min,'range_t1',t2range,'min_t2',[],'range_t2',[],...
+            'mean_y',mean_y,'std_y',std_y,'M',M,'burn_in',b,...
+            'obs_discrep',des_discrep,...
+            'obs_discrep_mean',CTO_obs_discrep_mean,...
+            'des_discrep',false,...
+            'emulator_use',false,...
+            'modular',false,...
+            'EmulatorMean',CTO_mean_sim,...
+            'obs_var',des_var,...
+            'additional_discrep_mean',additional_discrep_mean,...
+            'additional_discrep_cov',additional_discrep_cov,...
+            'obs_rho_beta_params',des_rho_beta_params,...
+            'obs_lambda_gam_params',des_lambda_gam_params,...
+            'doplot',false);
+
+        % Perform CTO calibration
+        count = 0 ; err_count = 0 ; 
+        while count == err_count
+            try
+                res = MCMC_dual_calib(settings);
+            catch ME
+                warning('Warning: calibration failed. Retrying...');
+                err_count = err_count + 1;
+            end
+            count = count + 1;
+            if count >= 10, rethrow(ME) ; end
+        end
+        
+        % Extract results
+        ctod_results.theta2(:,ii) = res.theta1 ;
+        ctod_results.theta2_hat(ii) = mean(res.theta1(burn_in:end));
+        ctod_results.des_rho(:,ii) = res.obs_rho ;
+        ctod_results.des_rho_hat(ii) = mean(res.obs_rho(burn_in:end));
+        ctod_results.des_lambda(:,ii) = res.obs_lambda ;
+        ctod_results.des_lambda_hat(ii) = ...
+            mean(res.obs_lambda(burn_in:end));        
+        ctod_results.theta2_var(ii) = var(res.theta1(burn_in:end)) ;
+        ctod_results.des_rho_var(ii) = ...
+            var(res.obs_rho(burn_in:end)) ;
+        ctod_results.des_lambda_var(ii) = ...
+            var(res.obs_lambda(burn_in:end)) ;
+        ctod_results.settings = settings;
+
+        
+        all_results.dcto_results = dcto_results;
+        all_results.khtc_results = khtc_results;
+        all_results.ctod_results = ctod_results;
+        
+        save('temp','all_results');
+        
+        % Close windows every now and again
+        if mod(ii,5) == 0, close all ; end
+        
+        % Update location in the loop
+        fprintf('####################################\n');
+        fprintf('COMPLETED STEP %g/%g OF DISCREP %g\n',ii,m,discrep);
+        fprintf('####################################\n');
+        
+    end
+    
+    % Get optimal theta2 and corresponding theta1 value
+    % Get and plot true theta2
+    fmfn =@(z) dual_calib_example_fn(...
+        .75,xmin,xrange,theta1,t1min,t1range,...
+        z,t2min,t2range,0,1,discrep,false);
+    % Try two different start locations
+    [theta2_1, fval_1] = fmincon(fmfn,t2min+t2range/4,...
+        [],[],[],[],t2min,t2min+.5*t2range);
+    [theta2_2, fval_2] = fmincon(fmfn,t2min+3*t2range/4,...
+        [],[],[],[],t2min,t2min+.5*t2range);
+    [~,idx] = min([fval_1 fval_2]);
+    theta2s = [theta2_1 theta2_2] ; theta2 = theta2s(idx) ; 
+    
+    % Add true parameter values, discrepancy version to results
+    dcto_results.discrepancy = discrep;
+    khtc_results.discrepancy = discrep;
+    ctod_results.discrepancy = discrep;
+    dcto_results.true_theta1 = theta1;
+    khtc_results.true_theta1 = theta1;
+    ctod_results.true_theta1 = theta1;
+    dcto_results.true_theta2 = theta2;
+    khtc_results.true_theta2 = theta2;
+    ctod_results.true_theta2 = theta2;
+    
+    % Add results to full set of results
+    results{discrep+1,1} = dcto_results;
+    results{discrep+1,2} = khtc_results;
+    results{discrep+1,3} = ctod_results;
+    
+    % Save
+    locstr = sprintf(['C:\\Users\\carle\\Documents',...
+    '\\MATLAB\\NSF DEMS\\Phase 1\\',...
+    'dual_calib\\dual_calib_stored_data\\'...
+    '2019-10-04_DCTO_vs_KOHCTO_results_temp']);
+    save(locstr,'results');
+    
+    % Close all those windows
+    close all ;
+    
+    % Update location in the loop
+    fprintf('####################################\n');
+    fprintf('COMPLETED DISCREPANCY VERSION %g\n',discrep);
+    fprintf('####################################\n');
+    
+end
 
 %% Try CTO after KOH, drawing design param as theta2 not theta1

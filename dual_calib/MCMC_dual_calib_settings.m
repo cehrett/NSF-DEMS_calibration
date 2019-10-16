@@ -69,7 +69,7 @@ function settings = MCMC_dual_calib_settings(...
 %   to be used in the case when CTO is completed after KOH; this additional
 %   discrepancy term allows us to include in CTO information about the
 %   observation discrepancy learned during KOH. Default 0.
-% 'emulator':
+% 'emulator_use':
 %   Determines whether an emulator is used. If not, the emulator mean 
 %   function is set to just be the objective function itself, and pairs 
 %   this with a 0 covariance fn (by setting marginal precision to Inf).
@@ -114,6 +114,11 @@ function settings = MCMC_dual_calib_settings(...
 %   sequential DoE), then the high fidelity model must be provided here,
 %   from which the new observations will be obtained. If sequential DoE is
 %   used and no function is provided here, an exception will occur.
+% 'obs_discrep_use_MLEs':
+%   Boolean value which tells whether or not to estimate the observation
+%   discrepancy covariance hyperparameters via maximum likelihood
+%   estimation periodically during the burn-in process using a point
+%   estimate of the calibration parameter. Default: false.
 % 'modular':
 %   Boolean value which tells whether or not to use modularized version of
 %   the model, to protect the traditional calibration from being influenced
@@ -153,7 +158,7 @@ p.addParameter('additional_discrep_mean',@(x)0,...
     @(h)isa(h,'function_handle'));
 p.addParameter('additional_discrep_cov',@(x)0,...
     @(h)isa(h,'function_handle'));
-p.addParameter('emulator',true,@islogical);
+p.addParameter('emulator_use',true,@islogical);
 p.addParameter('EmulatorMean','Default',@(h)isa(h,'function_handle'));
 p.addParameter('EmulatorCovHypers','Default',@ismatrix);
 p.addParameter('obs_discrep',true,@islogical);
@@ -168,6 +173,7 @@ p.addParameter('obs_final_size',size(obs_x,1),@isscalar);
 p.addParameter('true_phenomenon',...
     @(varargin)error('Error: true phenomenon not supplied'),...
     @(h)isa(h,'function_handle'));
+p.addParameter('obs_discrep_use_MLEs',false,@islogical);
 p.addParameter('modular',false,@islogical);
 p.addParameter('doplot',true,@islogical);
 p.parse(sim_x,sim_t1,sim_t2,sim_y,obs_x,obs_t2,obs_y,des_x,des_y,...
@@ -191,7 +197,7 @@ obs_var = p.Results.obs_var;
 des_var = p.Results.des_var;
 additional_discrep_cov = p.Results.additional_discrep_cov;
 additional_discrep_mean = p.Results.additional_discrep_mean;
-emulator = p.Results.emulator;
+emulator_use = p.Results.emulator_use;
 EmulatorMean = p.Results.EmulatorMean;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
 obs_discrep = p.Results.obs_discrep;
@@ -204,6 +210,7 @@ des_rho_beta_params = p.Results.des_rho_beta_params;
 des_lambda_gam_params = p.Results.des_lambda_gam_params;
 obs_final_size = p.Results.obs_final_size;
 true_phenomenon = p.Results.true_phenomenon;
+obs_discrep_use_MLEs = p.Results.obs_discrep_use_MLEs;
 modular = p.Results.modular;
 doplot = p.Results.doplot;
 
@@ -266,7 +273,7 @@ des_y_std = (des_y - mean_y) ./ std_y ;
 % mean function is set to just be the objective
 % function itself, and pairs this with a 0
 % covariance function (by setting marginal precision to Inf).
-if emulator
+if emulator_use
     if isequal(EmulatorMean,'Default')
         mean_sim = @(a,b,c) zeros(size(a,1),1); % Emulator mean
     else
@@ -297,7 +304,7 @@ else
     if isequal(EmulatorMean,'Default')
         mean_sim = @(a,b,c) dual_calib_example_fn(...
             a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
-            mean_y,std_y);
+            mean_y,std_y,0,true);
     else
         mean_sim = EmulatorMean;
     end
@@ -427,6 +434,7 @@ settings = struct(...
     'additional_discrep_cov',additional_discrep_cov,...
     'additional_discrep_mean',additional_discrep_mean,...
     'mean_sim',mean_sim,...
+    'emulator_use',emulator_use,...
     'emulator_rho',EmulatorCovHypers(1:end-1),...
     'emulator_lambda',EmulatorCovHypers(end),...
     'mean_obs',mean_obs,...
@@ -460,6 +468,7 @@ settings = struct(...
     'des_discrep',des_discrep,...
     'obs_final_size',obs_final_size,...
     'true_phenomenon',true_phenomenon,...
+    'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
     'modular',modular,...
     'doplot',doplot);
 
