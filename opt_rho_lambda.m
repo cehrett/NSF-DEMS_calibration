@@ -25,7 +25,7 @@ sim_y = tdat.output;
 %% Perform the optimization
 % Set fmincon options
 options = optimset('Display','iter','PlotFcns',@optimplotfval,...
-    'TolX',1e-6,'TolFun',1e-6,'MaxFunEvals',500);
+    'TolX',1e-6,'TolFun',1e-6,'MaxFunEvals',2000);
 % Set initial value
 Rho_lam_init = [omega rho lambda]; 
 % Set upper and lower boundaries. Each rho has [0,1] support; lambda has

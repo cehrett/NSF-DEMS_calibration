@@ -150,8 +150,8 @@ p.addParameter('dim_t1','Default',@isscalar);
 p.addParameter('dim_t2','Default',@isscalar);
 p.addParameter('min_t2','Default',@isnumeric);
 p.addParameter('range_t2','Default',@isnumeric);
-p.addParameter('mean_y','Default',@isscalar);
-p.addParameter('std_y','Default',@isscalar);
+p.addParameter('mean_y','Default',@isnumeric);
+p.addParameter('std_y','Default',@isnumeric);
 p.addParameter('obs_var',0.05,@isscalar);
 p.addParameter('des_var',0,@isscalar);
 p.addParameter('additional_discrep_mean',@(x)0,...
@@ -235,8 +235,8 @@ obs_x_01 = (obs_x - min_x) ./ range_x ;
 if sum(size(des_x))>0, des_x_01 = (des_x - min_x) ./ range_x ;
 else, des_x_01 = des_x ; end
 
-if min_t1 == 'Default', min_t1 = min(sim_t1) ; end
-if range_t1 == 'Default', range_t1 = range(sim_t1) ; end
+if isequal(min_t1,'Default'), min_t1 = min(sim_t1) ; end
+if isequal(range_t1,'Default'), range_t1 = range(sim_t1) ; end
 sim_t1_01 = (sim_t1 - min_t1) ./ range_t1 ;
 
 t2 = [sim_t2 ; obs_t2 ] ;
@@ -260,8 +260,8 @@ end
 
 
 %% Standardize outputs
-if mean_y == 'Default', mean_y = mean(sim_y) ; end
-if std_y == 'Default', std_y = std(sim_y) ; end
+if isequal(mean_y,'Default'), mean_y = mean(sim_y) ; end
+if isequal(std_y,'Default'), std_y = std(sim_y) ; end
 sim_y_std = (sim_y - mean_y) ./ std_y ; 
 obs_y_std = (obs_y - mean_y) ./ std_y ;
 des_y_std = (des_y - mean_y) ./ std_y ; 
@@ -282,7 +282,7 @@ if emulator_use
     if isequal(EmulatorCovHypers,'Default')
         % Define function for minimization
         f = @(rl) ...
-            -logmvnpdf(((sim_y-mean_y)./std_y)',...
+            -logmvnpdf(sim_y_std',...
             mean_sim(sim_x_01,sim_t1_01,sim_t2_01)',...
             gp_cov(rl(1:(end-1)),...
             [sim_x_01 sim_t1_01 sim_t2_01],...

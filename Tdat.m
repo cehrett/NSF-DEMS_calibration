@@ -33,27 +33,32 @@ for ii = 1:in_cols
     tdat_in(:,ii) = (dat_in(:,ii) - input_mins(ii))/input_ranges(ii);
 end
 
-% Standardize each output column for each temp
+% % Standardize each output column for each temp
+% % This version is good for outputs collected on a grid over the control
+% inputs, at a discrete number of control input locations at each of which
+% many observations were made
+% tdat_out = zeros(size(dat_out)); % this will store standardized output
+% for ii = 1:num_out
+%     settings = unique(dat(:,1)); % We want the mean for each setting
+%                                  % of the first parameter (temperature)
+%     for jj = 1:length(settings)
+%         dat_set = dat_out(dat(:,1)==settings(jj),:);
+%         % dat_set is the output at the current setting (temp)
+%         output_means(ii,jj) = mean(dat_set(:,ii));
+%         output_sds(ii,jj)   = std(dat_set(:,ii));
+%         tdat_out(dat(:,1)==settings(jj),ii) = (dat_set(:,ii) - ...
+%             output_means(ii,jj))/output_sds(ii,jj);
+%     end
+% end
+
+% Alt: standardize each output column across all temps
 tdat_out = zeros(size(dat_out)); % this will store standardized output
 for ii = 1:num_out
-    settings = unique(dat(:,1)); % We want the mean for each setting
-                                 % of the first parameter (temperature)
-    for jj = 1:length(settings)
-        dat_set = dat_out(dat(:,1)==settings(jj),:);
-        % dat_set is the output at the current setting (temp)
-        output_means(ii,jj) = mean(dat_set(:,ii));
-        output_sds(ii,jj)   = std(dat_set(:,ii));
-        tdat_out(dat(:,1)==settings(jj),ii) = (dat_set(:,ii) - ...
-            output_means(ii,jj))/output_sds(ii,jj);
-    end
+    output_means(ii,:) = mean(dat_out(:,ii)) ;
+    output_sds(ii,:) = std(dat_out(:,ii)) ;
+    tdat_out(:,ii) = (dat_out(:,ii) - output_means(ii,:)) / ...
+        output_sds(ii,:) ;
 end
-
-% % Alt: standardize each output column across all temps
-% tdat_out2 = zeros(size(dat_out)); % this will store standardized output
-% for ii = 1:num_out
-%     tdat_out2(:,ii) = (dat_out(:,ii) - mean(dat_out(:,ii))) / ...
-%         std(dat_out(:,ii));
-% end
 
 % Get single output column
 tdat_out = tdat_out(:);

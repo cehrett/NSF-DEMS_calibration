@@ -21,6 +21,9 @@ function settings = MCMC_settings (desired_obs,sim_x,sim_t,sim_y,varargin)
 % 'which_outputs':
 %   Row vector of 0/1 values indicating which of the outputs are to be
 %   used. Default is to use all inputs.
+% 'mean_sim':
+%   Mean function of the emulator. Default: constant 0 (if an emulator is
+%   used), example objective function (if emulator==false).
 % 'Rho_lam_optimum':
 %   Row vector: [omega rho lambda]. Default is:
 %               [   0.280981573480363   0.999189406633873...
@@ -58,6 +61,7 @@ p.addParameter('burn_in',1/2,@(x) x>0 && x<1);
 p.addParameter('ObsVar','RefPrior',@isstr);
 p.addParameter('Cost_lambda',0,@isscalar);
 p.addParameter('which_outputs',ones(size(desired_obs)),@ismatrix);
+p.addParameter('mean_sim','Default',@(h)isa(h,'function_handle'));
 p.addParameter('Rho_lam_optimum',...
         [0 999],... 
         @ismatrix);
@@ -76,13 +80,16 @@ burn_in              = floor(p.Results.burn_in*M);
 ObsVar               = p.Results.ObsVar;
 Cost_lambda          = p.Results.Cost_lambda;
 which_outputs        = p.Results.which_outputs;
+mean_sim             = p.Results.mean_sim;
 Rho_lam_optimum      = p.Results.Rho_lam_optimum;
-Discrepancy          = p.Results.Discrepancy;
+discrepancy          = p.Results.Discrepancy;
 lambda_delta_init    = p.Results.LambdaDeltaInit;
 lambda_prop_density  = p.Results.DiscMargPrecProp;
 log_mh_correction_ld = p.Results.DiscMargPrecLogMHCorr;
 ObsVarLvl            = p.Results.ObsVarLvl;
 doplot               = p.Results.doplot;
+
+
 
 %% Output reminder about Rho_lam_optimum
 if isequal(Rho_lam_optimum,[0 999])
@@ -157,7 +164,7 @@ theta_prior     = @(theta,Cost_lambda) exp(-Cost(theta,Cost_lambda));
 log_theta_prior = @(theta,Cost_lambda) -Cost(theta,Cost_lambda);
 
 %% Set initial discrepancy covariance parameters and priors
-if Discrepancy 
+if discrepancy 
     % Set initial values, proposal densities, prior densities, and any
     % requisite Metropolis Hastings corrections needed for omega_delta and
     % lambda_delta, which are the hyperparameters of the discrepancy
@@ -225,24 +232,50 @@ sim_cntrl_input_mins = tdat.input_mins(1:num_cntrl) ;
 sim_cntrl_input_ranges = tdat.input_ranges(1:num_cntrl) ;
 sim_calib_input_mins = tdat.input_mins(num_cntrl+1:end) ;
 sim_calib_input_ranges = tdat.input_ranges(num_cntrl+1:end) ;
-sim_output_means = mean(tdat.output_means') ;
+sim_output_means = tdat.output_means';
 % Note that in the above line, the mean is taken across temperatures. This
 % is because the standardization was carried out by individual temperature
 % setting, whereas since our desired data will be constant across
 % temperature, we want a single value for all temperature settings. This
 % fudge should be harmless, in that the values do not differ much across
 % temperature. Sd's will be treated similarly in the following line.
-sim_output_sds = mean(tdat.output_sds') ;
+sim_output_sds = tdat.output_sds' ;
 % Assuming uniform prior for theta: find LB,UB and rescale them
 LB = (LB - sim_calib_input_mins)./sim_calib_input_ranges ;
 UB = (UB - sim_calib_input_mins)./sim_calib_input_ranges ;
+
+%% If default emulator mean used, then set it appropriately
+if isequal(mean_sim,'Default')
+    mean_sim = @(x)mean(eta);
+end
 
 %% MCMC settings
 % Covariance parameter settings, found by optimization routine:
 if Rho_lam_optimum == 0
     fprintf('No rho,lambda values specified; commencing ML estimation.\n');
-    Rho_lam_optimum = opt_rho_lambda(sim_xt,eta,num_cal,...
-        rand(1,num_cntrl),rand(1,num_cal),gamrnd(5,5));
+    f = @(rl) ...
+        -logmvnpdf(eta',...
+        mean_sim(sim_xt)',...
+        gp_cov(rl(1:(end-1)),...
+        sim_xt,...
+        sim_xt,...
+        rl(end),false) + ...
+        1e-4*eye(size(sim_xt,1)));
+    % Perform minimization
+    A = [];
+    b = [];
+    Aeq = [];
+    beq = [];
+    lb = [zeros(1,size(sim_xt,2)) 0];
+    ub = [ones(1,size(sim_xt,2)) Inf];
+    x0 = [.5*ones(1,size(sim_xt,2)) 1];
+    options = optimset('Display','iter','PlotFcns',@optimplotfval,...
+        'TolX',1e-6,'TolFun',1e-6,'MaxFunEvals',2000);
+    [inp,~,~,~] = fmincon(f,x0,A,b,Aeq,beq,lb,ub,[],options);
+    Rho_lam_optimum = inp ;
+    disp(Rho_lam_optimum);
+%     Rho_lam_optimum = opt_rho_lambda(sim_xt,eta,num_cal,...
+%         rand(1,num_cntrl),rand(1,num_cal),gamrnd(5,5));
 end
 omega  = Rho_lam_optimum(1:num_cntrl);
 rho    = Rho_lam_optimum(num_cntrl+1:num_cntrl+num_cal);
@@ -277,6 +310,7 @@ settings = struct(...
     'eta',eta,...
     'obs_x',obs_x,...
     'y',y,...
+    'mean_sim',mean_sim,...
     'sigma2',sigma2,...
     'init_sigma2_divs',init_sigma2_divs,...
     'log_sigma2_prior',log_sigma2_prior,...
@@ -303,6 +337,7 @@ settings = struct(...
     'Cost_lambda',Cost_lambda,...
     'which_outputs',which_outputs,...
     'desired_obs',desired_obs,...
+    'discrepancy',discrepancy,...
     'doplot',true);
 
 end

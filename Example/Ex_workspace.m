@@ -684,7 +684,7 @@ clc ; clearvars -except dpath ; close all ;
 des_obs = [ 0 0 0 ];
 
 % Set desired distance from Pareto front for new des obs found below
-spec_dist = 1;
+spec_dist = 15.5;
 
 %%% Get points estimating the PF
 % Use results from set total observation variance method:
@@ -910,8 +910,8 @@ optprop = sum( optdists < 1.96 ) / size(optdists,1)
 % But make it possible to use discrepancy and true function, for comparison
 clc ; clearvars -except dpath ; close all; 
 % Load data
-load([dpath,'Example\Ex_results\'...
-'2019-10-16-raw_dat-100obs']);
+% load([dpath,'Example\Ex_results\'...
+% '2019-10-17-raw_dat-200obs']);
 load([dpath,'Example\Ex_results\'...
 '2019-10-16-raw_dat-3-6-6']);
 
@@ -920,11 +920,14 @@ sim_t = raw_dat.sim_xt(:,2:3);
 sim_y = raw_dat.sim_y;
 clear raw_dat;
 
+% omega, rho, lambda MLEs for 3x6x6 grid
+Rho_lambda_optimum = [0.0489 0.9746 0.9990 0.4442 0.0082 0.2638] ; 
+
 % Get settings
-desired_obs =  [0 0 0 ] ; % [ 0.7130 0.7144 17.9220 ] ; %
+desired_obs = [0 0 0]; % [0.7130 0.7144 17.9220]; % 
 settings = MCMC_settings(desired_obs,sim_x,sim_t,sim_y,...
-    'Discrepancy',true,'M',5e3,'ObsVar','Constant',...
-    'Rho_lam_optimum',0); % Setting Rho_lam_optimum=0 makes it get MLEs
+    'Discrepancy',false,'M',5e3,'ObsVar','Constant',...
+    'Rho_lam_optimum',Rho_lambda_optimum); % 
 
 % Modify settings to use constant lambda_delta
 % settings.lambda_delta_init = 1/64; % 1; %Comment out this line if no disc
