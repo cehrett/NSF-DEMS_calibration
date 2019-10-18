@@ -256,7 +256,7 @@ end
 if isequal(dim_t2,'Default')
     dim_t2 = numel(min_t2);
 end
-
+dim_y = size(obs_y,2);
 
 
 %% Standardize outputs
@@ -275,30 +275,34 @@ des_y_std = (des_y - mean_y) ./ std_y ;
 % covariance function (by setting marginal precision to Inf).
 if emulator_use
     if isequal(EmulatorMean,'Default')
-        mean_sim = @(a,b,c) zeros(size(a,1),1); % Emulator mean
+        mean_sim = @(a,b,c) zeros(size(a,1),dim_y); % Emulator mean
     else
         mean_sim = EmulatorMean;
     end
     if isequal(EmulatorCovHypers,'Default')
-        % Define function for minimization
-        f = @(rl) ...
-            -logmvnpdf(sim_y_std',...
-            mean_sim(sim_x_01,sim_t1_01,sim_t2_01)',...
-            gp_cov(rl(1:(end-1)),...
-            [sim_x_01 sim_t1_01 sim_t2_01],...
-            [sim_x_01 sim_t1_01 sim_t2_01],...
-            rl(end),false) + ...
-            1e-4*eye(size(sim_x_01,1)));
-        % Perform minimization
-        A = [];
-        b = [];
-        Aeq = [];
-        beq = [];
-        lb = [zeros(1,size([sim_x sim_t1 sim_t2],2)) 0];
-        ub = [ones(1,size([sim_x sim_t1 sim_t2],2)) Inf];
-        x0 = [.5*ones(1,size([sim_x sim_t1 sim_t2],2)) 1];
-        [inp,~,~,~] = fmincon(f,x0,A,b,Aeq,beq,lb,ub);
-        EmulatorCovHypers = inp ;
+        mean_sim_vals = mean_sim(sim_x_01,sim_t1_01,sim_t2_01);
+        % Loop through the outputs of the function
+        for ii = 1:dim_y
+            % Define function for minimization
+            f = @(rl) ...
+                -logmvnpdf(sim_y_std(:,ii)',...
+                mean_sim_vals(:,ii)',...
+                gp_cov(rl(1:(end-1)),...
+                [sim_x_01 sim_t1_01 sim_t2_01],...
+                [sim_x_01 sim_t1_01 sim_t2_01],...
+                rl(end),false) + ...
+                1e-4*eye(size(sim_x_01,1)));
+            % Perform minimization
+            A = [];
+            b = [];
+            Aeq = [];
+            beq = [];
+            lb = [zeros(1,size([sim_x sim_t1 sim_t2],2)) 0];
+            ub = [ones(1,size([sim_x sim_t1 sim_t2],2)) Inf];
+            x0 = [.5*ones(1,size([sim_x sim_t1 sim_t2],2)) 1];
+            [inp,~,~,~] = fmincon(f,x0,A,b,Aeq,beq,lb,ub);
+            EmulatorCovHypers(:,ii) = inp ;
+        end
     end
 else
     if isequal(EmulatorMean,'Default')
@@ -308,12 +312,13 @@ else
     else
         mean_sim = EmulatorMean;
     end
-    EmulatorCovHypers = [.5* ones(1,dim_x+dim_t1+dim_t2) Inf];
+    EmulatorCovHypers = ...
+        repmat([.5* ones(1,dim_x+dim_t1+dim_t2) Inf]',1,dim_y);
 end
 
 %% Set observation discrepancy mean
 if isequal(obs_discrep_mean,'Default')
-    mean_obs = @(x,t) zeros(size(x,1),1);
+    mean_obs = @(x,t) zeros(size(x,1),dim_y);
 else
     mean_obs = obs_discrep_mean;
 end
@@ -381,31 +386,35 @@ lambda_prop_log_mh_correction = ...
 % Set initial values and initial covariance matrices for proposals
 if obs_discrep
     obs_rho_init = betarnd(...
-        obs_rho_beta_params(1),obs_rho_beta_params(2),dim_x+dim_t2,1);
+        obs_rho_beta_params(1),obs_rho_beta_params(2),dim_x+dim_t2,dim_y);
     obs_lambda_init = gamrnd(obs_lambda_gam_params(1),...
-        obs_lambda_gam_params(2));
+        obs_lambda_gam_params(2),1,dim_y);
 else
-    obs_rho_init = .5*ones(dim_x+dim_t2,1);
-    obs_lambda_init = Inf;
+    obs_rho_init = .5*ones(dim_x+dim_t2,dim_y);
+    obs_lambda_init = Inf * ones(1,dim_y);
 end
 if des_discrep
     des_rho_init = betarnd(...
-        des_rho_beta_params(1),des_rho_beta_params(2),dim_x,1);
+        des_rho_beta_params(1),des_rho_beta_params(2),dim_x,dim_y);
     des_lambda_init = gamrnd(des_lambda_gam_params(1),...
-        des_lambda_gam_params(2));
+        des_lambda_gam_params(2),1,dim_y);
 else
-    des_rho_init = .5*ones(size(des_x,2),1);
-    des_lambda_init = Inf;
+    des_rho_init = .5*ones(size(des_x,2),dim_y);
+    des_lambda_init = Inf * ones(1,dim_y);
 end
-obs_Sigma_rho = eye(size(obs_rho_init,1));
-obs_Sigma_lambda = 1;
-des_Sigma_rho = eye(size(des_rho_init,1));
-des_Sigma_lambda = 1;
+for ii = 1:dim_y
+    obs_Sigma_rho(:,:,ii) = eye(size(obs_rho_init,1));
+    obs_Sigma_lambda(ii) = 1;
+    des_Sigma_rho(:,:,ii) = eye(size(des_rho_init,1));
+    des_Sigma_lambda(ii) = 1;
+end
 
 %% Make observation and target error/tolerance covariance matrices
-num_obs = size(obs_y(:),1) ; 
+% To do: make different observation variance levels for different outputs
+% possible
+num_obs = size(obs_y,1) ; 
 obs_cov_mat = obs_var * eye(num_obs) ;
-num_tgt = size(des_y(:),1) ;
+num_tgt = size(des_y,1) ;
 des_cov_mat = des_var * eye(num_tgt) ;
 
 %% Pack up the settings structure
@@ -435,8 +444,8 @@ settings = struct(...
     'additional_discrep_mean',additional_discrep_mean,...
     'mean_sim',mean_sim,...
     'emulator_use',emulator_use,...
-    'emulator_rho',EmulatorCovHypers(1:end-1),...
-    'emulator_lambda',EmulatorCovHypers(end),...
+    'emulator_rho',EmulatorCovHypers(1:end-1,:),...
+    'emulator_lambda',EmulatorCovHypers(end,:),...
     'mean_obs',mean_obs,...
     'rho_proposal',rho_proposal,...
     'lambda_proposal',lambda_proposal,...

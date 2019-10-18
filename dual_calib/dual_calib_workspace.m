@@ -6730,7 +6730,7 @@ end
 %% Collect results for DCTO vs KOH+CTO
 clc ; clearvars -except dpath ; close all ; 
 
-for discrep = 0:6 % For each version of the discrepancy
+for discrep = 1:6 % For each version of the discrepancy
 
     % Turn on observation discrepancy in the model iff discrep ~=0
     if discrep == 0
@@ -6740,7 +6740,7 @@ for discrep = 0:6 % For each version of the discrepancy
     end
     
     % Number of chains
-    m = 50;
+    m = 2;
 
     for ii = 1:m
         % Set initial and final observation set sizes
@@ -6757,7 +6757,7 @@ for discrep = 0:6 % For each version of the discrepancy
         des_x_size = 15;
 
         % Set number of draws, burn_in for each mcmc:
-        M = 6e3; b = .5 ; burn_in = M*b;
+        M = 1e3; b = .5 ; burn_in = M*b;
 
         % Define inputs mins and ranges 
         xmin = .5;
@@ -6869,7 +6869,7 @@ for discrep = 0:6 % For each version of the discrepancy
             'des_rho_beta_params',des_rho_beta_params,...
             'des_lambda_gam_params',des_lambda_gam_params,...
             'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
-            'doplot',false);
+            'doplot',true);
 
         % Perform dual calibration
         % We need a loop because sometimes an ill-conditioned matrix early
@@ -7139,7 +7139,7 @@ for discrep = 0:6 % For each version of the discrepancy
     '\\MATLAB\\NSF DEMS\\Phase 1\\',...
     'dual_calib\\dual_calib_stored_data\\'...
     '2019-10-04_DCTO_vs_KOHCTO_results_temp']);
-    save(locstr,'results');
+%     save(locstr,'results');
     
     % Close all those windows
     close all ;
