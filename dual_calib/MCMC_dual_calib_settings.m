@@ -156,7 +156,7 @@ p.addParameter('obs_var',0.05,@isscalar);
 p.addParameter('des_var',0,@isscalar);
 p.addParameter('additional_discrep_mean',@(x)0,...
     @(h)isa(h,'function_handle'));
-p.addParameter('additional_discrep_cov',@(x)0,...
+p.addParameter('additional_discrep_cov','Default',...
     @(h)isa(h,'function_handle'));
 p.addParameter('emulator_use',true,@islogical);
 p.addParameter('EmulatorMean','Default',@(h)isa(h,'function_handle'));
@@ -280,6 +280,7 @@ if emulator_use
         mean_sim = EmulatorMean;
     end
     if isequal(EmulatorCovHypers,'Default')
+        EmulatorCovHypers = zeros(dim_x+dim_t1+dim_t2+1,dim_y);
         mean_sim_vals = mean_sim(sim_x_01,sim_t1_01,sim_t2_01);
         % Loop through the outputs of the function
         for ii = 1:dim_y
@@ -416,6 +417,11 @@ num_obs = size(obs_y,1) ;
 obs_cov_mat = obs_var * eye(num_obs) ;
 num_tgt = size(des_y,1) ;
 des_cov_mat = des_var * eye(num_tgt) ;
+
+%% Make additional covariance matrix (used for adding discrepancy cov)
+if isequal(additional_discrep_cov,'Default')
+    additional_discrep_cov = @(x) zeros(num_obs,num_obs,dim_y) ; 
+end
 
 %% Pack up the settings structure
 settings = struct(...

@@ -292,7 +292,7 @@ for ii = 1:nfms
     view(viewpt);
     %gif
 end
-saveas(f1,'FIG_nondom_dir_data_vs_est_MCMC_output.png')
+% saveas(f1,'FIG_nondom_dir_data_vs_est_MCMC_output.png')
 
 % Now make the same figure, but look at the true output at mcmc sample pts
 % Use the true function to find the output at these sample points

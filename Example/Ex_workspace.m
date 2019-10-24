@@ -17,6 +17,9 @@ addpath([dpath,'Example']);
 addpath([dpath,'Example\Ex_results']);
 
 %% Take a look at surfaces of example function output
+clc ; clearvars -except dpath ; close all ; 
+
+
 theta1=linspace(0,3);
 theta2=linspace(0,6);
 % We need to convert these to a two-col matrix of all possible combinations
@@ -41,8 +44,8 @@ perfs = reshape(perf_n,[],length(theta1));
 costs = reshape(cost_n,[],length(theta1));
 
 ec = 'black' ;  % edge color
-ea = .25       ;  % edge alpha
-fa = .75       ;  % face alpha
+ea = .5       ;  % edge alpha
+fa = .95       ;  % face alpha
 
 surf(theta2,theta1,oscls,'FaceColor','red','EdgeColor',ec,...
     'EdgeAlpha',ea,'FaceAlpha',fa);
@@ -58,11 +61,25 @@ surf(theta2,theta1,costs,'FaceColor','green','EdgeColor',ec,...
 axis vis3d;
 xlabel('\theta_2'); ylabel('\theta_1'); zlabel('Outcomes');
 
+% Make rotating gif
+set(gcf,'color','white')
+viewpt = [-27.2667 10.4000];
+view(viewpt);
+gif('FIG_toy_sim_surfaces.gif','frame',gcf);
+nfms = 120;
+for ii = 1:nfms
+    viewpt = viewpt + [ 360/nfms 0 ];
+    view(viewpt);
+%     pause(.05)
+    gif
+end
+% saveas(f1,'FIG_nondom_dir_data_vs_est_MCMC_output.png')
+
 % Add line at posterior mean after below calibration
-pmo = mean(samples(settings.burn_in:end,:)) .* settings.input_calib_ranges;
-hold on;
-plot3([pmo(1) pmo(1)], [pmo(2) pmo(2)], get(gca,'Zlim'), 'k',...
-    'LineWidth',6);
+% pmo = mean(samples(settings.burn_in:end,:)) .* settings.input_calib_ranges;
+% hold on;
+% plot3([pmo(1) pmo(1)], [pmo(2) pmo(2)], get(gca,'Zlim'), 'k',...
+%     'LineWidth',6);
 
 %% Get simulation observations
 n_cval  = 3 ; % Number of distinct c values to use
