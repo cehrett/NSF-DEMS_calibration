@@ -155,7 +155,8 @@ mult_des_lambda    = 10 * ones(dim_y,1)            ;
 % true observations and desired observations; then we need to get the
 % covariance matrix for the target discrepancy on the desired observations.
 % Then we need to combine all these into one big covariance matrix.
-additional_discrep_cov_mat = additional_discrep_cov(theta1) ; % Default 0
+additional_discrep_cov_mat = ...
+    additional_discrep_cov(obs_x,theta1) ; % Default 0
 for ii = 1 : dim_y
     Sigma_emulator_simobs(:,:,ii) = ...
         gp_cov(emulator_rho(:,ii),[sim_x sim_t1 sim_t2],...
@@ -279,7 +280,7 @@ for ii = 2:M
             repmat(theta2',size(des_x,1),1)) + ...
             mean_obs(des_x,repmat(theta2',size(des_x,1),1)) + ...
             mean_des(des_x)]; % Mean of D
-    additional_discrep_cov_mat_s = additional_discrep_cov(theta1_s) ;
+    additional_discrep_cov_mat_s = additional_discrep_cov(obs_x,theta1_s) ;
     for jj = 1 : dim_y % For each model output
         Sigma_emulator_simobs_s(:,:,jj) = gp_cov(emulator_rho(:,jj),...
             [sim_x sim_t1 sim_t2],...
@@ -346,7 +347,7 @@ for ii = 2:M
             Sigma_emulator_simsim Sigma_emulator_simobs ;
             Sigma_emulator_simobs' ...
                 Sigma_emulator_obsobs + Sigma_obs_dscr_obsobs + ...
-                    obs_cov_mat + additional_discrep_cov(theta1)
+                    obs_cov_mat + additional_discrep_cov(obs_x,theta1)
         ];
         Sigma_R = Sigma_R + ...
             repmat(eye(size(Sigma_R)),1,1,dim_y) * nugsize(Sigma_R) ;
@@ -382,6 +383,7 @@ for ii = 2:M
     %% Draw new theta2
     if numel(theta2)>0
     theta2_s = theta2_proposal(theta2,Sigma_theta2);
+%         save temp
     
     % Get acceptance ratio alpha
     % To do this, we'll first find the updated log factors of the
@@ -451,6 +453,8 @@ for ii = 2:M
     % Now we can get the acceptance ratio
     log_alpha = log_lik_theta2_s - log_lik_theta2 + ...
         theta2_prop_log_mh_correction(theta2_s,theta2);
+%     theta2_s
+%     exp(log_alpha)
     
     % Now accept theta2_s with probability min(alpha,1)
     if log(rand) < log_alpha
@@ -465,6 +469,8 @@ for ii = 2:M
         log_cond_dens_D = log_cond_dens_D_s;
         accepted_theta2 = accepted_theta2 + 1;
     end
+%     theta2
+% t2s = [t2s ; theta2];
     end
     
     %% Draw new obs_rho (if discrepancy used)
@@ -560,6 +566,10 @@ for ii = 2:M
             Sigma_obs_dscr_obsdes(:,:,jj) =Sigma_obs_dscr_obsdes_s(:,:,jj);
             Sigma_obs_dscr_desdes(:,:,jj) =Sigma_obs_dscr_desdes_s(:,:,jj);
             log_obs_rho_prior(jj) = log_obs_rho_prior_s;
+            if modular % Need to compute new log_cond_dens_D
+                log_cond_dens_D_s(jj) = ...
+                    logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+            end
             log_cond_dens_D(jj) = log_cond_dens_D_s(jj);
             accepted_obs_rho(jj) = accepted_obs_rho(jj) + 1;
         end
@@ -654,6 +664,10 @@ for ii = 2:M
             Sigma_obs_dscr_obsdes(:,:,jj) =Sigma_obs_dscr_obsdes_s(:,:,jj);
             Sigma_obs_dscr_desdes(:,:,jj) =Sigma_obs_dscr_desdes_s(:,:,jj);
             log_obs_lambda_prior(jj) = log_obs_lambda_prior_s;
+            if modular % Need to compute new log_cond_dens_D
+                log_cond_dens_D_s(jj) = ...
+                    logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+            end
             log_cond_dens_D(jj) = log_cond_dens_D_s(jj);
             accepted_obs_lambda(jj) = accepted_obs_lambda(jj) + 1;
         end
@@ -805,6 +819,7 @@ for ii = 2:M
         % Adjust proposal covariance for theta2
         mult_mult = max(.5,min(2,accepted_theta2/100/opt_acc_rate));
         mult_theta2 = mult_mult * mult_theta2;
+        mt2s(ii/upd)=mult_theta2;
         if verbose
             fprintf('theta2 proposal variance set to %g of previous\n',...
                 mult_mult);
@@ -939,17 +954,17 @@ for ii = 2:M
                 gp_cov(obs_rho,[obs_x obs_t2],...
                     [des_x repmat(theta2',size(des_x,1))],...
                     obs_lambda,false);
-            Sigma_obs_dscr_desdes = ...
-                gp_cov(obs_rho,[des_x repmat(theta2',size(des_x,1))],...
-                    [des_x repmat(theta2',size(des_x,1))],...
-                    obs_lambda,false);
+%             Sigma_obs_dscr_desdes = ...
+%                 gp_cov(obs_rho,[des_x repmat(theta2',size(des_x,1))],...
+%                     [des_x repmat(theta2',size(des_x,1))],...
+%                     obs_lambda,false);
             % Now to combine everything into two big covariance matrices:
             Sigma_R = [... % The covariance of R
                 Sigma_emulator_simsim Sigma_emulator_simobs ; 
                 Sigma_emulator_simobs' ...
                     Sigma_emulator_obsobs + ...
                     Sigma_obs_dscr_obsobs + obs_cov_mat + ...
-                    additional_discrep_cov(theta1) ... % Default adc() is 0
+                    additional_discrep_cov(obs_x,theta1)...%Default adc()=0
                 ];
             Sigma_D = [... % The covariance of D
                 Sigma_R ...
@@ -972,6 +987,12 @@ for ii = 2:M
                     repmat(theta2',size(des_x,1),1)) + ...
                     mean_obs(des_x,repmat(theta2',size(des_x,1),1)) + ...
                     mean_des(des_x)]; % Mean of D
+            % Clear the proposed versions of the above values, since they
+            % may have the wrong size now
+            clear Sigma_D_s Sigma_R_s mu_D_s mu_R_s ...
+                Sigma_emulator_simobs_s Sigma_emulator_obsdes_s ...
+                Sigma_emulator_obsobs_s Sigma_obs_dscr_obsobs_s ...
+                Sigma_obs_dscr_obsdes_s
             % Now to get the log likelihoods
             log_cond_dens_D = logmvnpdf(D',mu_D',Sigma_D);
             log_cond_dens_R = logmvnpdf(R',mu_R',Sigma_R);
@@ -1041,7 +1062,7 @@ for ii = 2:M
                 Sigma_emulator_simobs' ...
                     Sigma_emulator_obsobs + ...
                     Sigma_obs_dscr_obsobs + obs_cov_mat + ...
-                    additional_discrep_cov(theta1) ... % By default adc()=0
+                    additional_discrep_cov(obs_x,theta1)...%Default adc()=0
                 ];
             Sigma_D = [... % The covariance of D
                 Sigma_R ...

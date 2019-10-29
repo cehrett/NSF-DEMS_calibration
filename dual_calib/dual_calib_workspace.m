@@ -6412,7 +6412,7 @@ for discrep = 0:6 % For each version of the discrepancy
     end
     
     % Number of chains
-    m = 50;
+    m = 2;
 
     for ii = 1:m
         % Set initial and final observation set sizes
@@ -6422,11 +6422,12 @@ for discrep = 0:6 % For each version of the discrepancy
         % Settings
         modular = true;
         informative_targets = false;
-        des_discrep = true;
+        des_discrep = false;
         obs_discrep_use_MLEs = false;
-        des_var = 0; % target error/tolerance
+        des_var = 0.5 % target error/tolerance
         obs_var = 0.05; % observation error
         des_x_size = 15;
+        doplot=true;
 
         % Set number of draws, burn_in for each mcmc:
         M = 6e3; b = .5 ; burn_in = M*b;
@@ -6541,7 +6542,7 @@ for discrep = 0:6 % For each version of the discrepancy
             'obs_final_size',obs_final_size,...
             'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
             'true_phenomenon',true_phenomenon,...
-            'doplot',false);
+            'doplot',doplot);
 
         % Perform dual calibration
         % We need a loop because sometimes an ill-conditioned matrix early
@@ -6624,7 +6625,7 @@ for discrep = 0:6 % For each version of the discrepancy
             'des_lambda_gam_params',des_lambda_gam_params,...
             'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
             'obs_final_size',obs_final_size,...
-            'doplot',false);
+            'doplot',doplot);
 
         % Perform dual calibration
         count = 0 ; err_count = 0 ; 
@@ -6714,7 +6715,7 @@ for discrep = 0:6 % For each version of the discrepancy
     'dual_calib\\dual_calib_stored_data\\'...
     '2019-10-04_SDOE_results_nobs' int2str(obs_initial_size) '-'...
     int2str(obs_final_size)]);
-    save(locstr,'results');
+%     save(locstr,'results');
     
     % Close all those windows
     close all ;
@@ -6730,7 +6731,7 @@ end
 %% Collect results for DCTO vs KOH+CTO
 clc ; clearvars -except dpath ; close all ; 
 
-for discrep = 1:6 % For each version of the discrepancy
+for discrep = 0:6 % For each version of the discrepancy
 
     % Turn on observation discrepancy in the model iff discrep ~=0
     if discrep == 0
@@ -6743,21 +6744,21 @@ for discrep = 1:6 % For each version of the discrepancy
     m = 2;
 
     for ii = 1:m
-        % Set initial and final observation set sizes
-%         obs_initial_size = 30;
+        % Set observation set size
         obs_size = 20;
 
         % Settings
         modular = true;
         informative_targets = false;
-        des_discrep = true;
+        des_discrep = false;
         obs_discrep_use_MLEs = false;
-        des_var = 0; % target error/tolerance
+        des_var = 0.5 % target error/tolerance
         obs_var = 0.05; % observation error
         des_x_size = 15;
+        doplot = true;
 
         % Set number of draws, burn_in for each mcmc:
-        M = 1e3; b = .5 ; burn_in = M*b;
+        M = 4e3; b = .5 ; burn_in = M*b;
 
         % Define inputs mins and ranges 
         xmin = .5;
@@ -6869,7 +6870,7 @@ for discrep = 1:6 % For each version of the discrepancy
             'des_rho_beta_params',des_rho_beta_params,...
             'des_lambda_gam_params',des_lambda_gam_params,...
             'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
-            'doplot',true);
+            'doplot',doplot);
 
         % Perform dual calibration
         % We need a loop because sometimes an ill-conditioned matrix early
@@ -6954,7 +6955,7 @@ for discrep = 1:6 % For each version of the discrepancy
             'des_rho_beta_params',des_rho_beta_params,...
             'des_lambda_gam_params',des_lambda_gam_params,...
             'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
-            'doplot',false);
+            'doplot',doplot);
 
         % Perform KOH calibration
         count = 0 ; err_count = 0 ; 
@@ -7058,7 +7059,7 @@ for discrep = 1:6 % For each version of the discrepancy
             'additional_discrep_cov',additional_discrep_cov,...
             'obs_rho_beta_params',des_rho_beta_params,...
             'obs_lambda_gam_params',des_lambda_gam_params,...
-            'doplot',false);
+            'doplot',doplot);
 
         % Perform CTO calibration
         count = 0 ; err_count = 0 ; 

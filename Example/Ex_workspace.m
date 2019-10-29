@@ -83,8 +83,8 @@ end
 
 %% Get simulation observations
 n_cval  = 3 ; % Number of distinct c values to use
-n_theta1 = 6 ; % Number of distinct theta1 values to use
-n_theta2 = 6 ; % Number of distinct theta2 values to use
+n_theta1 = 8 ; % Number of distinct theta1 values to use
+n_theta2 = 8 ; % Number of distinct theta2 values to use
 cvals  = linspace(1.95,2.05,n_cval)  ; % Get distinct c values
 theta1vals = linspace(0,3,n_theta1) ; % Get distinct theta1 values
 theta2vals = linspace(0,6,n_theta2) ; % Get distinct theta2 values
@@ -100,7 +100,7 @@ sim_y = Ex_sim(sim_xt);
 raw_dat = struct('sim_xt',sim_xt,'sim_y',sim_y);
 
 % save([dpath,'Example\Ex_results\'...
-% '2019-10-16-raw_dat-3-6-6'],...
+% '2019-10-24-raw_dat-3-8-8'],...
 % 'raw_dat');
 
 

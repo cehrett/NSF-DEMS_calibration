@@ -420,7 +420,8 @@ des_cov_mat = des_var * eye(num_tgt) ;
 
 %% Make additional covariance matrix (used for adding discrepancy cov)
 if isequal(additional_discrep_cov,'Default')
-    additional_discrep_cov = @(x) zeros(num_obs,num_obs,dim_y) ; 
+    additional_discrep_cov = @(x,theta) ...
+        zeros(min(1,size(x,1)),min(1,size(x,1)),dim_y) ; 
 end
 
 %% Pack up the settings structure
