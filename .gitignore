@@ -1,5 +1,9 @@
 *.mat
 *.asv
+*.png
+*.gif
+*.jpg
+*.eps
 Palmetto files/
 backup/
 stored_data/
