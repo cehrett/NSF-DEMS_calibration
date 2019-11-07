@@ -5,6 +5,9 @@ function opc = Ex_sim(c_theta)
 % outputs are oscillation, performance, and cost. (We want to set
 % oscillation to some constant, maximize performance, and minimize cost.)
 
+% Check for empty input
+if numel(c_theta)==0, opc=zeros(0,3); return; end
+
 % Unpack input
 c      = c_theta(:,1);
 theta1 = c_theta(:,2);

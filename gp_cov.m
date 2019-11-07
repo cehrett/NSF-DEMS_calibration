@@ -2,14 +2,13 @@
 
 function R = gp_cov(rho,input,input_s,lambda,verbose)
 
-% If either input is empty, then output an empty cov matrix
-if min(size(input))==0 || min(size(input_s))==0
-    R = [] ; 
-    return ;
-end
-
 % Initialize the covariance matrix
 R = ones(size(input,1),size(input_s,1));
+
+% If either input is empty, then output an empty cov matrix
+if min(size(input))==0 || min(size(input_s))==0
+    return ;
+end
 
 % If lambda is Inf, then skip the pointless work and output 0 matrix
 if lambda == Inf

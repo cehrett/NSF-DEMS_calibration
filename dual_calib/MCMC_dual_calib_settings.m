@@ -52,13 +52,16 @@ function settings = MCMC_dual_calib_settings(...
 %   is taken to be the standard deviation of the simulator and
 %   observational data sim_y and obs_y.
 % 'obs_var':
-%   Gives the covariance matrix of the observation error. Inputting a
+%   Gives the iid gaussian observation error variance. Inputting a
 %   scalar value here results in a covariance matrix that is the identity
 %   multiplied by that scalar value. Default: scalar 0.05.
 % 'des_var':
-%   Gives the covariance matrix of the target outcomes' error. Inputting a
+%   Gives the iid gaussian target outcomes' error variance. Inputting a
 %   scalar value here results in a covariance matrix that is the identity
 %   multiplied by that scalar value. Default: scalar 0.05.
+% 'CTO':
+%   Boolean which tells whether the algoritm is being used for CTO. This
+%   aids in setting appropriate priors. Default: false.
 % 'additional_discrep_mean':
 %   Optional additional discrepancy mean. This is primarily intended to
 %   be used in the case when CTO is completed after KOH; this additional
@@ -73,6 +76,14 @@ function settings = MCMC_dual_calib_settings(...
 %   Determines whether an emulator is used. If not, the emulator mean 
 %   function is set to just be the objective function itself, and pairs 
 %   this with a 0 covariance fn (by setting marginal precision to Inf).
+% 'obs_var_est':
+%   Boolean value which determines whether a posterior distribution on
+%   observation error variance will be explored in MCMC. If not, then the
+%   intial value of obs_var is kept constant. Default: false.
+% 'des_var_est':
+%   Boolean value which determines whether a posterior distribution on
+%   target error variance will be explored in MCMC. If not, then the
+%   intial value of des_var is kept constant. Default: false.
 % 'EmulatorMean':
 %   Mean function of the emulator. Default: constant 0 (if an emulator is
 %   used), example objective function (if emulator==false).
@@ -114,6 +125,10 @@ function settings = MCMC_dual_calib_settings(...
 %   sequential DoE), then the high fidelity model must be provided here,
 %   from which the new observations will be obtained. If sequential DoE is
 %   used and no function is provided here, an exception will occur.
+% 'true_obs_var':
+%   If new observations are made during the course of DCTO (as in
+%   sequential DoE), then the true observation error variance must be
+%   provided here, so that it can be applied to new observations.
 % 'obs_discrep_use_MLEs':
 %   Boolean value which tells whether or not to estimate the observation
 %   discrepancy covariance hyperparameters via maximum likelihood
@@ -126,6 +141,9 @@ function settings = MCMC_dual_calib_settings(...
 % 'doplot':
 %   true       - (Default) Update scatterplot every ten draws.
 %   false      - No plots during MCMC.
+% 'verbose':
+%   true       - (Default) Output verbose progress descriptions.
+%   false      - Output minimal progress descriptions.
 
 
 %% Parse inputs
@@ -152,13 +170,16 @@ p.addParameter('min_t2','Default',@isnumeric);
 p.addParameter('range_t2','Default',@isnumeric);
 p.addParameter('mean_y','Default',@isnumeric);
 p.addParameter('std_y','Default',@isnumeric);
-p.addParameter('obs_var',0.05,@isscalar);
-p.addParameter('des_var',0,@isscalar);
+p.addParameter('obs_var',0.05,@ismatrix);
+p.addParameter('des_var',0,@ismatrix);
+p.addParameter('CTO',false,@islogical);
 p.addParameter('additional_discrep_mean',@(x)0,...
     @(h)isa(h,'function_handle'));
 p.addParameter('additional_discrep_cov','Default',...
     @(h)isa(h,'function_handle'));
 p.addParameter('emulator_use',true,@islogical);
+p.addParameter('obs_var_est',false,@islogical);
+p.addParameter('des_var_est',false,@islogical);
 p.addParameter('EmulatorMean','Default',@(h)isa(h,'function_handle'));
 p.addParameter('EmulatorCovHypers','Default',@ismatrix);
 p.addParameter('obs_discrep',true,@islogical);
@@ -173,9 +194,11 @@ p.addParameter('obs_final_size',size(obs_x,1),@isscalar);
 p.addParameter('true_phenomenon',...
     @(varargin)error('Error: true phenomenon not supplied'),...
     @(h)isa(h,'function_handle'));
+p.addParameter('true_obs_var',0.05,@isnumeric);
 p.addParameter('obs_discrep_use_MLEs',false,@islogical);
 p.addParameter('modular',false,@islogical);
 p.addParameter('doplot',true,@islogical);
+p.addParameter('verbose',true,@islogical);
 p.parse(sim_x,sim_t1,sim_t2,sim_y,obs_x,obs_t2,obs_y,des_x,des_y,...
     varargin{:});
 
@@ -195,9 +218,12 @@ mean_y = p.Results.mean_y;
 std_y = p.Results.std_y;
 obs_var = p.Results.obs_var;
 des_var = p.Results.des_var;
+CTO = p.Results.CTO;
 additional_discrep_cov = p.Results.additional_discrep_cov;
 additional_discrep_mean = p.Results.additional_discrep_mean;
 emulator_use = p.Results.emulator_use;
+obs_var_est = p.Results.obs_var_est;
+des_var_est = p.Results.des_var_est;
 EmulatorMean = p.Results.EmulatorMean;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
 obs_discrep = p.Results.obs_discrep;
@@ -210,9 +236,11 @@ des_rho_beta_params = p.Results.des_rho_beta_params;
 des_lambda_gam_params = p.Results.des_lambda_gam_params;
 obs_final_size = p.Results.obs_final_size;
 true_phenomenon = p.Results.true_phenomenon;
+true_obs_var = p.Results.true_obs_var;
 obs_discrep_use_MLEs = p.Results.obs_discrep_use_MLEs;
 modular = p.Results.modular;
 doplot = p.Results.doplot;
+verbose = p.Results.verbose;
 
 %% Todo
 if ~(isequal(obs_rho_lambda,'Default'))
@@ -223,6 +251,26 @@ end
 %% Some useful definitions
 logit = @(x) log(x./(1-x));
 logit_inv = @(x) exp(x) ./ (1+exp(x));
+
+%% If emulator not used, then give empty simulator arrays appropriate dims
+% Avoids headaches with concatenation.
+if ~emulator_use
+    if numel(sim_x)+numel(sim_t1)+numel(sim_t2) > 0
+        error(...
+            'Error: emulator_use set to false, but simulations supplied.');
+    end
+    sim_x = zeros(0,size(min_x,2));
+    sim_t1 = zeros(0,size(min_t1,2));
+    sim_t2 = zeros(0,size(min_t2,2));
+    sim_y = zeros(0,size(obs_y,2));
+end
+
+%% If targets not used, then give empty target arrays appropriate dims
+% Avoids headaches with concatenation
+if numel(des_x) == numel(des_y) && numel(des_x) == 0
+    des_x = zeros(0,size(min_x,2));
+    des_y = zeros(0,size(obs_y,2));
+end
 
 
 %% Normalize inputs
@@ -237,7 +285,8 @@ else, des_x_01 = des_x ; end
 
 if isequal(min_t1,'Default'), min_t1 = min(sim_t1) ; end
 if isequal(range_t1,'Default'), range_t1 = range(sim_t1) ; end
-sim_t1_01 = (sim_t1 - min_t1) ./ range_t1 ;
+if numel(sim_t1)>0, sim_t1_01 = (sim_t1 - min_t1) ./ range_t1 ;
+else, sim_t1_01 = sim_t1; end
 
 t2 = [sim_t2 ; obs_t2 ] ;
 if isequal(min_t2,'Default'), min_t2 = min(t2) ; end
@@ -262,6 +311,7 @@ dim_y = size(obs_y,2);
 %% Standardize outputs
 if isequal(mean_y,'Default'), mean_y = mean(sim_y) ; end
 if isequal(std_y,'Default'), std_y = std(sim_y) ; end
+if numel(sim_y) == 0, sim_y = repmat(obs_y,0,1) ; end
 sim_y_std = (sim_y - mean_y) ./ std_y ; 
 obs_y_std = (obs_y - mean_y) ./ std_y ;
 des_y_std = (des_y - mean_y) ./ std_y ; 
@@ -348,7 +398,7 @@ Sigma_theta1 = eye(size(theta1_init,1));
 Sigma_theta2 = eye(size(theta2_init,1));
 
 
-%% Set real and desired discrepancy rho and lambda prior distributions
+%% Set real and target discrepancy rho and lambda prior distributions
 if isequal(obs_rho_beta_params,"Default")
     obs_rho_beta_params = [2,0.4];
 end
@@ -370,10 +420,24 @@ log_des_rho_prior  = @(r) sum(log( betapdf(...
 log_des_lambda_prior = @(ld) log( gampdf(...
     ld,des_lambda_gam_params(1),des_lambda_gam_params(2)) );
 
+%% Set real and target error variance prior distributions
+if CTO
+    log_obs_var_prior_fn = @(sig2) log( gampdf(...
+        sig2,4,1) );
+    log_des_var_prior_fn = @(sig2) error('Error: Is KOH, CTO or DCTO?');
+else
+%     log_obs_var_prior_fn = @(sig2) -log(sig2);
+%     log_des_var_prior_fn = @(sig2) -8 * log( sig2 );
+    log_obs_var_prior_fn = @(sig2) log( gampdf(...
+    sig2,1,1) );
+    log_des_var_prior_fn = @(sig2) log( gampdf(...
+    sig2,4,.125) );
+end
+
 
 %% Set real and desired discrepancy rho and lambda proposal distributions
 % if isequal(obs_rho_lambda,'Default')
-% We'll draw logit-transformed rho and lambda from normals centered at
+% We'll draw logit-transformed rho, and lambda from normals centered at
 % log-transformed previous draw.
 rho_proposal = @(r,S) logit_inv(mvnrnd(logit(r),S)); 
 lambda_proposal = @(lam,S) exp(mvnrnd(log(lam),S)); 
@@ -403,25 +467,45 @@ else
     des_rho_init = .5*ones(size(des_x,2),dim_y);
     des_lambda_init = Inf * ones(1,dim_y);
 end
-for ii = 1:dim_y
-    obs_Sigma_rho(:,:,ii) = eye(size(obs_rho_init,1));
-    obs_Sigma_lambda(ii) = 1;
-    des_Sigma_rho(:,:,ii) = eye(size(des_rho_init,1));
-    des_Sigma_lambda(ii) = 1;
+
+% Get initial proposal variances
+obs_Sigma_rho = repmat(eye(size(obs_rho_init,1)),1,1,dim_y);
+obs_Sigma_lambda = ones(1,dim_y);
+des_Sigma_rho = repmat(eye(size(des_rho_init,1)),1,1,dim_y);
+des_Sigma_lambda = ones(1,dim_y);
+
+%% Set up observation and target err var arrays, proposals, log mh correctn
+% We need an array of obs and des variances, one for each model output
+if isscalar(obs_var)
+    obs_var = ones(1,dim_y) * obs_var ; 
+end
+if isscalar(des_var)
+    des_var = ones(1,dim_y) * des_var ; 
 end
 
-%% Make observation and target error/tolerance covariance matrices
-% To do: make different observation variance levels for different outputs
-% possible
-num_obs = size(obs_y,1) ; 
-obs_cov_mat = obs_var * eye(num_obs) ;
-num_tgt = size(des_y,1) ;
-des_cov_mat = des_var * eye(num_tgt) ;
+% We need proposal distributions for obs_var and des_var: lognormal
+% distribution on the log-transform of obs_var
+obs_var_proposal = @(sig,S) exp(randn * sqrt(S) + log(sig)); 
+des_var_proposal = @(sig,S) exp(randn * sqrt(S) + log(sig)); 
+% Now we need the log metropolis-hastings corrections for these proposals
+obs_var_prop_log_mh_correction = ...
+    @(sig_s,sig) sum(log(sig_s)-log(sig));
+des_var_prop_log_mh_correction = ...
+    @(sig_s,sig) sum(log(sig_s)-log(sig));
+
+% Get initial proposal variances
+obs_var_Sigma = ones(1,dim_y) ; 
+des_var_Sigma = ones(1,dim_y) ; 
 
 %% Make additional covariance matrix (used for adding discrepancy cov)
 if isequal(additional_discrep_cov,'Default')
     additional_discrep_cov = @(x,theta) ...
-        zeros(min(1,size(x,1)),min(1,size(x,1)),dim_y) ; 
+        zeros(max(1,size(x,1)),max(1,size(x,1)),dim_y) ; 
+end
+
+%% Make obs_var_est logical the appropriate dim
+if isscalar(obs_var_est) && dim_y ~= 1
+    obs_var_est = repmat(obs_var_est,1,dim_y);
 end
 
 %% Pack up the settings structure
@@ -454,28 +538,38 @@ settings = struct(...
     'emulator_rho',EmulatorCovHypers(1:end-1,:),...
     'emulator_lambda',EmulatorCovHypers(end,:),...
     'mean_obs',mean_obs,...
+    'theta1_proposal',theta1_proposal,...
+    'theta2_proposal',theta2_proposal,...
     'rho_proposal',rho_proposal,...
     'lambda_proposal',lambda_proposal,...
+    'obs_var_est',obs_var_est,...
+    'des_var_est',des_var_est,...
+    'obs_var_proposal',obs_var_proposal,...
+    'des_var_proposal',des_var_proposal,...
+    'theta1_prop_log_mh_correction',theta1_prop_log_mh_correction,...
+    'theta2_prop_log_mh_correction',theta2_prop_log_mh_correction,...
     'rho_prop_log_mh_correction',rho_prop_log_mh_correction,...
     'lambda_prop_log_mh_correction',lambda_prop_log_mh_correction,...
+    'obs_var_prop_log_mh_correction',obs_var_prop_log_mh_correction,...
+    'des_var_prop_log_mh_correction',des_var_prop_log_mh_correction,...
     'des_rho_init',des_rho_init,...
     'des_lambda_init',des_lambda_init,...
-    'des_rho_prop_cov',des_Sigma_rho,...
-    'des_lambda_prop_cov',des_Sigma_lambda,...
+    'des_Sigma_rho',des_Sigma_rho,...
+    'des_Sigma_lambda',des_Sigma_lambda,...
+    'obs_var_Sigma',obs_var_Sigma,...
+    'des_var_Sigma',des_var_Sigma,...
     'obs_rho_init',obs_rho_init,...
     'obs_lambda_init',obs_lambda_init,...
-    'obs_rho_prop_cov',obs_Sigma_rho,...
-    'obs_lambda_prop_cov',obs_Sigma_lambda,...
+    'obs_Sigma_rho',obs_Sigma_rho,...
+    'obs_Sigma_lambda',obs_Sigma_lambda,...
     'log_obs_rho_prior',log_obs_rho_prior,...
     'log_obs_lambda_prior',log_obs_lambda_prior,...
     'log_des_rho_prior',log_des_rho_prior,...
     'log_des_lambda_prior',log_des_lambda_prior,...
+    'log_obs_var_prior_fn',log_obs_var_prior_fn,...
+    'log_des_var_prior_fn',log_des_var_prior_fn,...
     'theta1_init',theta1_init,...
     'theta2_init',theta2_init,...
-    'theta1_proposal',theta1_proposal,...
-    'theta2_proposal',theta2_proposal,...
-    'theta1_prop_log_mh_correction',theta1_prop_log_mh_correction,...
-    'theta2_prop_log_mh_correction',theta2_prop_log_mh_correction,...
     'theta1_prop_cov',Sigma_theta1,...
     'theta2_prop_cov',Sigma_theta2,...
     'log_theta1_prior',log_theta1_prior,...
@@ -484,8 +578,10 @@ settings = struct(...
     'des_discrep',des_discrep,...
     'obs_final_size',obs_final_size,...
     'true_phenomenon',true_phenomenon,...
+    'true_obs_var',true_obs_var,...
     'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
     'modular',modular,...
-    'doplot',doplot);
+    'doplot',doplot,...
+    'verbose',verbose);
 
 end

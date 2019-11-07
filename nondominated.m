@@ -47,6 +47,7 @@ while size(results,1) ~= 0 %
     % Throw away the dominated outcomes
     results = results(~dominated_idx,:);
     
+    % Update the console occasionally
     if rand < 0.0025
         fprintf('Still left: %d\n',size(results,1));
     end
