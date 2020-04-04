@@ -10,7 +10,7 @@ else
 end
 clear direc; 
 
-% Add paths
+% Add pathsFIG_dual_calib_post_theta2
 addpath(dpath);
 addpath([dpath,'stored_data']);
 addpath([dpath,'dual_calib']);
@@ -239,8 +239,8 @@ f.Children(1).Position = [0.5 0.005 0.575 0.55];
 %% Examine six different discrepancy versions
 clc ; clearvars -except dpath ; close all ;
 
-% f=figure('pos',[640 5 540 800]);
-% set(f,'color','white');
+f=figure('pos',[640 5 540 800]);
+set(f,'color','white');
 
 % Define inputs
 xmin = .5;
@@ -255,22 +255,22 @@ t2 = linspace(0,1);
 
 [X,T1,T2] = meshgrid(x,t1,t2) ; 
 
-discrep_title_content = [ {1;'c = 1.5'}, {1;'c = 3.5'}, ...
-    {2;'c = .15, d = 0.075'}, {2;'c = .65, d = 0.075'}, ...
-    {3;'c = 0.055, d=0'}, {3;'c = 0.055, d = 0.1'} ] ;
+discrep_title_content = [ {1;'a = 1.5'}, {1;'a = 3.5'}, ...
+    {2;'a = .15, b = 0.075'}, {2;'a = .65, b = 0.075'}, ...
+    {3;'a = 0.055, b=0'}, {3;'a = 0.055, b = 0.1'} ] ;
 
 %%% Loop through all discrepancies and plot each
 for ii=1:6
-%     subplot(3,2,ii);
-    if mod(ii,2)==1 figure('pos',[10 + ii*20, 5, 540, 250],'color','w');end
-    subplot(1,2,mod(ii-1,2)+1);
+    subplot(3,2,ii);
+%     if mod(ii,2)==1 figure('pos',[10 + ii*20, 5, 540, 250],'color','w');end
+%     subplot(1,2,mod(ii-1,2)+1);
     discrep = ii ; % Select which discrepancy
     Y = reshape(...
         dual_calib_example_fn(X(:),xmin,xrange,T1(:),t1min,t1range,...
-        T2(:),t2min,t2range,0,1,0),length(x),length(t1),length(t2));
+        T2(:),t2min,t2range,0,1,0,true),length(x),length(t1),length(t2));
     Yd= reshape(...
         dual_calib_example_fn(X(:),xmin,xrange,T1(:),t1min,t1range,...
-        T2(:),t2min,t2range,0,1,discrep),length(x),length(t1),length(t2));
+        T2(:),t2min,t2range,0,1,discrep,true),length(x),length(t1),length(t2));
 
     % Take a look
     xidx=50;
@@ -296,7 +296,7 @@ for ii=1:6
     % Sort out title and labels
     dtc = discrep_title_content(:,ii);
     title(sprintf('g_%d, %s',dtc{:}));
-    xlabel('t_1');ylabel('t_2');zlabel('f(x,t_1,t_2)');
+    xlabel('t_c');ylabel('t_d');zlabel('f(x,t_c,t_d)');
     axis vis3d;
     view([-110.4000    6.5334]);
     
@@ -306,12 +306,12 @@ for ii=1:6
 end
 
 %%% Fix sizing
-% f.Children(6).Position = [0.0 0.685 0.575 0.32];
-% f.Children(5).Position = [0.5 0.685 0.575 0.32];
-% f.Children(4).Position = [0.0 0.355 0.575 0.32];
-% f.Children(3).Position = [0.5 0.355 0.575 0.32];
-% f.Children(2).Position = [0.0 0.025 0.575 0.32];
-% f.Children(1).Position = [0.5 0.025 0.575 0.32];
+f.Children(6).Position = [0.0 0.685 0.575 0.32];
+f.Children(5).Position = [0.5 0.685 0.575 0.32];
+f.Children(4).Position = [0.0 0.355 0.575 0.32];
+f.Children(3).Position = [0.5 0.355 0.575 0.32];
+f.Children(2).Position = [0.0 0.025 0.575 0.32];
+f.Children(1).Position = [0.5 0.025 0.575 0.32];
 
 % % Get a rotating gif
 % viewpt = [-27.2667 10.4000];
@@ -327,6 +327,9 @@ end
 
 % Save it:
 % saveas(f,'FIG_six_discrepancies.png');
+figstr = 'FIG_six_discrepancies';
+set(f,'PaperPositionMode','auto')
+print(f,figstr,'-depsc','-r600')
 
 %% Results from calibration with various discrepancies
 clc ; clearvars -except dpath ; close all ;
@@ -411,7 +414,7 @@ t2 = (4/3*(t1*t1range + t1min -1) - t2min)/t2range;
 
 % Now get function value at optimal t2 for all t1 at x=1
 fvals = dual_calib_example_fn(1,.5,.5,t1,t1min,t1range,t2,t2min,t2range,...
-    0,1,0);
+    0,1,0,true);
 
 % Get figure showing true theta1
 f = figure('pos',[20 20 650 250]);
@@ -422,8 +425,8 @@ ylims = get(gca,'YLim');
 plot([2 2],ylims,'r','LineWidth',2);
 set(gca,'Ylim',ylims);
 set(gca,'Xlim',[min(t1*t1range + t1min),max(t1*t1range + t1min)]);
-xlabel('t_1'); ylabel('f(1,t_1,\theta_2)');
-label = sprintf('True \\theta_1\nvalue');
+xlabel('t_c'); ylabel('f(1,t_c,\theta_d)');
+label = sprintf('True \\theta_c\nvalue');
 text(2.05,0.2,label);
 set(f,'color','w');
 
@@ -431,19 +434,22 @@ set(f,'color','w');
 subplot(1,2,2);
 t2 = linspace(0,1);
 fvals = dual_calib_example_fn(1,.5,.5,2,0,1,t2,t2min,t2range,...
-    0,1,0);
+    0,1,0,true);
 plot(t2*t2range+t2min,fvals,'Linewidth',2);
 hold on;
 ylims = get(gca,'Ylim');
 plot([4/3 4/3],ylims,'r','LineWidth',2);
 set(gca,'Ylim',ylims);
 set(gca,'Xlim',[min(t2*t2range+t2min),max(t2*t2range+t2min)]);
-xlabel('t_2'); ylabel('f(1,\theta_1,t_2)');
-label = sprintf('Optimal\n\\theta_2 value');
+xlabel('t_d'); ylabel('f(1,\theta_c,t_d)');
+label = sprintf('Optimal\n\\theta_d value');
 text(4/3+.1,.9,label);
 
 % Save it
 % saveas(f,'FIG_true_optimal_theta1_theta2.png');
+figstr = 'FIG_true_optimal_theta1_theta2';
+set(f,'PaperPositionMode','auto')
+% print(f,figstr,'-depsc','-r600')
 
 %% Examine version without discrepancy
 clc ; clearvars -except dpath ; close all ;

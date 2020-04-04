@@ -423,7 +423,7 @@ log_des_lambda_prior = @(ld) log( gampdf(...
 %% Set real and target error variance prior distributions
 if CTO
     log_obs_var_prior_fn = @(sig2) log( gampdf(...
-        sig2,4,1) );
+        sig2,4,.125) );
     log_des_var_prior_fn = @(sig2) error('Error: Is KOH, CTO or DCTO?');
 else
 %     log_obs_var_prior_fn = @(sig2) -log(sig2);

@@ -32,7 +32,7 @@ t2 = linspace(0,1);
 
 [X,T1,T2] = meshgrid(x,t1,t2) ; 
 Y = reshape(dual_calib_example_fn(X(:),xmin,xrange,T1(:),t1min,t1range,...
-    T2(:),t2min,t2range,0,1),length(x),length(t1),length(t2));
+    T2(:),t2min,t2range,0,1,0,true),length(x),length(t1),length(t2));
 
 % Take a look
 xidx=100;
@@ -7157,7 +7157,7 @@ for discrep = 0:6 % For each version of the discrepancy
     
 end
 
-%% Collect results for DCTO vs KOH+CTO w/ estimated obs and target err var
+%% Collect results for DCTO vs KOH+CTO w/ estimated target err var
 clc ; clearvars -except dpath ; close all ; 
 
 for discrep = 0:6 % For each version of the discrepancy
@@ -7170,7 +7170,7 @@ for discrep = 0:6 % For each version of the discrepancy
     end
     
     % Number of chains
-    m = 2;
+    m = 30;
 
     for ii = 1:m
         % Set observation set size
@@ -7181,10 +7181,10 @@ for discrep = 0:6 % For each version of the discrepancy
         informative_targets = false;
         des_discrep = false;
         obs_discrep_use_MLEs = false;
-        des_var = 0.05; % target error/tolerance
+        des_var = 0.5; % target error/tolerance
         obs_var = 0.05; % observation error
         des_x_size = 15;
-        doplot = true;
+        doplot = false;
         verbose = false;
 
         % Set number of draws, burn_in for each mcmc:
@@ -7303,7 +7303,7 @@ for discrep = 0:6 % For each version of the discrepancy
             'doplot',doplot,...
             'verbose',verbose,...
             'des_var_est',true,...
-            'obs_var_est',true);
+            'obs_var_est',false);
 
         % Perform dual calibration
         % We need a loop because sometimes an ill-conditioned matrix early
@@ -7336,9 +7336,9 @@ for discrep = 0:6 % For each version of the discrepancy
         dcto_results.des_lambda(:,ii) = res.des_lambda ;
         dcto_results.des_lambda_hat(ii) = ...
             mean(res.des_lambda(burn_in:end));
-        dcto_results.obs_var(:,ii) = res.obs_var;
+%         dcto_results.obs_var(:,ii) = res.obs_var;
         dcto_results.des_var(:,ii) = res.des_var;
-        dcto_results.obs_var_hat(ii) = mean(res.obs_var(burn_in:end));
+%         dcto_results.obs_var_hat(ii) = mean(res.obs_var(burn_in:end));
         dcto_results.des_var_hat(ii) = mean(res.des_var(burn_in:end));
         dcto_results.theta1_var(ii) = var(res.theta1(burn_in:end)) ;
         dcto_results.theta2_var(ii) = var(res.theta2(burn_in:end)) ;
@@ -7394,7 +7394,7 @@ for discrep = 0:6 % For each version of the discrepancy
             'obs_discrep_use_MLEs',obs_discrep_use_MLEs,...
             'doplot',doplot,...
             'verbose',verbose,...
-            'obs_var_est',true);
+            'obs_var_est',false);
 
         % Perform KOH calibration
         count = 0 ; err_count = 0 ; 
@@ -7423,8 +7423,8 @@ for discrep = 0:6 % For each version of the discrepancy
             var(res.obs_rho(burn_in:end,:)) ;
         khtc_results.obs_lambda_var(ii) = ...
             var(res.obs_lambda(burn_in:end)) ;
-        khtc_results.obs_var(:,ii) = res.obs_var;
-        khtc_results.obs_var_hat(ii) = mean(res.obs_var(burn_in:end));
+%         khtc_results.obs_var(:,ii) = res.obs_var;
+%         khtc_results.obs_var_hat(ii) = mean(res.obs_var(burn_in:end));
         khtc_results.settings{ii} = settings ; 
         
         %%%%%%
@@ -7587,8 +7587,8 @@ for discrep = 0:6 % For each version of the discrepancy
     locstr = sprintf(['C:\\Users\\carle\\Documents',...
     '\\MATLAB\\NSF DEMS\\Phase 1\\',...
     'dual_calib\\dual_calib_stored_data\\'...
-    '2019-10-04_DCTO_vs_KOHCTO_results_temp']);
-%     save(locstr,'results');
+    '2019-11-20_DCTO_vs_KOHCTO_results']);
+    save(locstr,'results');
     
     % Close all those windows
     close all ;
@@ -7617,7 +7617,7 @@ for discrep = 0:6 % For each version of the discrepancy
 
     for ii = 1:m
         % Set initial and final observation set sizes
-        obs_initial_size = 0;
+        obs_initial_size = 5;
         obs_final_size = 20;
 
         % Settings
@@ -7627,8 +7627,8 @@ for discrep = 0:6 % For each version of the discrepancy
         obs_discrep_use_MLEs = false;
         obs_var = 0.05; % observation error
         des_x_size = 15;
-        doplot=true;
-        verbose=false;
+        doplot = true;
+        verbose = false;
         obs_var_est = false;
 
         % Set number of draws, burn_in for each mcmc:
@@ -7798,7 +7798,7 @@ for discrep = 0:6 % For each version of the discrepancy
             var(res.des_rho(burn_in:end)) ;
         sdoe_results.des_lambda_var(ii) = ...
             var(res.des_lambda(burn_in:end)) ;
-        sdoe_results.settings{ii} = settings ; 
+        sdoe_results.settings{ii} = res.settings ; 
         
         %%% Now do DCTO with all observations made ahead of time
         % Get observations
@@ -7885,7 +7885,7 @@ for discrep = 0:6 % For each version of the discrepancy
             var(res.des_rho(burn_in:end)) ;
         pdoe_results.des_lambda_var(ii) = ...
             var(res.des_lambda(burn_in:end)) ;
-        pdoe_results.settings{ii} = settings ; 
+        pdoe_results.settings{ii} = res.settings ; 
         
         both_results.sdoe_results = sdoe_results;
         both_results.pdoe_results = pdoe_results;

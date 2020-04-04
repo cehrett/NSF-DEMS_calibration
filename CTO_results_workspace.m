@@ -20,6 +20,7 @@ addpath(dpath);
 addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
 addpath([dpath,'Example\Ex_results']);
+fprintf('Ready.\n');
 
 %% TSE Get mins, ranges, means, stds from objective fn
 clc ; clearvars -except dpath ; close all ;
@@ -266,6 +267,14 @@ std_dists =  0.5332;
 target_new_std = target_feasible_std - std_dists * direction_vector_normd ;
 target_new = target_new_std .* std_y + mean_y;
 
+% Also get the Euclidean distances of the standardized targets from the
+% feasible point
+target_original_distance = ...
+    sqrt(sum((target_original_std - target_feasible_std).^2));
+target_new_distance = ...
+    sqrt(sum((target_new_std - target_feasible_std).^2));
+
+
 %% TSE Gather results using PCTO-chosen target, estimating var, no emulator
 % The target used here was actually found via brute force, not PCTO.
 clc ; clearvars -except dpath ; close all ;
@@ -299,7 +308,7 @@ obs_x = linspace(0,1,obs_x_size)' * xrange + xmin;
 % the feasible region, on the line connecting the feasible region to the
 % utopia point of the system (which was itself found via fmincon on each
 % objective).
-obs_y = repmat([0.7506    0.7302   17.5627],obs_x_size,1); 
+obs_y = repmat([0.7591    0.7573   18.6686],obs_x_size,1); 
 % Other possibilities not used here:
 % obs_y = repmat([0 0 0],size(obs_x,1),1); 
 % obs_y = repmat([0.7130 0.7144 17.9220],size(obs_x,1),1);
@@ -367,6 +376,28 @@ dist_fn = @(x) sum((std_fn(Ex_sim([2 x])) - std_fn(des_obs)).^2,2);
 
 [X,FVAL] = fmincon(dist_fn,[1.5 3],[],[],[],[],[0 0],[3 6])
 
+%% TSE Get posterior means and standard deviations
+clc ; clearvars -except dpath ; close all ;
+
+% Load results
+locstr = [dpath,'Example\Ex_results\'...
+    '2019-11-04_CTO_noemulator_varest_afterPCTO'];
+load(locstr);
+res_PCTO = res;
+locstr = [dpath,'Example\Ex_results\'...
+    '2019-11-06_CTO_noemulator_varest_noPCTO'];
+load(locstr);
+res_utopia = res;
+burn_in = res.settings.burn_in;
+
+mean_t1_PCTO = mean(res_PCTO.theta1(burn_in:end,1));
+mean_t2_PCTO = mean(res_PCTO.theta1(burn_in:end,2));
+std_t1_PCTO = std(res_PCTO.theta1(burn_in:end,1));
+std_t2_PCTO = std(res_PCTO.theta1(burn_in:end,2));
+mean_t1_utopia = mean(res_utopia.theta1(burn_in:end,1));
+mean_t2_utopia = mean(res_utopia.theta1(burn_in:end,2));
+std_t1_utopia = std(res_utopia.theta1(burn_in:end,1));
+std_t2_utopia = std(res_utopia.theta1(burn_in:end,2));
 
 %% WTA perform PCTO 
 clc ; clearvars -except dpath ; close all ; 
@@ -1137,6 +1168,187 @@ for kk = 1 : length(results)
 end
 
 % save(locstr,'results');
+
+%% WTA model validation (via cross validation)
+clc ; clearvars -except dpath ; close all ; 
+
+% Set seed for reproducibility
+rng(355);
+
+%%% Load raw data
+load([dpath,'stored_data\'...
+    'raw_dat']);
+% Get indices of samples to include in CV
+nobs = size(raw_dat,1);
+ninc = 20; % number to include
+inc_idx = sort(randsample(nobs,ninc));
+sim_x = raw_dat(inc_idx,1);
+sim_t = raw_dat(inc_idx,2:3);
+sim_y = raw_dat(inc_idx,4:6); 
+clear raw_dat
+
+%%% Get cross-validation indices
+k = 10;
+cv_idxs = cvpartition(ninc,'KFold',k);
+
+% Initialize arrays to record results of k-fold CV
+RMSE = nan(k,size(sim_y,2));
+sim_y_pred = nan(size(sim_y));
+sim_y_vars = nan(size(sim_y));
+
+% Perform k-fold CV, get RMSE in each fold
+for kk = 1:k
+    % Get training and test sets
+    sim_x_train = sim_x(cv_idxs.training(kk),:);
+    sim_t_train = sim_t(cv_idxs.training(kk),:);
+    sim_y_train = sim_y(cv_idxs.training(kk),:);
+    sim_x_test = sim_x(cv_idxs.test(kk),:);
+    sim_t_test = sim_t(cv_idxs.test(kk),:);
+    sim_y_test = sim_y(cv_idxs.test(kk),:);
+    
+    % Define inputs mins and ranges 
+    xmin = min(sim_x_train);
+    xrange = range(sim_x_train);
+    tmin = min(sim_t_train);
+    trange = range(sim_t_train);
+
+    % Get output means and stds
+    mean_y = mean(sim_y_train) ; std_y = std(sim_y_train) ;
+    
+    % Emulator mean
+    mean_sim = @(a,varargin) repmat([0 0 0],size(a,1),1) ;	
+    
+    % Get settings for DCTO, just as an easy way to get GP MLEs
+    settings = MCMC_dual_calib_settings(...
+        sim_x_train,sim_t_train,[],sim_y_train,...
+        [],[],zeros(0,3),...
+        [],zeros(0,3),'min_x',xmin,'range_x',xrange,...
+        'min_t1',tmin,'range_t1',trange,...
+        'min_t2',[],'range_t2',[],...
+        'mean_y',mean_y,'std_y',std_y,...
+        'obs_discrep',false,...
+        'emulator_use',true,...
+        'EmulatorMean',mean_sim,...
+        'des_discrep',false,...
+        'obs_discrep_use_MLEs',false,...
+        'CTO',true);
+    
+    % Get set up for loop that will predict test outputs
+    xt_test = ([sim_x_test sim_t_test] - [xmin tmin])./[xrange trange];
+    xt_train = ([sim_x_train sim_t_train] - [xmin tmin])./[xrange trange];
+    prior_mean_xt_test = settings.mean_sim(xt_test) ; 
+    y_train = settings.sim_y;
+    prior_mean_xt_train = settings.mean_sim(xt_train) ; 
+    cov_train_train = nan(size(xt_train,1),size(xt_train,1),3);
+    for jj=1:3
+        cov_train_train(:,:,jj) = ...
+            gp_cov(settings.emulator_rho(:,jj), xt_train, xt_train,...
+            settings.emulator_lambda(jj),false);
+        cov_train_train(:,:,jj) = cov_train_train(:,:,jj) + ...
+            1e-5*eye(size(cov_train_train(:,:,jj)));
+    end
+    
+    % Get predictive output at each test observation
+    for ii=1:3
+        cov_test_train = ...
+            gp_cov(settings.emulator_rho(:,ii), ...
+            xt_test, xt_train, ...
+            settings.emulator_lambda(ii),false);
+        cov_test_test = ...
+            gp_cov(settings.emulator_rho(:,ii), xt_test, xt_test,...
+            settings.emulator_lambda(ii),false);
+        y_test_pred(:,ii) = ...
+            prior_mean_xt_test(:,ii) + ...
+            cov_test_train * (cov_train_train(:,:,ii) \ ...
+            (y_train(:,ii) - prior_mean_xt_train(:,ii))) ; 
+        y_test_cov(:,:,ii) = ...
+            cov_test_test - cov_test_train * ...
+            (cov_train_train(:,:,ii) \ cov_test_train') ; 
+        fprintf('%g of 3 Done\n',ii);
+    end
+    % Put means back on original scale
+    mean_y = settings.mean_y; std_y = settings.std_y;
+    y_test_pred_os = y_test_pred .* std_y + mean_y;
+    % Get vars, put back on original scale
+    y_test_vars = nan( size(y_test_cov,1),size(y_test_cov,3) );
+    for ii=1:3
+        y_test_vars(:,ii) = diag(y_test_cov(:,:,ii)) ;
+    end
+    y_test_vars_os = y_test_vars .* std_y.^2;
+    
+    % Get RMSEs for this fold
+    RMSE(kk,:) = sqrt(mean((sim_y_test - y_test_pred_os).^2));
+    
+    % Record predictions
+    sim_y_pred(cv_idxs.test(kk),:) = y_test_pred_os;
+    sim_y_vars(cv_idxs.test(kk),:) = y_test_vars_os;
+    
+    % update
+    fprintf(['\n\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n',...
+        'STEP %g OF %g DONE\n\n'],kk,k);
+end
+
+% Save results
+results = struct('RMSEs',RMSE,'predictions',sim_y_pred,...
+    'variances',sim_y_vars,'true_vals',sim_y);
+locstr = [dpath,'stored_data\'...
+    '2020-03-29_GP_validation_CV_results_n',num2str(ninc)];
+% save(locstr,'results');
+
+%% WTA get plots for model validation (predicted vs true values)
+clc ; clearvars -except dpath ; close all 
+
+% Get names of files storing cross-validation results
+files = ls([dpath,'stored_data\2020-03-29_GP_validation_CV_results_n*']);
+nfiles = size(files,1);
+
+% Make plot title names
+outputs = {'Deflection','Rotation','Cost'};
+
+% Initialize array of figures
+figs = gobjects(nfiles,1);
+
+% Loop through all sets of CV results, produce a plot for each
+for ii=1:nfiles
+
+    % Initialize figure
+    figs(ii) = figure('Position',[40 40 900 250]);
+
+    % Load file
+    load(strtrim(files(ii,:)));
+
+    % How big of a data set was used here?
+    ninc = size(results.true_vals,1);
+
+    % Get error bar lengths
+    err = 1.96 * sqrt(results.variances);
+
+    % Loop through the three outputs
+    for kk=1:3
+        subplot(1,3,kk);
+        errorbar(results.true_vals(:,kk),results.predictions(:,kk),...
+            err(:,kk),'*b');
+        xlabel(['FE Model: ',outputs{kk}]);
+        ylabel(['GP Model: ',outputs{kk}]);
+        xlim([min([results.true_vals(:,kk);results.predictions(:,kk)]),...
+            max([results.true_vals(:,kk);results.predictions(:,kk)])]);
+        ylim([min([results.true_vals(:,kk);results.predictions(:,kk)]),...
+            max([results.true_vals(:,kk);results.predictions(:,kk)])]);
+        % Add reference diagonal line
+        refline(1,0)
+    end
+
+    % Add title
+    stitle = sprintf('CV results for data set of size %g',ninc);
+    sgtitle(stitle);
+    
+    % White background
+    set(figs(ii),'Color','white');
+    
+    export_fig(stitle);
+end
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
