@@ -76,10 +76,18 @@ function settings = MCMC_dual_calib_settings(...
 %   Determines whether an emulator is used. If not, the emulator mean 
 %   function is set to just be the objective function itself, and pairs 
 %   this with a 0 covariance fn (by setting marginal precision to Inf).
+%   Default: true.
 % 'obs_var_est':
 %   Boolean value which determines whether a posterior distribution on
 %   observation error variance will be explored in MCMC. If not, then the
 %   intial value of obs_var is kept constant. Default: false.
+% 'obs_var_same':
+%   Boolean value which determines whether the observation error variances
+%   of the multiple model outputs is constrained to be the same. If set to
+%   true, this ensures that the posterior predictive distribution will be
+%   centered at the point in the feasible space that is nearest to the
+%   target outcome, where all outputs are standardized to have mean 0 and
+%   s.d. 1. Default: false.
 % 'des_var_est':
 %   Boolean value which determines whether a posterior distribution on
 %   target error variance will be explored in MCMC. If not, then the
@@ -89,9 +97,7 @@ function settings = MCMC_dual_calib_settings(...
 %   used), example objective function (if emulator==false).
 % 'EmulatorCovHypers':
 %   Vector of hyperparameters for the power product exponential covariance
-%   function of the GP emulator. Default:
-%               [0.992943679103582   0.785517245465518   ...
-%                0.077856518100309   0.083606519464691 ]. 
+%   function of the GP emulator. By default, these are estimated as MLEs.
 % 'obs_discrep':
 %   Boolean value which tells whether or not to include a discrepancy term
 %   for the real observations. Default: true.
@@ -179,6 +185,7 @@ p.addParameter('additional_discrep_cov','Default',...
     @(h)isa(h,'function_handle'));
 p.addParameter('emulator_use',true,@islogical);
 p.addParameter('obs_var_est',false,@islogical);
+p.addParameter('obs_var_same',false,@islogical);
 p.addParameter('des_var_est',false,@islogical);
 p.addParameter('EmulatorMean','Default',@(h)isa(h,'function_handle'));
 p.addParameter('EmulatorCovHypers','Default',@ismatrix);
@@ -223,6 +230,7 @@ additional_discrep_cov = p.Results.additional_discrep_cov;
 additional_discrep_mean = p.Results.additional_discrep_mean;
 emulator_use = p.Results.emulator_use;
 obs_var_est = p.Results.obs_var_est;
+obs_var_same = p.Results.obs_var_same;
 des_var_est = p.Results.des_var_est;
 EmulatorMean = p.Results.EmulatorMean;
 EmulatorCovHypers = p.Results.EmulatorCovHypers;
@@ -325,13 +333,13 @@ des_y_std = (des_y - mean_y) ./ std_y ;
 % covariance function (by setting marginal precision to Inf).
 if emulator_use
     if isequal(EmulatorMean,'Default')
-        mean_sim = @(a,b,c) zeros(size(a,1),dim_y); % Emulator mean
+        mean_sim = @(a) zeros(size(a,1),dim_y); % Emulator mean
     else
         mean_sim = EmulatorMean;
     end
     if isequal(EmulatorCovHypers,'Default')
         EmulatorCovHypers = zeros(dim_x+dim_t1+dim_t2+1,dim_y);
-        mean_sim_vals = mean_sim(sim_x_01,sim_t1_01,sim_t2_01);
+        mean_sim_vals = mean_sim([sim_x_01,sim_t1_01,sim_t2_01]);
         % Loop through the outputs of the function
         for ii = 1:dim_y
             % Define function for minimization
@@ -342,7 +350,7 @@ if emulator_use
                 [sim_x_01 sim_t1_01 sim_t2_01],...
                 [sim_x_01 sim_t1_01 sim_t2_01],...
                 rl(end),false) + ...
-                1e-4*eye(size(sim_x_01,1)));
+                1e-4*eye(size(sim_t1_01,1)));
             % Perform minimization
             A = [];
             b = [];
@@ -357,8 +365,8 @@ if emulator_use
     end
 else
     if isequal(EmulatorMean,'Default')
-        mean_sim = @(a,b,c) dual_calib_example_fn(...
-            a,min_x,range_x,b,min_t1,range_t1,c,min_t2,range_t2,...
+        mean_sim = @(a) dual_calib_example_fn(...
+            a(:,1:length(min_x)),min_x,range_x,a(:,((length(min_x)+1):(length(min_x)+length(min_t1)))),min_t1,range_t1,a(:,( (length(min_x) + length(min_t1) + 1 ):end)),min_t2,range_t2,...
             mean_y,std_y,0,true);
     else
         mean_sim = EmulatorMean;
@@ -383,12 +391,15 @@ log_theta2_prior = @(t) 0 ; % Uniform prior
 % We'll draw logit-transformed theta from a normal centered at the
 % logit-transformed previous draw.
 theta1_proposal = @(t,S) logit_inv(mvnrnd(logit(t),S)); 
+% theta1_proposal = @(t,S) rand(1,length(t)); 
 theta2_proposal = @(t,S) logit_inv(mvnrnd(logit(t),S)); 
 % Since this proposal is not symmetric, we need to use full
 % Metropolis-Hastings rather than just Metropolis. So here is the log MH
 % correction for the lack of symmetry.
 theta1_prop_log_mh_correction = ...
-    @(t_s,t) sum(log(t_s)+log(1-t_s)-log(t)-log(1-t));
+    @(t_s,t) sum(log(t_s)+log(1-t_s)-log(t)-log(1-t)); 
+% theta1_prop_log_mh_correction = ...
+%     @(t_s,t) 0;
 theta2_prop_log_mh_correction = ...
     @(t_s,t) sum(log(t_s)+log(1-t_s)-log(t)-log(1-t));
 % Set initial values and initial covariance matrices for proposals
@@ -422,8 +433,10 @@ log_des_lambda_prior = @(ld) log( gampdf(...
 
 %% Set real and target error variance prior distributions
 if CTO
-    log_obs_var_prior_fn = @(sig2) log( gampdf(...
-        sig2,4,.125) );
+%     log_obs_var_prior_fn = @(sig2) log( gampdf(...
+%         sig2,4,.125) );
+    log_obs_var_prior_fn = @(sig2) log( exppdf(...
+        sig2,.001) );
     log_des_var_prior_fn = @(sig2) error('Error: Is KOH, CTO or DCTO?');
 else
 %     log_obs_var_prior_fn = @(sig2) -log(sig2);
@@ -433,6 +446,7 @@ else
     log_des_var_prior_fn = @(sig2) log( gampdf(...
     sig2,4,.125) );
 end
+
 
 
 %% Set real and desired discrepancy rho and lambda proposal distributions
@@ -543,6 +557,7 @@ settings = struct(...
     'rho_proposal',rho_proposal,...
     'lambda_proposal',lambda_proposal,...
     'obs_var_est',obs_var_est,...
+    'obs_var_same',obs_var_same,...
     'des_var_est',des_var_est,...
     'obs_var_proposal',obs_var_proposal,...
     'des_var_proposal',des_var_proposal,...

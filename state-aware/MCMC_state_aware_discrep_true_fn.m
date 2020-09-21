@@ -33,36 +33,54 @@ input_calib_range = settings.input_calib_range; % Range of calib inputs
 link_fn = settings.link_fn; % Link function for the dist of theta1
 which_sa = settings.which_sa; % Tells which calib inputs are state-aware
 
-%% Standardize outputs and 
+%% Standardize outputs  
 y = (desired_obs - output_mean) ./ output_sd ; 
-y = repelem(y(:),numel(x),1);
+% y = repelem(y(:),numel(x),1);
+
+%% Define logit transform and reverse transform
+logit = @(x) log(x./(1-x));
+logit_inv = @(x) exp(x) ./ (1+exp(x));
+
+%% Define proposal fn for theta1
+theta1_proposal = @(t,S) logit_inv(mvnrnd(logit(t),S)); 
+theta2_proposal = @(t,S) logit_inv(mvnrnd(logit(t),S)); 
+% Since this proposal is not symmetric, we need to use full
+% Metropolis-Hastings rather than just Metropolis. So here is the log MH
+% correction for the lack of symmetry.
+theta1_prop_log_mh_correction = ...
+    @(t_s,t) sum(log(t_s)+log(1-t_s)-log(t)-log(1-t));
+
+
+%% Normalize inputs
+x = (x - input_cntrl_min) ./ input_cntrl_range;
+
 
 %% Create (known) observation variance matrix
 Sigma = sigma2 * eye(length(y));
 
 %% Create receptacles for sample draws
-theta1_draws       = nan(M,numel(x),dim_theta1) ; 
-xi_draws           = nan(M,dim_theta2) ;
-nu_theta_draws     = nan(M,dim_nu_theta) ; 
-lambda_theta_draws = nan(M,1) ;
-nu_delta_draws     = nan(M,dim_output) ; 
+theta1_draws       = nan(M,size(x,1),dim_theta1) ; 
+xi_draws           = nan(M,dim_theta2)           ;
+nu_theta_draws     = nan(M,dim_nu_theta)         ; 
+lambda_theta_draws = nan(M,1)                    ;
+nu_delta_draws     = nan(M,size(x,2))            ; 
 
 %% Get initial draws of xi, nu_theta, lambda_theta, nu_delta
-theta2_init             = rand(dim_theta2,1);
-xi_draws(1,:)           = log(-log(theta2_init));
+theta2_init             = rand(dim_theta2,1)               ;
+xi_draws(1,:)           = log(-log(theta2_init))           ;
 rho_theta_init          = betarnd(1,c_theta,dim_nu_theta,1);
-nu_theta_draws(1,:)     = log(-log(rho_theta_init));
-lambda_theta_draws(1,:) = gamrnd(25,1/25) ;
-rho_delta_init          = betarnd(1,c_delta,size(xx,2),1) ; 
-nu_delta_draws(1,:)     = log(-log(rho_delta_init));
+nu_theta_draws(1,:)     = log(-log(rho_theta_init))        ;
+lambda_theta_draws(1,:) = gamrnd(25,1/25)                  ;
+rho_delta_init          = betarnd(1,c_delta,size(x,2),1)   ; 
+nu_delta_draws(1,:)     = log(-log(rho_delta_init))        ;
 
 %% Get initial covariance matrices
 % Although gp_cov accepts lambda as an input, here we give it lambda=1, so
 % that we can handle lambda elsewhere in the calculations. (Giving gp_cov
 % lambda=1 is equivalent to removing lambda from gp_cov.)
-R_delta=gp_cov(exp(-exp(nu_delta_draws(1,:))),xx,xx,0,0,0,1,false) + ...
-    eye(size(xx,1)) * 1e-4;
-R_nu   =gp_cov(exp(-exp(nu_theta_draws(1,:))),x(:),x(:),0,0,0,1,false) +...
+R_delta=gp_cov(exp(-exp(nu_delta_draws(1,:))),x,x,1,false) + ...
+    eye(size(x,1)) * 1e-4;
+R_nu   =gp_cov(exp(-exp(nu_theta_draws(1,:))),x,x,1,false) +...
     eye(length(x)) * 1e-4;
 
 %% Get initial draw of theta1
@@ -77,7 +95,7 @@ mult_theta1       = 1 ;
 mult_xi           = 1 ;
 mult_nu_theta     = 1 ;
 mult_nu_delta     = 1 ;
-n_adj = 100 ; % We'll adjust these once every n_adj iterations in burn_in
+n_adj = 100   ; % We'll adjust these once every n_adj iterations in burn_in
 
 %% Define counts of accepted draws
 % Will be used to monitor the MCMC and to tune the proposal distributions
@@ -102,7 +120,7 @@ colors = [      0         0    1.0000 ;
 %% Get initial log likelihoods
 % These will be updated whenever a proposed draw is accepted in MCMC.
 logL_eta = logmvnpdf( y',...
-    eta(xx,theta1_draws(1,:,:),exp(-exp(xi_draws(1,:))),...
+    eta(x,theta1_draws(1,:,:)',exp(-exp(xi_draws(1,:))),...
       input_cntrl_min,input_cntrl_range,...
       input_calib_min,input_calib_range,...
       output_mean,output_sd,which_sa)',...
@@ -126,35 +144,41 @@ for ii = 2:M
     
     %% Draw theta1
     if dim_theta1 > 0
-        % Get proposal covariance (up to scale) for theta1. See Brown &
-        % Atamturktur 2016 for details; they themselves are here following 
-        % Neal 1998.
-        [U,D] = eig(R_nu) ;
-        z = mvnrnd(0*ones(length(x),1),eye(length(x)));
-        theta1_s = mult_theta1 * U *sqrt(D) * z(:) + theta1_draws(ii-1,:)';
+%         % Get proposal covariance (up to scale) for theta1. See Brown &
+%         % Atamturktur 2016 for details; they themselves are here following 
+%         % Neal 1998.
+%         [U,D] = eig(R_nu) ;
+%         z = mvnrnd(0*ones(length(x),1),eye(length(x)));
+%         theta1_s = mult_theta1 * U *sqrt(D) * z(:) + theta1_draws(ii-1,:)';
+        theta1_s = theta1_proposal(theta1_draws(ii-1,:)',R_nu)';
 
         % Now find whether to accept or reject theta1_s. Each of the
         % log-likelihood of theta1, theta1_s is found in 2 parts which are
         % summed; this is so those parts can be used in later parts of the
         % MCMC rather than being recalculated.
+%         % Make prior on theta1 unif:
+%         logL_SA=0;
         logL_theta1 = logL_eta + logL_SA; % log-likelihood of theta1
 
         if any(theta1_s < 0) || any(theta1_s>1)
             logL_theta1_s = -Inf;
         else
             logL_eta_s = logmvnpdf( y',...
-                eta(xx,theta1_s,exp(-exp(xi_draws(ii-1,:))),...
+                eta(x,theta1_s,exp(-exp(xi_draws(ii-1,:))),...
                   input_cntrl_min,input_cntrl_range,...
                   input_calib_min,input_calib_range,...
                   output_mean,output_sd,which_sa)',...
                 Sigma + R_delta / lambda_delta);
+            % XXX: Replacing the following lines with uniform prior bc why not?
             logL_SA_s = logmvnpdf( link_fn(theta1_s'),...
                 mu_theta,...
                 R_nu / lambda_theta_draws(ii-1));
+%             logL_SA_s = 0;
             logL_theta1_s = logL_eta_s + logL_SA_s; %log-L of theta1_s
         end
 
-        log_alpha = logL_theta1_s - logL_theta1 ; % log acceptance prob
+        log_alpha = logL_theta1_s - logL_theta1 + ...
+            theta1_prop_log_mh_correction(theta1_s,theta1_draws(ii-1,:)'); % log acceptance prob
         if log(rand) < log_alpha % if proposal is accepted
             accepted_theta1 = accepted_theta1 + 1 ;
             theta1_draws(ii,:) = theta1_s;
@@ -168,12 +192,14 @@ for ii = 2:M
         % Sample from proposal density and make corresponding cov matrix
         nu_theta_s = ...
             mvnrnd(nu_theta_draws(ii-1,:), mult_nu_theta * Sigma_nu_theta);
-        R_nu_s = gp_cov(exp(-exp(nu_theta_s)),x(:),x(:),0,0,0,1,false) +...
+        R_nu_s = gp_cov(exp(-exp(nu_theta_s)),x(:,2),x(:,2),1,false) +...
             eye(size(R_nu)) * 1e-5 ;
 
         % Now find whether to accept or reject nu_theta_s
         logL_nu_theta = logL_SA + logL_prior_nu_theta ; % log-L of nu_theta
-
+        
+        % Make prior on theta1 unif
+%         logL_SA_s = 0;
         logL_SA_s = logmvnpdf( link_fn(theta1_draws(ii,:)),...
             mu_theta,...
             R_nu_s / lambda_theta_draws(ii-1));
@@ -196,7 +222,7 @@ for ii = 2:M
         %% Draw lambda_theta
         % Sample from conditional density
         theta1_mmu = link_fn(theta1_draws(ii,:)-mu_theta);
-        lambda_theta_draws(ii) = gamrnd( a_theta + numel(x)/2, ...
+        lambda_theta_draws(ii) = gamrnd( a_theta + 1/2, ...
             (b_theta + theta1_mmu(:)' *inv(R_nu)* theta1_mmu(:) / 2)^(-1));
         
     end % end of if statement: if dim_theta1 > 0
@@ -210,7 +236,7 @@ for ii = 2:M
         logL_xi = logL_eta + logL_prior_xi; % log-likelihood of xi
 
         logL_eta_s = logmvnpdf( y',...
-            eta(xx,theta1_draws(ii,:),exp(-exp(xi_s)),...
+            eta(x,theta1_draws(ii,:),exp(-exp(xi_s)),...
               input_cntrl_min,input_cntrl_range,...
               input_calib_min,input_calib_range,...
               output_mean,output_sd,which_sa)',...
@@ -237,14 +263,14 @@ for ii = 2:M
 %     if rand < 1/1000 disp('HEY'); end
 %     nu_delta_s(1:2) = 5 ; % DEBUG
     % DEBUG
-    R_delta_s = gp_cov(exp(-exp(nu_delta_s)),xx,xx,0,0,0,1,false) + ...
-        eye(size(xx,1)) * 1e-4;
+    R_delta_s = gp_cov(exp(-exp(nu_delta_s)),x,x,1,false) + ...
+        eye(size(x,1)) * 1e-4;
     
     % Now find whether to accept or reject nu_delta_s
     logL_nu_delta = logL_eta + logL_prior_nu_delta ;
     
     logL_eta_s = logmvnpdf( y',...
-        eta(xx,theta1_draws(ii,:),exp(-exp(xi_draws(ii,:))),...
+        eta(x,theta1_draws(ii,:)',exp(-exp(xi_draws(ii,:))),...
           input_cntrl_min,input_cntrl_range,...
           input_calib_min,input_calib_range,...
           output_mean,output_sd,which_sa)',...
@@ -329,7 +355,7 @@ for ii = 2:M
         
     end
     
-    %% Adjust adaptive proposal distribution covariances
+    %% Adjust adaptive proposal distribution covariances and mu_theta
     if mod(ii,n_adj) == 0
         if ii <= burn_in
             % Adjust scalar multipliers.
@@ -353,6 +379,9 @@ for ii = 2:M
             Sigma_xi = cov(xi_draws(1:ii,:)) ; 
             Sigma_nu_theta = cov(nu_theta_draws(1:ii,:)) ;
             Sigma_nu_delta = cov(nu_delta_draws(1:ii,:)) ;
+            
+            % Adjust mu_theta
+            mu_theta = mean(theta1_draws(1:(ii-1),:));
         end
         
         % Reset accepted counters
@@ -361,6 +390,7 @@ for ii = 2:M
         accepted_nu_theta = 0 ;
         accepted_nu_delta = 0 ;
     end
+    
     
     
     

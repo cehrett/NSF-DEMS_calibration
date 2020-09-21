@@ -2,18 +2,23 @@
 %% Set path string and add paths
 clc; clear all; close all;
 
-direc = pwd; if direc(1)=='C' 
-    dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
+direc = pwd; 
+if direc(1)=='C' 
+    dpath = 'C:\Users\Carl\Documents\MATLAB\NSF_DEMS\NSF-DEMS_calibration\';
 else
     dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
 end
-clear direc; 
+clear direc;
 
 % Add paths
 addpath(dpath);
 addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
 addpath([dpath,'state-aware']);
+
+% Change dir
+cd(dpath);
+
 
 %% 3D view of univariate objective function
 clc ; clearvars -except dpath ; close all ;
@@ -51,7 +56,7 @@ ax.View = [118.5000   15.0667];
 % Save figure
 % saveas(fig,'FIG_univ_SA_calib_prob_surf.png')
 set(fig,'color','white');
-export_fig FIG_univ_SA_calib_prob_surf -png -m3 -painters 
+% export_fig FIG_univ_SA_calib_prob_surf -png -m3 -painters 
 
 %% Compare true optimum to mean result in univariate case
 clc ; clearvars -except dpath ; close all ;
@@ -83,7 +88,7 @@ lg = legend('True optima','Posterior mean, 1 s.d.','Location','northwest');
 % Save figure
 % saveas(fig,'FIG_univ_SA_calib_prob_surf.png')
 set(fig,'color','white');
-export_fig FIG_univ_SA_results_vs_truth -png -m3 -painters 
+% export_fig FIG_univ_SA_results_vs_truth -png -m3 -painters 
 
 
 %% Posterior marginal distributions of SA input at various controls
@@ -134,4 +139,4 @@ flushLegend(lg,hax(1),'northeast');
 
 % Save figure
 set(fig,'color','white');
-export_fig FIG_univ_SA_post_mean_marginals -png -painters -m3
+% export_fig FIG_univ_SA_post_mean_marginals -png -painters -m3

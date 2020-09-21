@@ -25,6 +25,7 @@ additional_discrep_cov        = settings.additional_discrep_cov;
 additional_discrep_mean       = settings.additional_discrep_mean;
 emulator_use                  = settings.emulator_use;
 obs_var_est                   = settings.obs_var_est;
+obs_var_same                  = settings.obs_var_same;
 des_var_est                   = settings.des_var_est;
 mean_sim                      = settings.mean_sim;
 emulator_rho                  = settings.emulator_rho;
@@ -91,7 +92,7 @@ des_cov_mat_s = des_cov_mat;
 % nugsize tells us what size nugget to add to a matrix for computational
 % stability. Here, it's just a constant, but is introduced as a function so
 % that it can easily be upgraded to something fancier if desired.
-nugsize = @(X) 1e-4;
+nugsize = @(X) 1e-9;
 % D is the vector of all outputs from all sources.
 D = [ sim_y ; obs_y ; des_y ] ;
 % R is the vector of the simulator outputs and real observations.
@@ -113,7 +114,8 @@ for ii = 1:dim_y
     obs_cov_mat(:,:,ii) = eye(size(obs_x,1)) * obs_var(ii);
     des_cov_mat(:,:,ii) = eye(size(des_x,1)) * des_var(ii);
 end
-mean_sim_vals = mean_sim(sim_x,sim_t1,sim_t2); 
+
+mean_sim_vals = mean_sim([sim_x,sim_t1,sim_t2]); 
 dim_y_seq = 1:dim_y;
 
 %% Set up for Sequential DoE
@@ -288,16 +290,16 @@ end
 
 % Now to get the log likelihoods
 mu_R = [mean_sim_vals ; ...
-    mean_sim(obs_x,repmat(theta1',size(obs_x,1),1),obs_t2) + ...
+    mean_sim([obs_x,repmat(theta1',size(obs_x,1),1),obs_t2]) + ...
         mean_obs(obs_x,obs_t2) + ...
         additional_discrep_mean(theta1)]; %Mean of R. By default adm() is 0
 mu_D = [mu_R ; 
-    mean_sim(des_x,repmat(theta1',size(des_x,1),1),...
-        repmat(theta2',size(des_x,1),1)) + ...
+    mean_sim([des_x,repmat(theta1',size(des_x,1),1),...
+        repmat(theta2',size(des_x,1),1)]) + ...
         mean_obs(des_x,repmat(theta2',size(des_x,1),1)) + ...
         mean_des(des_x)]; % Mean of D
 log_cond_dens_D = arrayfun(... % get likelihood of each output
-        @(b) logmvnpdf(D(:,b)',mu_D(:,b)',Sigma_D(:,:,b)), 1:dim_y);
+        @(b) logmvnpdfFS(D(:,b)',mu_D(:,b)',Sigma_D(:,:,b)), 1:dim_y);
 log_theta1_prior = log_theta1_prior_fn(theta1);
 log_theta2_prior = log_theta2_prior_fn(theta2);
 if obs_discrep
@@ -315,8 +317,9 @@ if des_discrep
     log_des_lambda_prior_s = log_des_lambda_prior; % Preallocate
 end
 if any(obs_var_est)
-    log_obs_var_prior = arrayfun(...
-        @(b) log_obs_var_prior_fn(obs_var(b)), dim_y_seq(obs_var_est));
+%     log_obs_var_prior = arrayfun(...
+%         @(b) log_obs_var_prior_fn(obs_var(b)), dim_y_seq(logical(obs_var_est)));
+    log_obs_var_prior = log_obs_var_prior_fn(obs_var);
     log_obs_var_prior_s = log_obs_var_prior; % Preallocate
 end
 if des_var_est
@@ -347,7 +350,10 @@ for ii = 2:M
     
     %% Draw new theta1
     if numel(theta1)>0
+    
     theta1_s = theta1_proposal(theta1,Sigma_theta1)';
+%     zero_mult = zeros(size(Sigma_theta1)); zero_mult(jj,jj)=1;
+%     theta1_s = theta1_proposal(theta1,Sigma_theta1 .* zero_mult )';
     
     % Get acceptance ratio alpha
     % To do this, we'll first find the updated log factors of the
@@ -361,12 +367,12 @@ for ii = 2:M
     % which are unrestricted in that they include all data, even the fake
     % observations. 
     mu_R_s = [mean_sim_vals ; ...
-        mean_sim(obs_x,repmat(theta1_s',size(obs_x,1),1),obs_t2) + ...
+        mean_sim([obs_x,repmat(theta1_s',size(obs_x,1),1),obs_t2]) + ...
             mean_obs(obs_x,obs_t2) + ...
             additional_discrep_mean(theta1_s)]; % By default adm() is 0
     mu_D_s = [mu_R_s;
-        mean_sim(des_x,repmat(theta1_s',size(des_x,1),1),...
-            repmat(theta2',size(des_x,1),1)) + ...
+        mean_sim([des_x,repmat(theta1_s',size(des_x,1),1),...
+            repmat(theta2',size(des_x,1),1)]) + ...
             mean_obs(des_x,repmat(theta2',size(des_x,1),1)) + ...
             mean_des(des_x)]; % Mean of D
     additional_discrep_cov_mat_s = additional_discrep_cov(obs_x,theta1_s) ;
@@ -424,13 +430,13 @@ for ii = 2:M
     % Now we can get the log factors of the likelihood for the new draw,
     % using both R and D
     log_cond_dens_D_s = arrayfun(... % get likelihood of each output
-            @(b)logmvnpdf(D(:,b)',mu_D_s(:,b)',Sigma_D_s(:,:,b)), 1:dim_y);
+            @(b)logmvnpdfFS(D(:,b)',mu_D_s(:,b)',Sigma_D_s(:,:,b)), 1:dim_y);
     log_theta1_prior_s = log_theta1_prior_fn(theta1_s);
     if modular
         log_cond_dens_R_s = arrayfun(... % get likelihood of each output
-                @(b) logmvnpdf(...
+                @(b) logmvnpdfFS(...
                     R(:,b)',mu_R_s(:,b)',Sigma_R_s(:,:,b)), 1:dim_y);
-        log_lik_theta1_s = prod(log_cond_dens_R_s) + log_theta1_prior_s; 
+        log_lik_theta1_s = sum(log_cond_dens_R_s) + log_theta1_prior_s; 
         % We also need to get the likelihood for the old draw, since under
         % a modular approach it is not updated in the other draws
         Sigma_R = [...
@@ -443,11 +449,11 @@ for ii = 2:M
         Sigma_R = Sigma_R + ...
             repmat(eye(size(Sigma_R)),1,1,dim_y) * nugsize(Sigma_R) ;
         log_cond_dens_R = arrayfun(... % get likelihood of each output
-                @(b)logmvnpdf(R(:,b)',mu_R(:,b)',Sigma_R(:,:,b)), 1:dim_y);
-        log_lik_theta1 = prod(log_cond_dens_R) + log_theta1_prior;
+                @(b)logmvnpdfFS(R(:,b)',mu_R(:,b)',Sigma_R(:,:,b)), 1:dim_y);
+        log_lik_theta1 = sum(log_cond_dens_R) + log_theta1_prior;
     else
-        log_lik_theta1_s = prod(log_cond_dens_D_s) + log_theta1_prior_s; 
-        log_lik_theta1 = prod(log_cond_dens_D) + log_theta1_prior;
+        log_lik_theta1_s = sum(log_cond_dens_D_s) + log_theta1_prior_s; 
+        log_lik_theta1 = sum(log_cond_dens_D) + log_theta1_prior;
     end
 
     % Now we can get the acceptance ratio
@@ -469,6 +475,7 @@ for ii = 2:M
         additional_discrep_cov_mat = additional_discrep_cov_mat_s ;
         accepted_theta1 = accepted_theta1 + 1;
     end
+    
     end % End of section: Draw new theta1
     
     %% Draw new theta2
@@ -482,8 +489,8 @@ for ii = 2:M
     % covariance of the GPs. Only certain parts of the big covariance
     % matrix Sigma need to be updated -- those that depend on theta2.
     mu_D_s = [mu_R;
-        mean_sim(des_x,repmat(theta1',size(des_x,1),1),...
-            repmat(theta2_s',size(des_x,1),1)) + ...
+        mean_sim([des_x,repmat(theta1',size(des_x,1),1),...
+            repmat(theta2_s',size(des_x,1),1)]) + ...
             mean_obs(des_x,repmat(theta2_s',size(des_x,1),1)) + ...
             mean_des(des_x)]; % Mean of D
     for jj = 1:dim_y % For each model output
@@ -534,12 +541,12 @@ for ii = 2:M
     end
     % Now we can get the log factors of the likelihood for the new draw
     log_cond_dens_D_s = arrayfun(... % get likelihood of each output
-            @(b)logmvnpdf(D(:,b)',mu_D_s(:,b)',Sigma_D_s(:,:,b)), 1:dim_y);
+            @(b)logmvnpdfFS(D(:,b)',mu_D_s(:,b)',Sigma_D_s(:,:,b)), 1:dim_y);
     log_theta2_prior_s = log_theta2_prior_fn(theta2_s);
 
-    log_lik_theta2_s = prod(log_cond_dens_D_s) + log_theta2_prior_s; 
+    log_lik_theta2_s = sum(log_cond_dens_D_s) + log_theta2_prior_s; 
     % And we get the likelihood for the old draw
-    log_lik_theta2 = prod(log_cond_dens_D) + log_theta2_prior;
+    log_lik_theta2 = sum(log_cond_dens_D) + log_theta2_prior;
 
 
     % Now we can get the acceptance ratio
@@ -620,7 +627,7 @@ for ii = 2:M
             eye(size(Sigma_D_s(:,:,jj))) * nugsize(Sigma_D_s(:,:,jj)) ;
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_R_s = ...
-            logmvnpdf(R(:,jj)',mu_R(:,jj)',Sigma_R_s(:,:,jj));
+            logmvnpdfFS(R(:,jj)',mu_R(:,jj)',Sigma_R_s(:,:,jj));
         log_obs_rho_prior_s = ...
             log_obs_rho_prior_fn(obs_rho_s(:,jj));
 
@@ -641,11 +648,11 @@ for ii = 2:M
             Sigma_R(:,:,jj) = Sigma_R(:,:,jj) + ...
                 eye(size(Sigma_R(:,:,jj))) * nugsize(Sigma_R(:,:,jj)) ;
             log_cond_dens_R = ...
-                logmvnpdf(R(:,jj)',mu_R(:,jj)',Sigma_R(:,:,jj));
+                logmvnpdfFS(R(:,jj)',mu_R(:,jj)',Sigma_R(:,:,jj));
             log_lik_obs_rho = log_cond_dens_R + log_obs_rho_prior(jj);
         else
             log_cond_dens_D_s(jj) = ...
-                logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+                logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
             log_lik_obs_rho_s = log_cond_dens_D_s(jj) + ...
                 log_obs_rho_prior_s; 
             log_lik_obs_rho = log_cond_dens_D(jj) + log_obs_rho_prior(jj);
@@ -663,7 +670,7 @@ for ii = 2:M
             log_obs_rho_prior(jj) = log_obs_rho_prior_s;
             if modular % Need to compute new log_cond_dens_D
                 log_cond_dens_D_s(jj) = ...
-                    logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+                    logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
             end
             log_cond_dens_D(jj) = log_cond_dens_D_s(jj);
             accepted_obs_rho(jj) = accepted_obs_rho(jj) + 1;
@@ -719,7 +726,7 @@ for ii = 2:M
             eye(size(Sigma_D_s(:,:,jj))) * nugsize(Sigma_D_s(:,:,jj)) ;
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_R_s = ...
-            logmvnpdf(R(:,jj)',mu_R(:,jj)',Sigma_R_s(:,:,jj));
+            logmvnpdfFS(R(:,jj)',mu_R(:,jj)',Sigma_R_s(:,:,jj));
         log_obs_lambda_prior_s(jj) = ...
             log_obs_lambda_prior_fn(obs_lambda_s(jj));
         
@@ -741,11 +748,11 @@ for ii = 2:M
             Sigma_R(:,:,jj) = Sigma_R(:,:,jj) + ...
                 eye(size(Sigma_R(:,:,jj))) * nugsize(Sigma_R(:,:,jj)) ;
             log_cond_dens_R = ...
-                logmvnpdf(R(:,jj)',mu_R(:,jj)',Sigma_R(:,:,jj));
+                logmvnpdfFS(R(:,jj)',mu_R(:,jj)',Sigma_R(:,:,jj));
             log_lik_obs_lambda = log_cond_dens_R +log_obs_lambda_prior(jj);
         else
             log_cond_dens_D_s(jj) = ...
-                logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+                logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
             log_lik_obs_lambda_s = ...
                 log_cond_dens_D_s(jj) + log_obs_lambda_prior_s(jj); 
             log_lik_obs_lambda = ...
@@ -764,7 +771,7 @@ for ii = 2:M
             log_obs_lambda_prior(jj) = log_obs_lambda_prior_s(jj);
             if modular % Need to compute new log_cond_dens_D
                 log_cond_dens_D_s(jj) = ...
-                    logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+                    logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
             end
             log_cond_dens_D(jj) = log_cond_dens_D_s(jj);
             accepted_obs_lambda(jj) = accepted_obs_lambda(jj) + 1;
@@ -801,14 +808,14 @@ for ii = 2:M
                     Sigma_obs_dscr_obsdes(:,:,jj)' ...
                 Sigma_emulator_desdes(:,:,jj) + ...
                     Sigma_obs_dscr_desdes(:,:,jj) + ...
-                    Sigma_des_dscr_desdes_s(:,:,jj) +des_cov_mat(:,:,jj)...
+                    Sigma_des_dscr_desdes_s(:,:,jj) + des_cov_mat(:,:,jj)...
         ];
         % Add nugget for computational tractability
         Sigma_D_s(:,:,jj) = Sigma_D_s(:,:,jj) + ...
             eye(size(Sigma_D_s(:,:,jj))) * nugsize(Sigma_D_s(:,:,jj)) ;
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_D_s(jj) = ...
-            logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+            logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
         log_des_rho_prior_s = log_des_rho_prior_fn(des_rho_s(:,jj));
         log_lik_des_rho_s = log_cond_dens_D_s(jj) + log_des_rho_prior_s; 
         % And we get the likelihood for the old draw
@@ -866,7 +873,7 @@ for ii = 2:M
         
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_D_s(jj) = ...
-            logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+            logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
         log_des_lambda_prior_s(jj) = ...
             log_des_lambda_prior_fn(des_lambda_s(jj));
         log_lik_des_lambda_s = log_cond_dens_D_s(jj) + ...
@@ -891,14 +898,26 @@ for ii = 2:M
     end
     
     %% Draw new obs_var
+    % If obs_vars are constrained to be the same, draw it here
+    if obs_var_same == 1
+        obs_var_s(1) = Inf ; 
+        while obs_var_s(1) == Inf
+            obs_var_s(1) = ...
+                obs_var_proposal(obs_var(1),obs_var_Sigma(1)) ;
+        end
+        obs_var_s = ones(size(obs_var_s))*obs_var_s(1) ;
+    end
+        
     for jj = 1 : dim_y % For each model output
     if obs_var_est(jj) && size(obs_x,1)>0
         
         % Have to get a non-Inf value here
-        obs_var_s(jj) = Inf ; 
-        while obs_var_s(jj) == Inf
-            obs_var_s(jj) = ...
-                obs_var_proposal(obs_var(jj),obs_var_Sigma(jj)) ;
+        if obs_var_same == 0 % If obs_vars not constrained to be same
+            obs_var_s(jj) = Inf ; 
+            while obs_var_s(jj) == Inf
+                obs_var_s(jj) = ...
+                    obs_var_proposal(obs_var(jj),obs_var_Sigma(jj)) ;
+            end
         end
         
         % Get acceptance ratio alpha
@@ -955,7 +974,7 @@ for ii = 2:M
         
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_D_s(jj) = ...
-            logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+            logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
         log_obs_var_prior_s(jj) = ...
             log_obs_var_prior_fn(obs_var_s(jj));
         log_lik_obs_var_s = log_cond_dens_D_s(jj) + ...
@@ -968,17 +987,35 @@ for ii = 2:M
         log_alpha = log_lik_obs_var_s - log_lik_obs_var + ...
             obs_var_prop_log_mh_correction(...
                 obs_var_s(jj),obs_var(jj));
+        
 
         % Now accept theta1_s with probability min(alpha,1)
-        if log(rand) < log_alpha
-            obs_var(jj) = obs_var_s(jj);
-            obs_cov_mat(:,:,jj) = obs_cov_mat_s(:,:,jj);
-            log_obs_var_prior(jj) = log_obs_var_prior_s(jj);
-            log_cond_dens_D(jj) = log_cond_dens_D_s(jj); 
-            accepted_obs_var(jj) = accepted_obs_var(jj) + 1;
+        if obs_var_same == 0 % If obs_var can differ for diffrnt objectives
+            if log(rand) < log_alpha
+                obs_var(jj) = obs_var_s(jj);
+                obs_cov_mat(:,:,jj) = obs_cov_mat_s(:,:,jj);
+                log_obs_var_prior(jj) = log_obs_var_prior_s(jj);
+                log_cond_dens_D(jj) = log_cond_dens_D_s(jj); 
+                accepted_obs_var(jj) = accepted_obs_var(jj) + 1;
+            end
         end
-        
+    
+    
     end
+    end
+    if obs_var_same == 1 % If obs_var constrained to be id. for all objctvs
+        log_lik_obs_var_s = sum(log_cond_dens_D_s) + log_obs_var_prior_s(1);
+        log_lik_obs_var = sum(log_cond_dens_D) + log_obs_var_prior(1);
+        log_alpha = log_lik_obs_var_s - log_lik_obs_var + ...
+            obs_var_prop_log_mh_correction(...
+                obs_var_s(1),obs_var(1));
+        if log(rand) < log_alpha
+            obs_var = obs_var_s;
+            obs_cov_mat = obs_cov_mat_s;
+            log_obs_var_prior = log_obs_var_prior_s;
+            log_cond_dens_D = log_cond_dens_D_s; 
+            accepted_obs_var = accepted_obs_var + 1;
+        end
     end
     
     %% Draw new des_var
@@ -1047,7 +1084,7 @@ for ii = 2:M
         
         % Now we can get the log factors of the likelihood for the new draw
         log_cond_dens_D_s(jj) = ...
-            logmvnpdf(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
+            logmvnpdfFS(D(:,jj)',mu_D(:,jj)',Sigma_D_s(:,:,jj));
         log_des_var_prior_s(jj) = ...
             log_des_var_prior_fn(des_var_s(jj));
         log_lik_des_var_s = log_cond_dens_D_s(jj) + ...
@@ -1102,6 +1139,7 @@ for ii = 2:M
         end
         accepted_theta1 = 0 ;
         Sigma_theta1 = mult_theta1 * cov(logit(theta1_rec(1:ii,:)));
+%         Sigma_theta1 = mult_theta1 * diag(var(logit(theta1_rec(1:ii,:))));
         
         % Adjust proposal covariance for theta2
         if numel(theta2)>0
@@ -1311,13 +1349,13 @@ for ii = 2:M
             Sigma_R = Sigma_R + eye(size(Sigma_R)) * nugsize(Sigma_R) ;
             Sigma_D = Sigma_D + eye(size(Sigma_D)) * nugsize(Sigma_D) ;
             % Simulator, observation and target means
-            mu_R = [mean_sim(sim_x,sim_t1,sim_t2) ; ...
-                mean_sim(obs_x,repmat(theta1',size(obs_x,1),1),obs_t2)+ ...
+            mu_R = [mean_sim([sim_x,sim_t1,sim_t2]) ; ...
+                mean_sim([obs_x,repmat(theta1',size(obs_x,1),1),obs_t2])+ ...
                     mean_obs(obs_x,obs_t2) + ...
                     additional_discrep_mean(theta1)]; %Default adm() is 0
             mu_D = [mu_R ; 
-                mean_sim(des_x,repmat(theta1',size(des_x,1),1),...
-                    repmat(theta2',size(des_x,1),1)) + ...
+                mean_sim([des_x,repmat(theta1',size(des_x,1),1),...
+                    repmat(theta2',size(des_x,1),1)]) + ...
                     mean_obs(des_x,repmat(theta2',size(des_x,1),1)) + ...
                     mean_des(des_x)]; % Mean of D
             % Clear the proposed versions of the above values, since they
@@ -1327,7 +1365,7 @@ for ii = 2:M
                 Sigma_emulator_obsobs_s Sigma_obs_dscr_obsobs_s ...
                 Sigma_obs_dscr_obsdes_s
             % Now to get the log likelihoods
-            log_cond_dens_D = logmvnpdf(D',mu_D',Sigma_D);
+            log_cond_dens_D = logmvnpdfFS(D',mu_D',Sigma_D);
             
             % Output to console 
             if verbose
@@ -1353,8 +1391,8 @@ for ii = 2:M
             if emulator_use
                 error('Error: Cov. MLEs not yet implemented for emulator');
             else
-                mod_y = mean_sim(obs_x,repmat(t1_hat,size(obs_x,1),1),...
-                    obs_t2) ;
+                mod_y = mean_sim([obs_x,repmat(t1_hat,size(obs_x,1),1),...
+                    obs_t2]) ;
             end
             
             observed_discrep = obs_y - mod_y ;
@@ -1363,7 +1401,7 @@ for ii = 2:M
 %             X = [ones(size(obs_x,1),1) obs_x obs_t2];
 %             B = X\observed_discrep;
 %             mean_obs = @(x,t) [ones(size(x,1),1) x t]*B;
-            obs_fn = @(rl) -logmvnpdf(observed_discrep',...
+            obs_fn = @(rl) -logmvnpdfFS(observed_discrep',...
                 mean_obs(obs_x,obs_t2)',...
                 gp_cov(rl(1:(end-1)),[obs_x obs_t2],[obs_x obs_t2],...
                 rl(end),false) + eye(size(obs_x,1))*nugsize(1));
@@ -1408,16 +1446,16 @@ for ii = 2:M
             Sigma_D = Sigma_D + eye(size(Sigma_D)) * nugsize(Sigma_D) ;
 
             % Now to get the log likelihoods
-            mu_R = [mean_sim(sim_x,sim_t1,sim_t2) ; ...
-                mean_sim(obs_x,repmat(theta1',size(obs_x,1),1),obs_t2)+ ...
+            mu_R = [mean_sim([sim_x,sim_t1,sim_t2]) ; ...
+                mean_sim([obs_x,repmat(theta1',size(obs_x,1),1),obs_t2])+ ...
                     mean_obs(obs_x,obs_t2) + ...
                     additional_discrep_mean(theta1)]; %By default adm()=0
             mu_D = [mu_R ; 
-                mean_sim(des_x,repmat(theta1',size(des_x,1),1),...
-                    repmat(theta2',size(des_x,1),1)) + ...
+                mean_sim([des_x,repmat(theta1',size(des_x,1),1),...
+                    repmat(theta2',size(des_x,1),1)]) + ...
                     mean_obs(des_x,repmat(theta2',size(des_x,1),1)) + ...
                     mean_des(des_x)]; % Mean of D
-            log_cond_dens_D = logmvnpdf(D',mu_D',Sigma_D);
+            log_cond_dens_D = logmvnpdfFS(D',mu_D',Sigma_D);
             
         end
         

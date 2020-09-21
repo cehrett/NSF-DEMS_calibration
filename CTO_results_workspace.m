@@ -9,7 +9,7 @@
 clc; clear all; close all;
 
 direc = pwd; if direc(1)=='C' 
-    dpath = 'C:\Users\carle\Documents\MATLAB\NSF DEMS\Phase 1\';
+    dpath = 'C:\Users\Carl\Documents\MATLAB\NSF_DEMS\NSF-DEMS_calibration\';
 else
     dpath = 'E:\Carl\Documents\MATLAB\NSF-DEMS_calibration\';
 end
@@ -20,7 +20,11 @@ addpath(dpath);
 addpath([dpath,'stored_data']);
 addpath([dpath,'Example']);
 addpath([dpath,'Example\Ex_results']);
+addpath([dpath,'dual_calib']);
 fprintf('Ready.\n');
+
+% Change dir
+cd(dpath);
 
 %% TSE Get mins, ranges, means, stds from objective fn
 clc ; clearvars -except dpath ; close all ;
@@ -712,6 +716,8 @@ clc ; clearvars -except dpath ; close all ;
 %%% Load raw data
 load([dpath,'stored_data\'...
     'raw_dat']);
+% Uncomment in order to reduce the size of the training set:
+k=30; rng(355); raw_dat = raw_dat(sort(randsample(size(raw_dat,1),k)),:);
 sim_x = raw_dat(:,1);
 sim_t = raw_dat(:,2:3);
 sim_y = raw_dat(:,4:6); 
@@ -723,13 +729,15 @@ obs_x_size  = 3; % Number of target observations
 doplot = true;
 verbose = true;
 
-% Set emulator hyperparameter MLEs
-% These were found via fmincon.
-EmulatorCovHypers = [...
-    0.723919426870610   0.710378993535344   0.999999999999718;
-    0.978844923780470   0.972316694561107   0.998830926614838;
-    0.990609430210837   0.988186044400943   0.998556385291986;
-    0.017707123599447   0.026113351305598   0.000949737279367];
+% % Set emulator hyperparameter MLEs
+% % These were found via fmincon.
+% EmulatorCovHypers = [...
+%     0.723919426870610   0.710378993535344   0.999999999999718;
+%     0.978844923780470   0.972316694561107   0.998830926614838;
+%     0.990609430210837   0.988186044400943   0.998556385291986;
+%     0.017707123599447   0.026113351305598   0.000949737279367];
+% Actually just estimate them at time of getting settings.
+EmulatorCovHypers = 'Default';
 
 % Set number of draws, burn_in for each mcmc:
 M = 1e4; b = .5 ;
@@ -750,9 +758,25 @@ obs_y = repmat(...
     [0.742497187630386   0.089184738492403  71.112749103024015],...
     obs_x_size,1);
 
-
 % Emulator mean
-mean_sim = @(a,varargin) repmat([0 0 0],size(a,1),1) ; 
+%     mean_sim = @(a,varargin) repmat([0 0],size(a,1),1) ; 
+% Evaluate with deg 2 poly regression
+mod_terms = [];
+coefs=[];
+sim_x_01 = (sim_x - xmin)./xrange;
+sim_t_01 = (sim_t - tmin)./trange;
+sim_y_std = (sim_y - mean_y)./std_y;
+for ii=1:size(sim_y,2)
+    mod = polyfitn([sim_x_01 sim_t_01],sim_y_std(:,ii),2);
+    mod_terms(:,:,ii) = mod.ModelTerms;
+    coefs(:,ii) = mod.Coefficients;
+end
+mean_sim = @(xt_01) reshape(cell2mat(...
+    arrayfun(@(row_idx) ...
+    sum(coefs .* reshape(prod(xt_01(row_idx,:).^mod_terms,2),...
+    size(mod_terms,1),size(mod_terms,3)),1),(1:size(xt_01,1)),...
+    'UniformOutput',false)'),size(xt_01,1),size(sim_y,2)) ;
+
 
 % Get settings for DCTO
 settings = MCMC_dual_calib_settings(sim_x,sim_t,[],sim_y,...
@@ -779,7 +803,10 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t,[],sim_y,...
 count = 0 ; err_count = 0 ; 
 while count == err_count
     try
+        tic;
         res = MCMC_dual_calib(settings);
+        elapsed_time = toc;
+        res.elapsed_time = elapsed_time;
     catch ME
         warning('Warning: calibration failed. Retrying...');
         err_count = err_count + 1;
@@ -789,15 +816,16 @@ while count == err_count
 end
 
 locstr = [dpath,'stored_data\'...
-    '2019-11-05_CTO'];
+    datestr(now,'yyyy-mm-dd'),'_CTO_size',int2str(k)];
 % save(locstr,'res');
 
 %% WTA Get posterior predictive distribution from CTO after PCTO, and prior
 clc ; clearvars -except dpath ; close all ;
 
 % Load the results
+% If results already in memory can run this: clearvars -except dpath res
 locstr = [dpath,'stored_data\'...
-    '2019-11-05_CTO'];
+    '2020-04-25_CTO_size500'];
 load(locstr);
 
 % Define inputs mins and ranges 
@@ -961,6 +989,7 @@ clc ; clearvars -except dpath ; close all ;
 %%% Load raw data
 load([dpath,'stored_data\'...
     'raw_dat']);
+k=30; rng(355) ; raw_dat = raw_dat(sort(randsample(size(raw_dat,1),k)),:);
 sim_x = raw_dat(:,1);
 sim_t = raw_dat(:,2:3);
 sim_y = raw_dat(:,[4,6]); 
@@ -980,11 +1009,12 @@ verbose = true;
 
 % Set emulator hyperparameter MLEs
 % These were found via fmincon.
-EmulatorCovHypers = [...
-    0.723919426870610      0.999999999999718;
-    0.978844923780470      0.998830926614838;
-    0.990609430210837      0.998556385291986;
-    0.017707123599447      0.000949737279367];
+EmulatorCovHypers = 'Default';
+% [...
+%     0.723919426870610      0.999999999999718;
+%     0.978844923780470      0.998830926614838;
+%     0.990609430210837      0.998556385291986;
+%     0.017707123599447      0.000949737279367];
 
 % Set number of draws, burn_in for each mcmc:
 M = 1e4; b = .5 ;
@@ -1025,7 +1055,7 @@ for ii = 1 : ngrid
         'obs_discrep_use_MLEs',false,...
         'doplot',doplot,...
         'verbose',verbose,...
-        'obs_var_est',[true false],...
+        'obs_var_est',[true true],...
         'CTO',true);
 
     % Perform dual calibration
@@ -1048,16 +1078,20 @@ for ii = 1 : ngrid
     
 end
 
+% locstr = [dpath,'stored_data\'...
+%     '2019-11-05_CTO_costgrid'];
 locstr = [dpath,'stored_data\'...
-    '2019-11-05_CTO_costgrid'];
+    '2020-04-22_CTO_costgrid_size100'];
 % save(locstr,'results');
 
 %% WTA Get posterior predictive results for cost grid estimate of PF
 clc ; clearvars -except dpath ; close all ;
 
 % Load the results
+% locstr = [dpath,'stored_data\'...
+%     '2019-11-05_CTO_costgrid'];
 locstr = [dpath,'stored_data\'...
-    '2019-11-05_CTO_costgrid'];
+    '2020-04-22_CTO_costgrid_size100'];
 load(locstr);
 
 % Define inputs mins and ranges 
@@ -1168,6 +1202,7 @@ for kk = 1 : length(results)
 end
 
 % save(locstr,'results');
+
 
 %% WTA model validation (via cross validation)
 clc ; clearvars -except dpath ; close all ; 
@@ -1319,6 +1354,9 @@ for ii=1:nfiles
 
     % How big of a data set was used here?
     ninc = size(results.true_vals,1);
+    
+    % What are the RMSEs?
+    RMSEs = results.RMSEs(ii,:);
 
     % Get error bar lengths
     err = 1.96 * sqrt(results.variances);
@@ -1330,12 +1368,21 @@ for ii=1:nfiles
             err(:,kk),'*b');
         xlabel(['FE Model: ',outputs{kk}]);
         ylabel(['GP Model: ',outputs{kk}]);
-        xlim([min([results.true_vals(:,kk);results.predictions(:,kk)]),...
-            max([results.true_vals(:,kk);results.predictions(:,kk)])]);
-        ylim([min([results.true_vals(:,kk);results.predictions(:,kk)]),...
-            max([results.true_vals(:,kk);results.predictions(:,kk)])]);
+        xlims = [min([results.true_vals(:,kk);results.predictions(:,kk)]),...
+            max([results.true_vals(:,kk);results.predictions(:,kk)])];
+        ylims = [min([results.true_vals(:,kk);results.predictions(:,kk)]),...
+            max([results.true_vals(:,kk);results.predictions(:,kk)])];
+        xlim(xlims);
+        ylim(ylims);
         % Add reference diagonal line
         refline(1,0)
+        
+        % Add RMSE as text on the plot
+        % First get location for text
+        xloc = xlims(1) + .05 * range(xlims) ; 
+        yloc = ylims(2) - .10 * range(ylims) ;
+        RMSE_str = sprintf('RMSE: %2.3g',RMSEs(kk));
+        text(xloc,yloc,RMSE_str);
     end
 
     % Add title
@@ -1345,18 +1392,48 @@ for ii=1:nfiles
     % White background
     set(figs(ii),'Color','white');
     
-    export_fig(stitle);
+    fig_str = sprintf(['FIG_GP_CV_size',int2str(ninc)]);
+    % Save figure
+    print(figs(ii),fig_str,'-depsc','-r600');
+    
+%     export_fig(stitle);
 end
 
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Everything above this line is actually used to gather results in the   %
 % paper. Everything below this line is just workspace used to investigate %
 % things.                                                                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+%% Get GP regression with uncertainty
+clc ; clearvars -except dpath ; close all
+
+% create samples
+n = 10;
+x = linspace(0.5,2.5,n)';
+y = sin(10*pi.*x) ./ (2.*x)+(x-1).^4 + 1.5*rand(n,1);
+% Gaussian Process Regression
+gprMdl = fitrgp(x,y,'OptimizeHyperparameters','auto');
+[ypred,ysd,yint] = resubPredict(gprMdl,'Alpha',0.05);
+
+xpred = linspace(0.5,2.5,100)';
+[ypred,ysd,yint] = predict(gprMdl,xpred,'Alpha',0.05);
+% draw samples and mean&variance
+figure;
+plot(x, y, 'o');
+hold on;
+% errorbar(pred_x, ypred,ysd)
+plot(xpred,ypred);
+plot(xpred,yint(:,1));
+plot(xpred,yint(:,2));
+
+
+
 
 %% Get simulation observations from toy ex. as LHC design // not used 
 clc ; clearvars -except dpath ; close all ;
@@ -1387,6 +1464,7 @@ raw_dat = struct('sim_xt',sim_xt,'sim_y',sim_y);
 % save([dpath 'Example\Ex_results\'...
 % '2019-10-17-raw_dat-' int2str(n) 'obs'],...
 % 'raw_dat');
+
 
 %% Gather toy example results on CTO using DCTO code, estimating var
 clc ; clearvars -except dpath ; close all ;
