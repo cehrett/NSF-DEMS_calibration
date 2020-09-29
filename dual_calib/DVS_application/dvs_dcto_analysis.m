@@ -181,8 +181,12 @@ fprintf('\bDesign input mean:');
 disp(mean(theta2));
 
 % Print obs beta params for rho
-fprintf('\bDesign input mean:');
-disp(results.settings);
+fprintf('\bObs rho hypers:');
+disp(results.settings.obs_rho_beta_params);
+
+% Print obs gam params for lambda
+fprintf('\bObs lambda hypers:');
+disp(results.settings.obs_lambda_gam_params);
 
 %% scr
 size([results.theta1, results.theta2])
