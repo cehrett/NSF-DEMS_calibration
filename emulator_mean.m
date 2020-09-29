@@ -1,4 +1,4 @@
-function [objectives, cons] = emulator_mean(res, theta)
+function [objectives, cons] = emulator_mean(res, x, theta)
     % Gets emulator output at a given theta value.
     % res is a set of results from CTO. This is used for convenience, since
     % res.settings has the emulator hyperparameters we need.
@@ -28,7 +28,7 @@ function [objectives, cons] = emulator_mean(res, theta)
 
     
     % Get set up for loop that will find posterior predictive dist
-    pred_xt_all = ([.5*ones(size(theta,1),sizex) theta] - [zeros(1,sizex) tmin])./[ones(1,sizex) trange];
+    pred_xt_all = ([x theta] - [xmin tmin])./[xrange trange];
     sim_xt = [res.settings.sim_x res.settings.sim_t1 res.settings.sim_t2];
     prior_mean_xt_all = res.settings.mean_sim(pred_xt_all) ; 
     eta = res.settings.sim_y;
@@ -63,8 +63,8 @@ function [objectives, cons] = emulator_mean(res, theta)
                 (eta(:,ii) - prior_mean_simxt(:,ii))) ; 
             pred_cov_xt_current(:,:,ii) = ...
                 cov_pxt_pxt - cov_pxt_xt * (cov_xt_xt(:,:,ii) \ cov_pxt_xt') ; 
-            fprintf('\n%g of %g, %g of 3 Done\n',jj,...
-                ceil(size(theta,1)/maxsimul),ii);
+%             fprintf('\n%g of %g, %g of 3 Done\n',jj,...
+%                 ceil(size(theta,1)/maxsimul),ii);
             pred_mean_xt(startpt:endpt,ii) = pred_mean_xt_current(:,ii);
             pred_cov_xt(startpt:endpt,startpt:endpt,ii) = ...
                 pred_cov_xt_current(:,:,ii);
