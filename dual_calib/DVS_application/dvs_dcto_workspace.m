@@ -22,15 +22,18 @@ addpath([dpath,'Example']);
 % Change dir
 cd(dpath);
 
+% Let user know
+fprintf('\nDone.\n')
+
 %% Load the data
 clc ; clearvars -except dpath ; close all ;
 
 % Load the data
-filename = [dpath,'dual_calib\DVS_application\data\FEM_0909_LeslieXu.xlsx'];
+filename = [dpath,'dual_calib\DVS_application\data\FEM_0921_LeslieXu.xlsx'];
 raw_dat = readtable(filename);
 
 sim_dat = raw_dat(:,2:5);
-exp_dat = raw_dat(1:7,10:end);
+exp_dat = raw_dat(1:12,10:(end-1));
 
 % Save the simulation data and experimental data separately
 sim_filename = [dpath,'dual_calib\DVS_application\data\simulation_data'];
@@ -58,15 +61,14 @@ sim_t1 = sim_dat(:,2);
 sim_t2 = sim_dat(:,3);
 sim_y = sim_dat(:,4);
 obs_x = exp_dat(:,1);
-obs_t1 = exp_dat(:,2);
-obs_t2 = exp_dat(:,3);
-obs_y = exp_dat(:,4);
+obs_t2 = exp_dat(:,2);
+obs_y = exp_dat(:,3);
 
 % Get minima and ranges of inputs
 x_min = min([sim_x;obs_x]);
 x_range = range([sim_x;obs_x]);
-t1_min = min([sim_t1;obs_t1]);
-t1_range = range([sim_t1;obs_t1]);
+t1_min = min(sim_t1);
+t1_range = range(sim_t1);
 t2_min = min([sim_t2;obs_t2]);
 t2_range = range([sim_t2;obs_t2]);
 
@@ -82,7 +84,7 @@ des_y = zeros(size(des_x,1),1);
 clear exp_dat sim_dat exp_filename sim_filename dpath
 % save(['C:\Users\Carl\Documents\MATLAB\NSF_DEMS\NSF-DEMS_calibration\',...
 %     'dual_calib\DVS_application\data',...
-%     '\2020-09-14_dvs_data_and_scaling_params']);
+%     '\2020-09-22_dvs_data_and_scaling_params']);
 dpath = 'C:\Users\Carl\Documents\MATLAB\NSF_DEMS\NSF-DEMS_calibration\';
 
 %% Use polynomial regression to get mean function for GP prior
@@ -90,7 +92,7 @@ clc ; clearvars -except dpath ; close all ;
 
 % Load the raw data
 loadfile = [dpath, 'dual_calib\DVS_application\data',...
-    '\2020-09-14_dvs_data_and_scaling_params'];
+    '\2020-09-22_dvs_data_and_scaling_params'];
 load(loadfile);
 
 % Get the mean function, mean_sim
@@ -117,7 +119,7 @@ clearvars -except loadfile mean_sim dpath;
 load(loadfile)
 clear loadfile
 % save([dpath, 'dual_calib\DVS_application\data',...
-%     '\2020-09-14_dvs_data_and_scaling_params']);
+%     '\2020-09-22_dvs_data_and_scaling_params']);
 
 
 
@@ -126,7 +128,7 @@ clc ; clearvars -except dpath ; close all ;
 
 % Load the raw data
 loadfile = [dpath, 'dual_calib\DVS_application\data',...
-    '\2020-09-14_dvs_data_and_scaling_params'];
+    '\2020-09-22_dvs_data_and_scaling_params'];
 load(loadfile);
 
 % Normalize the simulation inputs, standardize the outputs
@@ -166,7 +168,7 @@ clc ; clearvars -except dpath ; close all ;
 
 % Load the raw data
 loadfile = [dpath, 'dual_calib\DVS_application\data',...
-    '\2020-09-14_dvs_data_and_scaling_params'];
+    '\2020-09-22_dvs_data_and_scaling_params'];
 load(loadfile);
 
 % Get settings
@@ -177,17 +179,19 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'min_t1',t1_min,'range_t1',t1_range,...
     'min_t2',t2_min,'range_t2',t2_range,...
     'mean_y',y_mean,'std_y',y_std,...
+    'M',1e4,...
     'burn_in',.5,...
     'EmulatorMean',mean_sim,...
     'obs_discrep',true,...
-    'modular',true);
+    'modular',false,...
+    'obs_rho_beta_params',[10 1]);
 
 % Perform calibration
 results = MCMC_dual_calib(settings);
 
 % Save
 saveloc = [dpath, 'dual_calib\DVS_application\data',...
-    '\2020-09-17_dvs_dcto_results'];
+    '\2020-09-29_dvs_dcto_results'];
 save(saveloc,'results');
 
 

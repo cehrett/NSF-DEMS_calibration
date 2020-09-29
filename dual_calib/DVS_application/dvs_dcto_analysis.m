@@ -27,8 +27,11 @@ clc ; clearvars -except dpath ; close all ;
 
 % Load the raw data
 loadfile = [dpath, 'dual_calib\DVS_application\data',...
-    '\2020-09-14_dvs_data_and_scaling_params'];
+    '\2020-09-22_dvs_data_and_scaling_params'];
 load(loadfile);
+
+% Define true EM
+obs_t1=6.2e10;
 
 % Prepare figure with subplots
 figure('units','normalized','outerposition',[0.5 0 .5 .35]);
@@ -76,7 +79,7 @@ clc ; clearvars -except dpath results ; close all ;
 % Load a specific file if no results in workspace
 if ~exist('results')
     loadloc = [dpath,'dual_calib\DVS_application\data\',...
-        ''];
+        '\2020-09-28_dvs_dcto_results'];
     load(loadloc);
 end
 
@@ -84,6 +87,10 @@ end
 true_theta1 = 6.2e10;
 x_min = results.settings.min_x;
 x_range = results.settings.range_x;
+t1_min = results.settings.min_t1;
+t1_range = results.settings.range_t1;
+t2_min = results.settings.min_t2;
+t2_range = results.settings.range_t2;
 y_mean = results.settings.mean_y;
 y_std = results.settings.std_y;
 sim_x_os = results.settings.sim_x * x_range + x_min;
@@ -111,17 +118,19 @@ end
 subplot(ax(1));
 histogram(theta1);
 xline(true_theta1,'r');
+xlim([t1_min,t1_min+t1_range]);
 title('Calibration input');
 
 % Show histogram of design parameter
 subplot(ax(2));
 histogram(theta2);
+xlim([t2_min,t2_min+t2_range]);
 title('Design input');
 
 %%% Show histogram of predicted model output along with sim, obs output
 % First get model output
 tic;
-model_output_means = emulator_mean(results,[theta1 theta2]);
+model_output_means = emulator_mean(results,(x_min+.5*x_range)*ones(size(theta1)),[theta1 theta2]);
 toc;
 % Now make histogram
 subplot(ax(3));
@@ -157,6 +166,25 @@ disp(results.settings.modular);
 fprintf('\bCalibration error:');
 disp(abs(mean(theta1)-true_theta1));
 
+% Print Gelman-Rubin statistic
+fprintf('\bGelman-Rubin statistic, theta1:');
+disp(mcmcgr(reshape(results.theta1,1,1,size(results.theta1,1)),2));
+fprintf('\bGelman-Rubin statistic, theta2:');
+disp(mcmcgr(reshape(results.theta2,1,1,size(results.theta2,1)),2));
 
+% Print posterior calibration input mean
+fprintf('\bCalibration input mean:');
+disp(mean(theta1));
+
+% Print posterior design input mean
+fprintf('\bDesign input mean:');
+disp(mean(theta2));
+
+% Print obs beta params for rho
+fprintf('\bDesign input mean:');
+disp(results.settings);
+
+%% scr
+size([results.theta1, results.theta2])
 
 
