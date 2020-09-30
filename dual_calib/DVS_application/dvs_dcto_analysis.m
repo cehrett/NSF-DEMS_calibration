@@ -79,7 +79,7 @@ clc ; clearvars -except dpath results ; close all ;
 % Load a specific file if no results in workspace
 if ~exist('results')
     loadloc = [dpath,'dual_calib\DVS_application\data\',...
-        '\2020-09-28_dvs_dcto_results'];
+        '\2020-09-30_dvs_dcto_results'];
     load(loadloc);
 end
 
@@ -184,9 +184,9 @@ disp(mean(theta2));
 fprintf('\bObs rho hypers:');
 disp(results.settings.obs_rho_beta_params);
 
-% Print obs gam params for lambda
-fprintf('\bObs lambda hypers:');
-disp(results.settings.obs_lambda_gam_params);
+% Print time elapsed
+fprintf('\bTime elapsed:');
+disp(results.time_elapsed);
 
 %% scr
 size([results.theta1, results.theta2])

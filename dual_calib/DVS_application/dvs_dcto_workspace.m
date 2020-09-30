@@ -188,11 +188,14 @@ settings = MCMC_dual_calib_settings(sim_x,sim_t1,sim_t2,sim_y,...
     'obs_lambda_gam_params',[5,5]);
 
 % Perform calibration
+tic;
 results = MCMC_dual_calib(settings);
+time_elapsed = toc;
+results.time_elapsed = time_elapsed;
 
 % Save
 saveloc = [dpath, 'dual_calib\DVS_application\data',...
-    '\2020-09-29_dvs_dcto_results'];
+    '\2020-09-30_dvs_dcto_results'];
 save(saveloc,'results');
 
 
