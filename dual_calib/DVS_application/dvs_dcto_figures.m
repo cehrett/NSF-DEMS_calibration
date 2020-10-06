@@ -32,7 +32,7 @@ lcol = [218 165 32]/255 ;
 
 % Load results
 loadloc = [dpath,'dual_calib\DVS_application\data\',...
-        '\2020-09-28_dvs_dcto_results'];
+        '\2020-09-30_dvs_dcto_results'];
 load(loadloc,'results');
 
 % Define inputs mins and ranges 
@@ -46,7 +46,7 @@ t2range = results.settings.range_t2;
 burn_in = results.settings.burn_in;
 
 % First, get prior and posterior theta1
-f = figure('pos',[10 10 600 250]);
+f = figure('pos',[10 10 650 250]);
 subplot(1,2,1);
 % Plot prior
 fill([t1min t1min + t1range t1min + t1range t1min],...
@@ -76,7 +76,7 @@ xlim([t2min t2min + t2range]);
 hold on;
 % Get a histogram of theta2 for KOH
 histogram(results.theta2(burn_in:end,:),'Normalization','pdf',...
-    'EdgeColor','none','FaceColor','b','FaceAlpha',fa,'BinWidth',3);
+    'EdgeColor','none','FaceColor','b','FaceAlpha',fa,'BinWidth',1);
 % Put a legend on it
 lg2 = legend('Prior','Posterior');
 % title('Prior and posterior distributions of \theta_2');
@@ -86,24 +86,24 @@ set(f,'color','white');
 
 % Set suptitle and fix positions 
 suptitle('Prior and posterior distributions for dynamic vibration system');
-f.Children(2).Position(2) = .2 ; f.Children(2).Position(4) = .675 ; 
-f.Children(5).Position(2) = .2 ; f.Children(5).Position(4) = .675 ; 
+f.Children(2).Position(2) = .2 ; f.Children(2).Position(4) = .625 ; 
+f.Children(5).Position(2) = .2 ; f.Children(5).Position(4) = .625 ; 
 flushLegend(lg2,'northeast');
-axes(f.Children(5)); flushLegend(lg1,'northeast');
+axes(f.Children(5)); flushLegend(lg1,'northwest');
 % TODO fix title overlap scale
 
 % Save it:
 savestr = ...
-sprintf(['FIG_DVS_DCTO_input_posteriors.png']);
-% saveas(f,savestr);
-% export_fig(savestr,'-png','-m2',f);
+sprintf(['FIG_DVS_DCTO_input_posteriors']);
+set(f,'PaperPositionMode','auto')
+% print(f,savestr,'-depsc','-r600')
 
 %% Get prior and post. predictive distributions
 clc ; clearvars -except dpath ; close all ;
 
 % Load previously gathered results
 loadloc = [dpath,'dual_calib\DVS_application\data\',...
-        '\2020-09-22_dvs_dcto_results'];
+        '\2020-09-30_dvs_dcto_results'];
 load(loadloc,'results');
 burn_in=results.settings.burn_in; 
 
@@ -247,12 +247,12 @@ for ii = 1:n
 end
 % Set title
 
-suptitle('Posterior model outputs at various oscillator masses');
+suptitle('Prior and posterior damping ratio at various oscillator masses');
 
 
 % Save it:
 set(f,'Color','w');
 savestr = ...
-sprintf(['FIG_DVS_DCTO_prior_and_posterior_output.png']);
-% saveas(f,savestr);
-% export_fig(savestr,'-png','-m2',f);
+sprintf(['FIG_DVS_DCTO_prior_and_posterior_output']);
+set(f,'PaperPositionMode','auto')
+% print(f,savestr,'-depsc','-r600')
