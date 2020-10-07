@@ -303,8 +303,10 @@ for ii=1:6
     
     % Sort out title and labels
     dtc = discrep_title_content(:,ii);
-    title(sprintf('g_%d, %s',dtc{:}));
-    xlabel('t_c');ylabel('t_d');zlabel('f(x,t_c,t_d)');
+    dtc_lab=dtc{1};
+    title(sprintf('f_%d, %s',dtc{:}));
+    xlabel('t_c');ylabel('t_d');
+    zlabel(sprintf('f_%d(x,t_c,t_d)',dtc_lab));
     axis vis3d;
     view([-110.4000    6.5334]);
     
@@ -337,7 +339,7 @@ f.Children(1).Position = [0.5 0.025 0.575 0.32];
 % saveas(f,'FIG_six_discrepancies.png');
 figstr = 'FIG_six_discrepancies';
 set(f,'PaperPositionMode','auto')
-print(f,figstr,'-depsc','-r600')
+% print(f,figstr,'-depsc','-r600')
 
 %% Results from calibration with various discrepancies
 clc ; clearvars -except dpath ; close all ;
@@ -1315,3 +1317,85 @@ savestr = ...
     int2str(discrep),'.png']);
 % saveas(f,savestr);
 % export_fig(savestr,'-png','-m2',f1);
+
+%% Show the functional relationship between theta1 and theta2
+clc ; clearvars -except dpath ; close all ;
+
+% Define inputs mins and ranges 
+xmin = .5;
+xrange = .5;
+t1min = 1.5;
+t1range = 3;
+t2min = 0;
+t2range = 5;
+
+% Set discrepancy
+discrep = 0;
+
+% Set base theta1
+low_theta1 = 1.5
+high_theta1 = 2.25
+
+% The function
+% t1_fn = @(t2) t1min + t1range - t1range / t2range * (t2 - t2min) ;
+% t1_fn = @(t2) t1min * 7/6 + (t1range - t1min/2) *...
+%     exp(-2*(t2-(t2min+t2range*7/10)).^10) ;
+t1_fn = @(x) low_theta1 + ...
+    (high_theta1-low_theta1) * ...
+    exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) base_theta1 - ...
+%     2.25 *exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) high_theta1 - ...
+%     (high_theta1 - low_theta1) * ...
+%     exp(40*(x-t2min)/t2range-20)./(1+exp(40*(x-t2min)/t2range-20));
+% t1_fn = @(x) low_theta1 + ...
+%     (high_theta1-low_theta1) * ...
+%     exp(20*((x-t2min)/t2range).^2-10)./...
+%     (1+exp(20*((x-t2min)/t2range).^2-10));
+% t1_fn = @(x) low_theta1 + ...
+%     (high_theta1-low_theta1) * ...
+%     exp(80*((x-t2min)/t2range)-40)./...
+%     (1+exp(80*((x-t2min)/t2range)-40));
+t1_fn = @(x) low_theta1 + ...
+    (high_theta1-low_theta1) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
+t1_fn = @(x) high_theta1 - ...
+    (high_theta1-low_theta1) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
+% t1_fn=@(x)2.5 * ones(size(x))
+
+% Let's take a look at the objective function values for set x, using true
+% t1 function as well as just base theta1
+x = 1;
+t2 = linspace(t2min,t2min+t2range,10000)';
+t1 = t1_fn(t2);
+y = dual_calib_example_fn(x,xmin,xrange,t1,t1min,t1range,...
+    t2,t2min,t2range,0,1,discrep,false);
+y_wrong = dual_calib_example_fn(x,xmin,xrange,low_theta1,t1min,t1range,...
+    t2,t2min,t2range,0,1,discrep,false);
+y_wrong2= dual_calib_example_fn(x,xmin,xrange,high_theta1,t1min,t1range,...
+    t2,t2min,t2range,0,1,discrep,false);
+f=figure('Position',[10 10 300 200]);
+% subplot(1,2,1);
+plot(t2,t1,'LineWidth',2);
+ylim([low_theta1-.25,high_theta1+.25]);
+xlabel('t2');ylabel('\theta_1');
+title('Dependence of \theta_1 on t_2');
+
+% subplot(1,2,2);
+% plot(t2,y,'LineWidth',2);
+% xlabel('t2');ylabel('y');
+% hold on;
+% plot(t2,y_wrong,'--','LineWidth',2);
+% plot(t2,y_wrong2,':','LineWidth',2);
+% [m,i] = min(y) ; t2opt = t2(i)
+% t1opt = t1(i)
+
+% Save it:
+set(f,'Color','w');
+savestr = ...
+sprintf(['FIG_theta_1_dependence_on_t2']);
+set(f,'PaperPositionMode','auto')
+% print(f,savestr,'-depsc','-r600')
