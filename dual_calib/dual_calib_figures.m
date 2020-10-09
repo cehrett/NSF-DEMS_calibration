@@ -1399,3 +1399,82 @@ savestr = ...
 sprintf(['FIG_theta_1_dependence_on_t2']);
 set(f,'PaperPositionMode','auto')
 % print(f,savestr,'-depsc','-r600')
+
+%% See objective function output as f'n of tc, td when tc depends on td
+clc ; clearvars -except dpath ; close all ;
+
+% Define inputs mins and ranges 
+xmin = .5;
+xrange = .5;
+t1min = 1.5;
+t1range = 3;
+t2min = 0;
+t2range = 5;
+
+% Set discrepancy
+discrep = 0;
+
+% Set base theta1
+low_theta1 = 1.5
+high_theta1 = 2.25
+
+% The function
+t1_fn = @(x) high_theta1 - ...
+    (high_theta1-low_theta1) * ...
+    exp(40*((x-t2min)/t2range)-20)./...
+    (1+exp(40*((x-t2min)/t2range)-20));
+
+% Let's take a look at the objective function values for set x, using true
+% t1 function as well as just base theta1
+x = 1;
+t2 = linspace(t2min,t2min+t2range,100)';
+t1 = t1_fn(t2);
+all_t1 = linspace(t1min,t2min+t2range,100)';
+% Get optimal theta2 for each t1
+fmfn_t = @(z,t) dual_calib_example_fn(x,xmin,xrange,...
+    t,t2min,t1range,...
+    z,t2min,t2range,...
+    0,1,...
+    0,...
+    false);
+theta2 = nan(size(all_t1));
+for ii = 1:length(all_t1)
+    fmfn = @(z) fmfn_t(z,all_t1(ii));
+    theta2(ii) = fmincon(fmfn,2,[],[],[],[],t2min,t2range);
+end
+y_all = dual_calib_example_fn(x,xmin,xrange,all_t1,t1min,t1range,...
+    theta2,t2min,t2range,0,1,discrep,false);
+
+y = dual_calib_example_fn(x,xmin,xrange,t1,t1min,t1range,...
+    t2,t2min,t2range,0,1,discrep,false);
+
+f = figure('pos',[20 20 650 250]);
+[m,i] = min(y) ; 
+t2opt = t2(i)
+t1opt = t1(i)
+
+subplot(1,2,1);
+plot(all_t1,y_all,'-','LineWidth',2);
+xlabel('t_c');
+ylabel('f(1, t_c, \theta_d(t_c))');
+xline(t1opt,'r','LineWidth',2);
+xlim([min(all_t1),max(all_t1)]);
+label = 'True \theta_c value at t_d = \theta_d ';
+text(t1opt+.1,0.075,label,'Interpreter','tex');
+
+subplot(1,2,2);
+plot(t2,y,'LineWidth',2);
+xlabel('t_d');
+ylabel('f(1, \theta_c(t_d), t_d)');
+hold on;
+% plot(t2,y_wrong);
+% plot(t2,y_wrong2);
+xline(t2opt,'r','LineWidth',2);
+label = sprintf('Optimal\n\\theta_d value');
+text(t2opt+.1,.9,label);
+
+% Save it
+set(f,'Color','w');
+savestr = 'FIG_true_optimal_theta1_theta2';
+set(f,'PaperPositionMode','auto')
+print(f,savestr,'-depsc','-r600')
