@@ -2,6 +2,7 @@ function [objectives, cons] = emulator_mean(res, x, theta)
     % Gets emulator output at a given theta value.
     % res is a set of results from CTO. This is used for convenience, since
     % res.settings has the emulator hyperparameters we need.
+    % x is a set of operational domain inputs, on original scale.
     % theta is a set of design variables at which we want the emulator
     % mean output. It should be provided on the original scale.
     % This function only outputs the mean, no
@@ -73,6 +74,6 @@ function [objectives, cons] = emulator_mean(res, x, theta)
     % Put back on original scale
     mean_y = res.settings.mean_y; std_y = res.settings.std_y;
     pred_mean_xt_os = pred_mean_xt .* std_y + mean_y;
-    objectives = pred_mean_xt_os;
+    objectives = pred_mean_xt_os';
     
 end

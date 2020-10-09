@@ -196,6 +196,66 @@ results.time_elapsed = time_elapsed;
 % Save
 saveloc = [dpath, 'dual_calib\DVS_application\data',...
     '\2020-09-30_dvs_dcto_results'];
-save(saveloc,'results');
+% save(saveloc,'results');
 
 
+%% Gather NSGA-II results for DVS
+clc ; clearvars -except dpath ; close all ;
+
+% Load the cost grid results
+% locstr= ['C:\Users\Carl\Documents\MATLAB\NSF_DEMS\NSF-DEMS_calibration\'...
+%     'stored_data\2020-04-26_CTO_costgrid_size30'];
+locstr = [dpath, 'dual_calib\DVS_application\data',...
+    '\2020-09-30_dvs_dcto_results'];
+load(locstr);
+
+% Prepare elements needed for bounds and objective function
+sim_t2 = results.settings.sim_t2 .* results.settings.range_t2 +...
+    results.settings.min_t2;
+x = results.settings.des_x .* results.settings.range_x + ...
+    results.settings.min_x;
+sizex = size(x,1);
+
+% Get posterior point estimate of calibration input
+t1 = mean(results.theta1);
+
+% Set NSGA-II options
+options = nsgaopt();                    % create default options structure
+options.popsize = 50;                   % population size
+options.maxGen  = 500;                  % max generation
+
+options.numObj = sizex;                     % number of objectives
+options.numVar = size(results.theta2,2); % number of design variables
+options.numCons = 0;                    % number of constraints
+options.lb = min(sim_t2);               % lower bound of x
+options.ub = max(sim_t2);                % upper bound of x
+options.objfun = @(t2) emulator_mean(results,x,ones(sizex,1).*[t1 t2]);% objective function handle
+
+options.plotInterval = 10;              % large interval for efficiency
+options.outputInterval = 10;
+
+tic;
+nsga_result = nsga2(options);
+elapsed_time = toc;
+nsga_result.elapsed_time = elapsed_time;
+
+
+% For convenience, add top-level array to result with final generation
+% design settings and objective values.
+final_theta2 = nan(options.popsize,options.numVar);
+final_obj = nan(options.popsize,options.numObj);
+
+for ii=1:options.popsize
+    final_theta2(ii,:) = nsga_result.pops(options.maxGen,ii).var;
+    final_obj(ii,:) = nsga_result.pops(options.maxGen,ii).obj;
+end
+
+nsga_result.final_theta2 = final_theta2;
+nsga_result.final_obj = final_obj;
+
+results.nsga_result=nsga_result;
+    
+
+
+% Save NSGA-II result
+% save(locstr,'results');
