@@ -28,7 +28,8 @@ clc ; clearvars -except dpath ; close all ;
 % Face alpha for histograms
 fa = 0.6;
 % Color of true/optimal value line
-lcol = [218 165 32]/255 ; 
+% lcol = [218 165 32]/255 ; 
+lcol='k';
 
 % Load results
 loadloc = [dpath,'dual_calib\DVS_application\data\',...
@@ -45,21 +46,30 @@ t2min = results.settings.min_t2;
 t2range = results.settings.range_t2;
 burn_in = results.settings.burn_in;
 
+% Help function
+fillunder = @(x,y,color,falpha) ...
+    fill([x(1) x x(end) fliplr(x) 0],...
+        [0 y 0 0*y 0],color,'EdgeColor','none','FaceAlpha',falpha);
+
 % First, get prior and posterior theta1
 f = figure('pos',[10 10 650 250]);
 subplot(1,2,1);
 % Plot prior
+falpha=.1;
 fill([t1min t1min + t1range t1min + t1range t1min],...
     [0 0 1/t1range 1/t1range],'g','EdgeColor','none');
 xlim([t1min t1min + t1range]);
 hold on;
 % Get a histogram of theta1
-histogram(results.theta1(burn_in:end,:),'Normalization','pdf',...
-    'EdgeColor','none','FaceColor','b','FaceAlpha',fa);
+% histogram(results.theta1(burn_in:end,:),'Normalization','pdf',...
+%     'EdgeColor','none','FaceColor','b','FaceAlpha',fa);
+[pp1,xp1,bwp1] = ksdensity(results.theta1(burn_in:end,:));
+plot(xp1,pp1,'color','b','linewidth',2);
 % Plot true theta1
 % set(gca,'YLim',[0,4.5]);
 ylims = get(gca,'YLim');
 plot([theta1 theta1],ylims,'--','Color',lcol,'LineWidth',1.5);
+fillunder(xp1,pp1,'b',falpha);
 set(gca,'YLim',ylims);
 % Put a legend on it
 lg1 = legend('Prior','Posterior','Estimate');
@@ -75,8 +85,16 @@ fill([t2min t2min + t2range t2min + t2range t2min],...
 xlim([t2min t2min + t2range]);
 hold on;
 % Get a histogram of theta2 for KOH
-histogram(results.theta2(burn_in:end,:),'Normalization','pdf',...
-    'EdgeColor','none','FaceColor','b','FaceAlpha',fa,'BinWidth',1);
+% histogram(results.theta2(burn_in:end,:),'Normalization','pdf',...
+%     'EdgeColor','b',...
+%     'LineWidth',2,...
+%     'FaceAlpha',fa,...
+%     'BinWidth',1,...
+%     'DisplayStyle','stairs');
+[pp2,xp2,bwp2] = ksdensity(results.theta2(burn_in:end,:),'Bandwidth',0.4);
+plot(xp2,pp2,'color','b','linewidth',2);
+fillunder(xp2,pp2,'b',falpha);
+
 % Put a legend on it
 lg2 = legend('Prior','Posterior');
 % title('Prior and posterior distributions of \theta_2');
@@ -182,7 +200,7 @@ for idx = 1:m
     % and the computer model output for each draw of theta_1, on the
     % standardized scale.
     obs_disc_std(idx,:)= ...
-        obs_y_std - ...
+        obs_y_std' - ...
         (emulator_mean(results,...
             obs_x_01*xrange+xmin,...
             [t1_dcto*ones(size(obs_t2_01)),obs_t2_01*t2range+t2min])-ymean)./ystd;
@@ -220,30 +238,49 @@ prior_model_output = emulator_mean(results,repmat(x_01,m,1),...
 % Reshape so that each row corresponds to a single draw of (theta1,theta2)
 prior_model_output = reshape(prior_model_output,n,m)';
 
-% Show posterior predictive distribution of average output with true optim,
+% Help function
+fillunder = @(x,y,color,falpha) ...
+    fill([x(1) x x(end) fliplr(x) 0],...
+        [0 y 0 0*y 0],color,'EdgeColor','none','FaceAlpha',falpha);
+
+% Show posterior predictive distribution of average output,
 % and include prior predictive distribution
 f=figure('pos',[10 10 800 215]);
+falpha=.2;
 for ii = 1:n
     posterior_distro = ...
         mean(normpdf(linspace(0,1),...
         posterior_preds(:,ii),discrep_gp_post_sds(:,ii)));
     subplot(1,n,ii);
-    histogram(prior_model_output(:,ii),'Normalization','pdf',...
-        'EdgeColor','none','FaceColor','g','FaceAlpha',.5); hold on;
-    histogram(prior_model_output(:,ii),'Normalization','pdf',...
-        'DisplayStyle','stairs','EdgeColor','k','HandleVisibility','off');
-    area(linspace(0,1),posterior_distro,...
-        'FaceColor','b','FaceAlpha',.5); 
-%     ylims = get(gca,'YLim');
-%     plot(true_output(ii)*[1 1],ylims,'--k','LineWidth',1.5);
+%     histogram(prior_model_output(:,ii),'Normalization','pdf',...
+%         'EdgeColor','none','FaceColor','g','FaceAlpha',.5); hold on;
+%     histogram(prior_model_output(:,ii),'Normalization','pdf',...
+%         'DisplayStyle','stairs','EdgeColor','k','HandleVisibility','off');
+    [ypp,xpp,bwp]=ksdensity(prior_model_output(:,ii));
+    plot(xpp,ypp,...
+        'color','g',...
+        'LineWidth',2,...
+        'LineStyle',':')
+    hold on;
+%     area(linspace(0,1),posterior_distro,...
+%         'FaceColor','b',...
+%         'FaceAlpha',.1,...
+%         'EdgeColor','b',...
+%         'LineWidth',2); 
+    plot(linspace(0,1),posterior_distro,...
+        'color','b',...
+        'LineWidth',2);
+    fillunder(xpp,ypp,'g',falpha);
+    fillunder(linspace(0,1),posterior_distro,...
+        'b',falpha);
     title(sprintf('mass = %gkg',x(ii)));
     xlim([0,1.2]);
-%     set(gca,'YTick',[]);
+    set(gca,'YTick',[]);
 %     set(gca,'YLim',ylims);
-%     if ii == 1
-%         lg = legend('Prior','KOH+CTO','DCTO','Optimum');
-%         flushLegend(lg,'northeast');
-%     end
+    if ii==1 
+        lg=legend('Prior','Posterior','Location','northeast'); 
+        legend boxoff;
+    end
 end
 % Set title
 
@@ -255,4 +292,4 @@ set(f,'Color','w');
 savestr = ...
 sprintf(['FIG_DVS_DCTO_prior_and_posterior_output']);
 set(f,'PaperPositionMode','auto')
-% print(f,savestr,'-depsc','-r600')
+print(f,savestr,'-depsc','-r600')
