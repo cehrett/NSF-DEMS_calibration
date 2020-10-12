@@ -246,7 +246,7 @@ fillunder = @(x,y,color,falpha) ...
 % Show posterior predictive distribution of average output,
 % and include prior predictive distribution
 f=figure('pos',[10 10 800 215]);
-falpha=.2;
+falpha=.1;
 for ii = 1:n
     posterior_distro = ...
         mean(normpdf(linspace(0,1),...
@@ -270,15 +270,21 @@ for ii = 1:n
     plot(linspace(0,1),posterior_distro,...
         'color','b',...
         'LineWidth',2);
+    
+    % Plot NSGA-II result
+    nsga_results = unique(results.nsga_result.final_obj,'rows');
+    xline(nsga_results(ii),'Linewidth',2,'color','r','Linestyle','--');
+    
     fillunder(xpp,ypp,'g',falpha);
     fillunder(linspace(0,1),posterior_distro,...
         'b',falpha);
     title(sprintf('mass = %gkg',x(ii)));
     xlim([0,1.2]);
     set(gca,'YTick',[]);
+    
 %     set(gca,'YLim',ylims);
     if ii==1 
-        lg=legend('Prior','Posterior','Location','northeast'); 
+        lg=legend('Prior','Posterior','NSGA-II','Location','northeast'); 
         legend boxoff;
     end
 end
@@ -292,4 +298,4 @@ set(f,'Color','w');
 savestr = ...
 sprintf(['FIG_DVS_DCTO_prior_and_posterior_output']);
 set(f,'PaperPositionMode','auto')
-print(f,savestr,'-depsc','-r600')
+% print(f,savestr,'-depsc','-r600')

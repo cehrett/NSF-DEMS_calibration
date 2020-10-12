@@ -212,8 +212,15 @@ load(locstr);
 % Prepare elements needed for bounds and objective function
 sim_t2 = results.settings.sim_t2 .* results.settings.range_t2 +...
     results.settings.min_t2;
-x = results.settings.des_x .* results.settings.range_x + ...
-    results.settings.min_x;
+
+% To use a grid of three x values, uncomment this:
+x = linspace(0,1,3)' .* results.settings.range_x + results.settings.min_x;
+
+% To use same des_x as DCTO, uncomment this:
+% x = results.settings.des_x .* results.settings.range_x + ...
+%     results.settings.min_x;
+
+% Store size of x
 sizex = size(x,1);
 
 % Get posterior point estimate of calibration input
@@ -222,13 +229,13 @@ t1 = mean(results.theta1);
 % Set NSGA-II options
 options = nsgaopt();                    % create default options structure
 options.popsize = 50;                   % population size
-options.maxGen  = 500;                  % max generation
+options.maxGen  = 100;                  % max generation
 
 options.numObj = sizex;                     % number of objectives
 options.numVar = size(results.theta2,2); % number of design variables
 options.numCons = 0;                    % number of constraints
-options.lb = min(sim_t2);               % lower bound of x
-options.ub = max(sim_t2);                % upper bound of x
+options.lb = results.settings.min_t2;               % lower bound of x
+options.ub = results.settings.min_t2 + results.settings.range_t2;%up bd x
 options.objfun = @(t2) emulator_mean(results,x,ones(sizex,1).*[t1 t2]);% objective function handle
 
 options.plotInterval = 10;              % large interval for efficiency
@@ -255,7 +262,9 @@ nsga_result.final_obj = final_obj;
 
 results.nsga_result=nsga_result;
     
-
+% Output the results:
+unique(nsga_result.final_theta2)
+unique(nsga_result.final_obj,'rows' )
 
 % Save NSGA-II result
 % save(locstr,'results');
