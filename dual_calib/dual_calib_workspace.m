@@ -7646,7 +7646,7 @@ end
 %% Gather results for SDoE DCTO w/ estimation of obs_var, des_var
 clc ; clearvars -except dpath ; close all ; 
 
-for discrep = 0:6 % For each version of the discrepancy
+for discrep = 1:1 % For each version of the discrepancy
 
     % Turn on observation discrepancy in the model iff discrep ~=0
     if discrep == 0
@@ -7656,11 +7656,11 @@ for discrep = 0:6 % For each version of the discrepancy
     end
     
     % Number of chains
-    m = 2;
+    m = 1; % I think currently m>1 is not stored. TODO fix
 
     for ii = 1:m
         % Set initial and final observation set sizes
-        obs_initial_size = 5;
+        obs_initial_size = 0;
         obs_final_size = 20;
 
         % Settings
@@ -7977,8 +7977,12 @@ for discrep = 0:6 % For each version of the discrepancy
 %         '2019-10-31_SDOE_results_desvarest_nobs' ...
 %         int2str(obs_initial_size) '-'...
 %         int2str(obs_final_size)];
+%     locstr = [dpath,'dual_calib\dual_calib_stored_data\',...
+%         '2020-06-29_SDOE_results_desvarest_nobs' ...
+%         int2str(obs_initial_size) '-'...
+%         int2str(obs_final_size)];
     locstr = [dpath,'dual_calib\dual_calib_stored_data\',...
-        '2020-06-29_SDOE_results_desvarest_nobs' ...
+        '2020-10-13_SDOE_results_desvarest_nobs' ...
         int2str(obs_initial_size) '-'...
         int2str(obs_final_size)];
     save(locstr,'results');
