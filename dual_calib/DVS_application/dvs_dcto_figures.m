@@ -52,8 +52,8 @@ fillunder = @(x,y,color,falpha) ...
         [0 y 0 0*y 0],color,'EdgeColor','none','FaceAlpha',falpha);
 
 % First, get prior and posterior theta1
-f = figure('pos',[10 10 650 250]);
-subplot(1,2,1);
+f = figure('pos',[10 10 300 500]);
+subplot(2,1,1);
 % Plot prior
 falpha=.1;
 fill([t1min t1min + t1range t1min + t1range t1min],...
@@ -78,7 +78,7 @@ flushLegend(lg1,'northeast');
 xlabel('Elastic modulus');
 
 % Second, get prior and posterior theta2
-subplot(1,2,2);
+subplot(2,1,2);
 % Plot prior
 fill([t2min t2min + t2range t2min + t2range t2min],...
     [0 0 1/t2range 1/t2range],'g','EdgeColor','none');
@@ -103,9 +103,9 @@ flushLegend(lg2,'northeast');
 set(f,'color','white');
 
 % Set suptitle and fix positions 
-suptitle('Prior and posterior distributions for dynamic vibration system');
-f.Children(2).Position(2) = .2 ; f.Children(2).Position(4) = .625 ; 
-f.Children(5).Position(2) = .2 ; f.Children(5).Position(4) = .625 ; 
+suptitle({'Prior and posterior distributions','for dynamic vibration system'});
+% f.Children(2).Position(2) = .2 ; f.Children(2).Position(4) = .625 ; 
+% f.Children(5).Position(2) = .2 ; f.Children(5).Position(4) = .625 ; 
 flushLegend(lg2,'northeast');
 axes(f.Children(5)); flushLegend(lg1,'northwest');
 % TODO fix title overlap scale
@@ -114,7 +114,7 @@ axes(f.Children(5)); flushLegend(lg1,'northwest');
 savestr = ...
 sprintf(['FIG_DVS_DCTO_input_posteriors']);
 set(f,'PaperPositionMode','auto')
-% print(f,savestr,'-depsc','-r600')
+print(f,savestr,'-depsc','-r600')
 
 %% Get prior and post. predictive distributions
 clc ; clearvars -except dpath ; close all ;
@@ -245,13 +245,15 @@ fillunder = @(x,y,color,falpha) ...
 
 % Show posterior predictive distribution of average output,
 % and include prior predictive distribution
-f=figure('pos',[10 10 800 215]);
+f=figure('pos',[10 10 300 600]);
+[ha,pos]=tight_subplot(n,1,.05,[0.01 0.15 .04],[.04 .04]);
 falpha=.1;
 for ii = 1:n
     posterior_distro = ...
         mean(normpdf(linspace(0,1),...
         posterior_preds(:,ii),discrep_gp_post_sds(:,ii)));
-    subplot(1,n,ii);
+    axes(ha(ii));
+%     subplot(n,1,ii);
 %     histogram(prior_model_output(:,ii),'Normalization','pdf',...
 %         'EdgeColor','none','FaceColor','g','FaceAlpha',.5); hold on;
 %     histogram(prior_model_output(:,ii),'Normalization','pdf',...
@@ -290,7 +292,7 @@ for ii = 1:n
 end
 % Set title
 
-suptitle('Prior and posterior damping ratio at various oscillator masses');
+suptitle({'Prior and posterior','damping ratio at','various oscillator masses'});
 
 
 % Save it:
@@ -298,4 +300,4 @@ set(f,'Color','w');
 savestr = ...
 sprintf(['FIG_DVS_DCTO_prior_and_posterior_output']);
 set(f,'PaperPositionMode','auto')
-% print(f,savestr,'-depsc','-r600')
+print(f,savestr,'-depsc','-r600')
